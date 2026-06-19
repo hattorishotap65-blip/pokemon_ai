@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "target": "F0008",
+  "purpose": "Extended validation of F0007 pivot_to_better_attacker",
+  "games": 200,
+  "classification": {
+    "bellibolt_attack_probably_correct": 551,
+    "voltorb_over_kilowattrel_missed": 283,
+    "voltorb_over_wattrel_missed": 31,
+    "bellibolt_over_voltorb_high_damage": 133
+  },
+  "per_game_rates": {
+    "bellibolt_attack_probably_correct": 2.75,
+    "voltorb_over_kilowattrel_missed": 1.42,
+    "voltorb_over_wattrel_missed": 0.15,
+    "bellibolt_over_voltorb_high_damage": 0.67
+  },
+  "safety": {
+    "attack_available_but_no_attack": 0,
+    "end_when_attack_available": 0,
+    "retreat_when_attack_available": 0,
+    "ability_without_followup_attack": 0
+  },
+  "triggers": {
+    "f0007_kw_pivot": 209,
+    "f0007_bb_pivot": 173,
+    "f0002_kw_mild": 24,
+    "f0003_bb_mild": 328,
+    "total": 734
+  }
+}

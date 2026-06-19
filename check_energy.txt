@@ -1,0 +1,18 @@
+﻿=== Scenario 1: Dreepy active, Duskull on bench, Fire energy ===
+  [Fire->Dreepy(active)] bonus=30.0  reason=dragapult:attach_fire_psychic_to_dragapult_line|complete_dragapult_energy_requirement
+  [Fire->Duskull(bench)] bonus=-20.0  reason=dragapult:avoid_attach_dusk_line
+
+=== Scenario 2: Drakloak bench, Munkidori bench, Fire energy ===
+  [Fire->Drakloak(bench0)] bonus=30.0  reason=dragapult:attach_fire_psychic_to_dragapult_line|complete_dragapult_energy_requirement
+  [Fire->Munkidori(bench1)] bonus=-15.0  reason=dragapult:avoid_non_dark_to_munkidori
+
+=== Scenario 3: Munkidori bench, Dark energy ===
+  [Dark->Munkidori(bench)] bonus=28.0  reason=dragapult:attach_dark_to_munkidori|enable_munkidori_ability
+
+=== Scenario 4: Dragapult active, 2 energy, Psychic energy ===
+  [Psychic->Dragapult(active)] bonus=30.0  reason=dragapult:attach_fire_psychic_to_dragapult_line|complete_dragapult_energy_requirement
+  [Dark->Dragapult(active)] bonus=-10.0  reason=dragapult:avoid_dark_to_dragapult
+
+=== Scenario 5: Duskull active, Fire energy ===
+  [Fire->Duskull(active)] bonus=-20.0  reason=dragapult:avoid_attach_dusk_line
+  [Psychic->Duskull(active)] bonus=-20.0  reason=dragapult:avoid_attach_dusk_line

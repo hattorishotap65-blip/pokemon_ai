@@ -1,0 +1,91 @@
+{
+  "deck_id": "ionos_kilowattrel",
+  "archetype": "aggro",
+  "confidence_score": 0.90,
+  "human_review_required": false,
+  "archetype_scores": {
+    "aggro": 30.0,
+    "prize_race": 24.0,
+    "setup_midrange": 18.0,
+    "combo": 12.0,
+    "resource_loop": 10.0,
+    "control": 6.0
+  },
+  "primary_win_condition": "Iono's Voltorb scales damage via total Lightning on Iono's Pokemon; Bellibolt ex accelerates energy; take prizes before opponent sets up",
+  "sub_win_conditions": [
+    "Iono's Bellibolt ex attacks after Voltorb line falls",
+    "Iono's Kilowattrel as non-ex follow-up attacker",
+    "Energy Retrieval / Night Stretcher for sustained pressure"
+  ],
+  "main_attackers": [265, 269],
+  "sub_attackers": [271],
+  "setup_cards": [268, 270],
+  "draw_engine": [1227, 1233],
+  "search_engine": [1086, 1121],
+  "energy_engine": [269],
+  "disruption_cards": [],
+  "recovery_cards": [1097, 1110, 1118, 1152],
+  "energy_scaling_cards": [265],
+  "weak_points": [
+    "stage1_setup_required",
+    "no_ace_spec_disruption",
+    "reliant_on_energy_acceleration"
+  ],
+  "early_priorities": [
+    "find_tadbulb_and_voltorb",
+    "setup_bench_with_poffin",
+    "attach_lightning_to_voltorb",
+    "setup_bellibolt_ex_line"
+  ],
+  "mid_priorities": [
+    "evolve_bellibolt_ex",
+    "bellibolt_ability_energy_acceleration",
+    "voltorb_scales_damage_with_lightning",
+    "evolve_kilowattrel_as_backup"
+  ],
+  "late_priorities": [
+    "attack_with_bellibolt_or_kilowattrel",
+    "recovery_with_night_stretcher",
+    "take_final_prizes"
+  ],
+  "advantage_weights": {
+    "early": {
+      "card_adv": 1.2,
+      "board_adv": 1.8,
+      "energy_adv": 1.5,
+      "tempo_adv": 1.2,
+      "prize_adv": 0.7,
+      "resource_adv": 0.7,
+      "info_adv": 0.4,
+      "risk_reduction_adv": 0.9
+    },
+    "mid": {
+      "card_adv": 0.9,
+      "board_adv": 1.3,
+      "energy_adv": 1.2,
+      "tempo_adv": 1.5,
+      "prize_adv": 1.6,
+      "resource_adv": 0.8,
+      "info_adv": 0.4,
+      "risk_reduction_adv": 0.8
+    },
+    "late": {
+      "card_adv": 0.6,
+      "board_adv": 0.8,
+      "energy_adv": 0.9,
+      "tempo_adv": 1.0,
+      "prize_adv": 2.0,
+      "resource_adv": 1.2,
+      "info_adv": 0.4,
+      "risk_reduction_adv": 1.1
+    }
+  },
+  "_deck_stats": {
+    "total_cards": 60,
+    "energy_ratio": 0.367,
+    "attacker_ratio": 0.150,
+    "search_ratio": 0.100,
+    "disruption_ratio": 0.000,
+    "recovery_ratio": 0.100
+  }
+}

@@ -1,0 +1,73 @@
+card_id,card_name_en,card_type,role,sub_role,priority,phase,keep_score,use_score,search_score,discard_penalty,bench_score,energy_attach_score,attack_score,evolution_score,risk_score,tags,notes,card_adv,board_adv,energy_adv,tempo_adv,prize_adv,resource_adv,info_adv,risk_reduction_adv,concept_tags,win_condition_tags
+1079,Rare Candy,Trainer,evolve,item,high,early_mid,7,8,6,5,0,0,0,0,0,"item,evolve",Stage1→Stage2 skip,4,5,2,6,5,3,2,4,"combo,setup_midrange",setup_piece
+1080,Unfair Stamp,Trainer,disruption,item,medium,mid,5,7,3,4,0,0,0,0,0,"item,disruption",Opponent draws 2,3,3,2,6,6,3,3,4,"control,prize_race",disruption
+1086,Buddy-Buddy Poffin,Trainer,basic_search,item,high,early,7,9,9,5,0,0,0,0,0,"item,search",Searches 2 Basic Pokemon,7,5,2,3,3,6,2,6,"aggro,combo,control,setup_midrange","search_engine,setup_piece"
+1088,Prime Catcher,Trainer,disruption,item,high,any,6,8,5,5,0,0,0,0,2,"item,disruption,gust",Gust; costs 2 Energy as ACE SPEC,3,3,2,7,8,3,3,4,"control,prize_race","disruption,finisher"
+1097,Night Stretcher,Trainer,pokemon_recovery,item,medium,late,6,7,4,4,0,0,0,0,0,"item,recovery",Recover Pokemon or Energy from discard,3,3,2,3,3,8,2,8,"control,resource_loop",recovery
+1116,Energy Switch,Trainer,energy_support,item,medium,any,5,7,3,4,0,0,0,0,0,"item,energy_support",Move Energy between Pokemon,3,5,8,6,3,6,2,4,aggro,energy_engine
+1121,Ultra Ball,Trainer,evolution_search,item,high,any,6,9,9,4,0,0,0,0,0,"item,search",Discard 2 to search any card,7,5,2,3,3,6,2,6,"aggro,combo,control,setup_midrange","search_engine,setup_piece"
+1123,Switch,Trainer,switch,item,medium,any,5,6,3,4,0,0,0,0,0,"item,switch",Switch active Pokemon,3,5,2,6,3,3,2,6,"aggro,setup_midrange",setup_piece
+1182,Boss's Orders,Trainer,disruption,supporter,high,any,8,9,5,7,0,0,0,0,3,"supporter,disruption,gust",Gust opponent's benched Pokemon,3,3,2,6,9,3,3,3,"control,prize_race","disruption,finisher"
+119,Dreepy,Pokemon,evolution_base,,medium,early,4,4,7,5,8,3,0,9,1,,HP:40 DMG:0,4,6,2,3,3,3,2,4,"combo,setup_midrange",setup_piece
+120,Drakloak,Pokemon,evolution_bridge,evolves_from_dreepy,medium,early_mid,6,4,7,7,5,3,0,8,1,"stage1,from_dreepy",HP:90 DMG:0,4,6,2,3,3,3,2,4,"combo,setup_midrange",setup_piece
+121,Dragapult ex,Pokemon,main_attacker,evolves_from_drakloak,high,mid,8,8,9,9,5,9,8,7,3,"ex,high_hp,stage2,from_drakloak",HP:320 DMG:160,5,7,4,9,8,3,2,3,"aggro,prize_race","finisher,main_attacker"
+1213,Judge,Trainer,disruption,supporter,high,any,7,8,4,7,0,0,0,0,3,"supporter,disruption",Shuffle both hands draw 4,3,3,2,6,6,3,3,3,"control,prize_race",disruption
+122,Tatsugiri,Pokemon,support_pokemon,bench_support,medium,early,5,4,7,5,7,3,0,5,1,,HP:70 DMG:0,4,6,2,3,3,3,2,4,setup_midrange,setup_piece
+164,Comfey,Pokemon,support_pokemon,bench_support,medium,early,5,4,7,5,7,3,0,5,1,,HP:60 DMG:0,4,6,2,3,3,3,2,4,setup_midrange,setup_piece
+2,Basic Fire Energy,Energy,energy,basic,medium,any,4,0,6,3,0,9,0,0,0,"energy,fire",,2,3,9,5,4,5,2,4,aggro,energy_engine
+5,Basic Psychic Energy,Energy,energy,basic,high,any,6,0,8,5,0,9,0,0,0,"energy,psychic",Main attacker energy,2,3,9,5,4,5,2,4,aggro,energy_engine
+1,Basic Grass Energy,Energy,energy,basic,low,any,3,0,4,2,0,7,0,0,0,"energy,grass",草エネ,2,3,9,5,4,5,2,4,aggro,energy_engine
+3,Basic Water Energy,Energy,energy,basic,low,any,3,0,4,2,0,7,0,0,0,"energy,water",水エネ,2,3,9,5,4,5,2,4,aggro,energy_engine
+4,Basic Lightning Energy,Energy,main_energy,basic,high,any,5,0,7,4,0,9,0,0,0,"energy,lightning","メインエネルギー (Iono's Lightning)",2,3,9,5,4,5,2,4,aggro,energy_engine
+6,Basic Fighting Energy,Energy,energy,basic,high,any,6,0,7,5,0,9,0,0,0,"energy,fighting",メインアタッカー用闘エネ,2,3,9,5,4,5,2,4,aggro,energy_engine
+7,Basic Darkness Energy,Energy,energy,basic,low,any,3,0,4,2,0,7,0,0,0,"energy,darkness",悪エネ,2,3,9,5,4,5,2,4,aggro,energy_engine
+8,Basic Metal Energy,Energy,energy,basic,low,any,3,0,4,2,0,7,0,0,0,"energy,metal",鋼エネ,2,3,9,5,4,5,2,4,aggro,energy_engine
+9,Boomerang Energy,Energy,energy_special,colorless,medium,any,5,5,4,2,0,5,0,0,1,"energy,colorless,recovery",無色1。攻撃でdiscard時に自動回収,2,3,9,5,4,5,2,4,aggro,energy_engine
+10,Neo Upper Energy,Energy,energy_special,stage2_boost,high,mid,7,7,6,4,0,8,0,0,0,"energy,colorless,any-type,stage2",Stage2に全タイプ2個分,2,3,9,5,4,5,2,4,aggro,energy_engine
+11,Mist Energy,Energy,energy_special,protection,high,any,7,7,5,5,0,7,0,0,0,"energy,colorless,protection",無色1。相手技効果を防ぐ; Crustleに優先装着,2,4,9,5,4,5,2,7,"aggro,setup_midrange",energy_engine
+12,Legacy Energy,Energy,energy_special,prize_reduction,high,any,7,7,5,5,0,7,0,0,0,"energy,any-type,prize-reduction",全タイプ1個。KO時相手サイド-1（1ゲーム1回）,2,3,9,5,4,5,2,4,aggro,energy_engine
+13,Enriching Energy,Energy,energy_special,draw,high,early,7,8,6,4,0,8,0,0,0,"energy,colorless,draw",無色1。装着時4ドロー,2,3,9,5,4,5,2,4,aggro,energy_engine
+14,Spiky Energy,Energy,energy_special,chip_damage,medium,any,6,6,4,4,0,6,0,0,0,"energy,colorless,damage",無色1。Active被弾時攻撃側に2ダメカン; Crustleに装着でカウンター効果,2,4,9,5,4,5,2,6,"aggro,setup_midrange",energy_engine
+15,Team Rocket's Energy,Energy,energy_restricted,restricted,low,any,2,2,2,4,0,1,0,0,2,"energy,restricted,psychic,dark",チームロケット専用。超悪2個分,2,3,9,3,3,3,2,4,aggro,energy_engine
+16,Prism Energy,Energy,energy_special,basic_boost,high,any,7,7,6,4,0,8,0,0,0,"energy,colorless,any-type,basic",Basic Pokemonに全タイプ1個分,2,3,9,5,4,5,2,4,aggro,energy_engine
+17,Ignition Energy,Energy,energy_special,burst,medium,any,4,5,4,5,0,4,0,0,3,"energy,colorless,temporary,evolution",進化ポケモンに無色3個分（ターン終了discard）,2,3,9,5,4,5,2,3,aggro,energy_engine
+18,Grow Grass Energy,Energy,energy_special,grass_boost,medium,any,6,6,5,4,0,7,0,0,0,"energy,grass,hp_boost",草タイプ1個＋装着時HP+30; Crustleに優先装着,2,4,9,5,4,5,2,6,"aggro,setup_midrange",energy_engine
+19,Telepath Psychic Energy,Energy,energy_special,unknown,low,any,3,3,3,3,0,4,0,0,1,"energy,psychic,unknown",超タイプ提供（競技プール固有・詳細不明）,2,3,9,5,4,5,2,4,aggro,energy_engine
+20,Rock Fighting Energy,Energy,energy_special,unknown,low,any,3,3,3,3,0,4,0,0,1,"energy,fighting,unknown",闘タイプ提供（競技プール固有・詳細不明）,2,3,9,5,4,5,2,4,aggro,energy_engine
+63,Raging Bolt ex,Pokemon,main_attacker,basic_ex,high,any,9,9,9,7,6,0,9,0,2,"pokemon,basic,lightning,ex,ancient",Raging Motor能力でデッキ上3枚のLightningエネ加速; Raging Thunder 220ダメージ+エネ2枚ディスカード,5,7,8,9,8,3,2,4,"aggro,prize_race","energy_engine,finisher,main_attacker"
+96,Teal Mask Ogerpon ex,Pokemon,search_engine,basic_ex,medium,early,7,6,7,7,9,0,4,0,1,"pokemon,basic,grass,ex,ancient,draw_engine",Teal Dance能力でGrass Energy毎ターン装着; ベンチ置きでBianca's Devotion解禁,7,7,7,5,3,3,2,6,"combo,setup_midrange","draw_engine,energy_engine,search_engine"
+117,Cornerstone Mask Ogerpon ex,Pokemon,main_attacker,basic_ex,high,any,8,8,8,7,5,0,8,0,1,"pokemon,basic,fighting,ex,ancient",Cornerstone Shell能力でダメージ-30; Boulder Crash 130ダメージ安定アタッカー,5,7,4,9,8,3,2,4,"aggro,prize_race","finisher,main_attacker"
+1081,Enhanced Hammer,Trainer,removal,item,medium,any,4,6,4,2,0,0,0,0,0,"trainer,item,disruption,energy_removal",相手の特殊エネルギー1枚を捨てる,3,3,2,3,3,3,3,4,"control,prize_race",disruption
+1122,Pokegear 3.0,Trainer,search,item,medium,any,5,7,8,2,0,0,0,0,1,"trainer,item,search,supporter",デッキ上7枚公開しサポートカード1枚手札へ,7,5,2,3,3,6,2,6,"aggro,combo,control,setup_midrange","search_engine,setup_piece"
+1185,Explorer's Guidance,Trainer,search,supporter,high,early,7,8,9,4,0,0,0,0,0,"trainer,supporter,search,pokemon",デッキからポケモン2枚手札へ,7,5,2,3,3,6,2,6,"aggro,combo,control,setup_midrange","search_engine,setup_piece"
+1186,Eri,Trainer,energy_search,supporter,medium,any,6,7,6,3,0,0,0,0,0,"trainer,supporter,energy,recovery",捨て山から基本エネルギー3枚手札へ回収,8,3,9,3,3,8,2,7,"resource_loop,setup_midrange","energy_engine,recovery"
+1190,Bianca's Devotion,Trainer,draw,conditional_draw,high,any,8,9,7,4,0,0,0,0,2,"trainer,supporter,draw,conditional",Teal Mask Ogerpon exがベンチにいる時のみ; 手札8枚になるまでドロー,9,3,2,3,3,7,2,7,"combo,setup_midrange",draw_engine
+344,Dwebble,Pokemon,evolution_base,,high,early,6,3,9,5,9,4,0,9,1,"pokemon,basic,fighting,bug",Crustle進化元; HP:70; Ascension技でCrustleに即進化可能,5,6,2,4,3,3,2,5,"aggro,setup_midrange","setup_piece,evolution_base"
+345,Crustle,Pokemon,main_attacker,stage1,high,any,9,8,9,9,7,9,9,0,1,"pokemon,stage1,fighting,bug",メインアタッカー; HP:140; Superb Scissors 120dmg×2回; ex相手に維持価値大,5,8,4,9,9,3,2,5,"aggro,prize_race,setup_midrange","finisher,main_attacker"
+447,Regirock ex,Pokemon,sub_attacker,basic_ex,medium,any,7,7,8,6,5,9,7,0,2,"pokemon,basic,fighting,ex,ancient",サブアタッカー; HP:220 闘タイプ,5,7,4,7,7,3,2,4,"aggro,prize_race",sub_attacker
+1147,Jumbo Ice Cream,Trainer,heal,item,high,any,7,8,6,5,0,0,0,0,0,"item,heal",3エネ以上のPokemonのHP+120; Crustle回復に最適,3,4,2,3,3,6,2,8,"aggro,setup_midrange","heal,recovery"
+1159,Hero's Cape,Trainer,tank_tool,tool,high,any,8,8,5,7,0,0,0,0,0,"tool,hp_boost",Pokemonの最大HPを+50; Crustleに優先装着,3,5,2,3,3,5,2,9,"aggro,prize_race,setup_midrange","tool,defense"
+1212,Cook,Trainer,heal,supporter,medium,any,6,7,4,5,0,0,0,0,0,"supporter,heal",Active Pokemonを60HP回復; Crustle延命に使う,3,4,2,3,3,5,2,7,"aggro,setup_midrange","heal,recovery"
+1227,Lillie's Determination,Trainer,draw,supporter,high,any,7,8,5,4,0,0,0,0,1,"supporter,draw,refresh",手札を全て捨てて7枚引く; 手札事故回避,8,3,2,4,3,6,2,5,"setup_midrange,aggro",draw_engine
+1235,Waitress,Trainer,energy_accel,supporter,high,any,7,9,6,5,0,0,0,0,0,"supporter,energy",デッキからBasic Grassエネルギー3枚手に加える; Crustle加速,3,5,8,5,4,7,2,4,"aggro,setup_midrange","energy_engine,setup_piece"
+112,Munkidori,Pokemon,bench_support,ability,high,any,7,5,7,5,8,0,0,0,1,"pokemon,basic,psychic,ability,damage_counter",Ability: opp plays energy -> 2 damage counters on opp Pokemon,4,5,2,4,5,3,2,5,"aggro,control","disruption,setup_piece"
+131,Duskull,Pokemon,evolution_base,,high,early,6,3,8,5,9,3,0,9,1,"pokemon,basic,ghost",Dusknoir進化元; HP:60,4,6,2,3,3,3,2,4,"aggro,setup_midrange","setup_piece,evolution_base"
+132,Dusclops,Pokemon,evolution_bridge,evolves_from_duskull,medium,early_mid,6,4,7,6,4,3,0,8,1,"stage1,ghost,from_duskull",HP:90; Dusknoir進化中継,4,5,2,3,3,3,2,4,"setup_midrange","setup_piece"
+133,Dusknoir,Pokemon,support_pokemon,evolves_from_dusclops,high,mid,8,6,7,7,6,0,3,0,1,"pokemon,stage2,ghost,ability,damage_counter",Ominous Diploma: 進化時に相手ポケモンにダメカン2個,5,7,2,5,6,3,2,5,"aggro,prize_race","spread_damage,setup_piece"
+140,Fezandipiti ex,Pokemon,support_pokemon,basic_ex,medium,any,7,5,6,5,8,0,4,0,1,"pokemon,basic,darkness,ex,ability",ベンチサポート; HP:210,5,6,2,4,3,4,2,5,"setup_midrange","setup_piece"
+235,Budew,Pokemon,disruption,bench_tech,medium,any,5,4,5,4,7,2,0,0,1,"pokemon,basic,grass,ability",ポケモンのどうぐ破壊アビリティ,3,4,2,4,4,3,2,4,"control,setup_midrange","disruption"
+1071,Meowth ex,Pokemon,support_pokemon,basic_ex,medium,any,6,4,5,4,7,3,4,0,1,"pokemon,basic,colorless,ex,ability",テックポケモン,4,5,2,4,3,3,2,4,"setup_midrange","setup_piece"
+1120,Crushing Hammer,Trainer,disruption,item,high,any,6,7,4,3,0,0,0,0,0,"item,disruption,energy_removal",コイン表で相手エネルギー1枚廃棄,3,3,2,4,5,3,3,5,"control,prize_race","disruption"
+1161,Handheld Fan,Trainer,switch,item,medium,any,5,6,3,2,0,0,0,0,0,"item,switch,status",アクティブ交代またはステータス移動,3,4,2,5,3,3,2,4,"aggro,control","setup_piece"
+1198,Crispin,Trainer,energy_accel,supporter,high,any,7,8,6,4,0,0,0,0,0,"supporter,energy,fire,energy_accel",手札から炎エネルギー2枚をポケモンに付ける,3,5,8,5,4,7,2,4,"aggro,setup_midrange","energy_engine,setup_piece"
+1246,Jamming Tower,Trainer,disruption,stadium,medium,any,6,7,4,3,0,0,0,0,0,"stadium,disruption,ability_block",相手のexポケモンのアビリティを封じる,3,4,2,5,5,3,3,5,"control,prize_race","disruption"
+265,Iono's Voltorb,Pokemon,basic_attacker,early_attacker,high,early,8,8,8,8,9,9,8,0,1,"pokemon,basic,lightning,attacker","序盤アタッカー。打点=20+20×(全Iono'sポケモンの雷エネ枚数)",5,6,2,4,4,3,2,4,"aggro,prize_race","main_attacker,energy_scaling"
+268,Iono's Tadbulb,Pokemon,evolution_base,bellibolt_base,high,early,8,6,9,8,9,8,2,9,1,"pokemon,basic,lightning,evolution_base","Bellibolt ex進化元。最優先展開",4,6,2,3,3,3,2,4,"aggro,setup_midrange","setup_piece,evolution_base"
+269,Iono's Bellibolt ex,Pokemon,main_attacker,engine_attacker,very_high,early_mid,9,9,9,9,0,9,9,10,2,"ex,stage1,lightning,from_tadbulb,ability","エネルギー加速エンジン兼メインアタッカー。攻撃後に連続攻撃不可",5,7,8,9,8,3,2,3,"aggro,prize_race","engine,main_attacker,energy_engine"
+270,Iono's Wattrel,Pokemon,evolution_base,kilowattrel_base,medium_high,early,7,5,7,7,8,7,2,8,1,"pokemon,basic,lightning,evolution_base","Kilowattrel進化元",4,5,2,3,3,3,2,4,"aggro,setup_midrange","setup_piece,evolution_base"
+271,Iono's Kilowattrel,Pokemon,sub_attacker,stage1_attacker,high,mid,8,7,8,8,0,8,8,9,1,"stage1,lightning,from_wattrel","サブアタッカー兼手札補助",5,6,4,7,7,3,2,4,"aggro,prize_race","sub_attacker"
+1110,Max Rod,Trainer,resource_recovery,item,medium,mid_late,6,7,5,4,0,0,0,0,0,"item,recovery","複数リソースをデッキへ戻す",3,4,2,3,3,7,2,6,"control,resource_loop",recovery
+1118,Energy Retrieval,Trainer,energy_recovery,item,medium_high,mid_late,6,7,5,5,0,0,0,0,0,"item,energy,recovery","捨て山から基本エネルギー2枚回収",2,3,8,4,3,7,2,5,"aggro,resource_loop","energy_engine,recovery"
+1152,Poke Pad,Trainer,supporter_recovery,item,medium,all,5,6,4,4,0,0,0,0,0,"item,supporter_recovery","トラッシュのSupporterをデッキへ戻す",3,3,2,4,3,7,2,5,"control,resource_loop",recovery
+1233,Canari,Trainer,draw,supporter,high,all,7,8,6,6,0,0,0,0,1,"supporter,draw","安定化Supporter",8,3,2,4,3,6,2,5,"setup_midrange,aggro",draw_engine
+1254,Levincia,Trainer,engine_stadium,stadium,high,all,6,8,5,5,0,0,0,0,0,"stadium,engine","Iono's系展開スタジアム",5,5,2,5,3,5,2,4,"aggro,setup_midrange","draw_engine,setup_piece"

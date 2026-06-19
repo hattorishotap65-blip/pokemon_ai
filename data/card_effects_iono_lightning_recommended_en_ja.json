@@ -1,0 +1,422 @@
+{
+  "schema_version": "2.0",
+  "profile_name": "iono_lightning_onechan1_reference",
+  "language_policy": {
+    "implementation_keys": "English",
+    "role_tags": "English",
+    "condition_tags": "English",
+    "card_names": "English canonical names plus Japanese aliases",
+    "notes": "Japanese notes are included only in *_ja fields for human review."
+  },
+  "deck_summary": {
+    "deck_name": "Iono's Lightning / Voltorb + Bellibolt ex + Kilowattrel",
+    "total_cards": 60,
+    "strategy_summary_en": "Use Iono's Bellibolt ex as an energy acceleration engine, develop multiple Iono's Pokemon, increase Iono's Voltorb damage through Lightning Energy in play, and attack with Voltorb, Bellibolt ex, or Kilowattrel.",
+    "strategy_summary_ja": "Iono's Bellibolt exで手札の基本雷エネルギーを展開し、Iono'sポケモンを複数並べてVoltorbの打点を伸ばしながらVoltorb/Bellibolt ex/Kilowattrelで攻撃する。",
+    "deck_cards": [
+      {"card_id": 265, "count": 3, "name": "Iono's Voltorb"},
+      {"card_id": 268, "count": 3, "name": "Iono's Tadbulb"},
+      {"card_id": 269, "count": 3, "name": "Iono's Bellibolt ex"},
+      {"card_id": 270, "count": 3, "name": "Iono's Wattrel"},
+      {"card_id": 271, "count": 3, "name": "Iono's Kilowattrel"},
+      {"card_id": 1086, "count": 3, "name": "Buddy-Buddy Poffin"},
+      {"card_id": 1097, "count": 2, "name": "Night Stretcher"},
+      {"card_id": 1110, "count": 1, "name": "Max Rod"},
+      {"card_id": 1118, "count": 1, "name": "Energy Retrieval"},
+      {"card_id": 1121, "count": 3, "name": "Ultra Ball"},
+      {"card_id": 1152, "count": 2, "name": "Poke Pad"},
+      {"card_id": 1227, "count": 4, "name": "Lillie's Determination"},
+      {"card_id": 1233, "count": 4, "name": "Canari"},
+      {"card_id": 1254, "count": 3, "name": "Levincia"},
+      {"card_id": 4, "count": 22, "name": "Basic Lightning Energy"}
+    ]
+  },
+  "engine_contract": {
+    "legal_action_source_of_truth": true,
+    "option_type_map": {
+      "10": "ability",
+      "12": "retreat",
+      "13": "attack",
+      "14": "end"
+    },
+    "attack_option_rule": {
+      "option_type": 13,
+      "requires_attackId": true,
+      "notes_en": "Treat only option type 13 with attackId as an attack. Do not treat type 12 as an attack.",
+      "notes_ja": "攻撃は type=13 かつ attackIdありのみ。type=12はRetreat扱いにする。"
+    },
+    "fallback_rule": {
+      "notes_en": "Card effect data is used for scoring and fallback only. If the simulator exposes a legal action, prefer the simulator's select.option over hardcoded assumptions.",
+      "notes_ja": "カード効果データはスコア評価・fallback用。実際の合法/違法は環境のselect.optionを優先する。"
+    }
+  },
+  "global_tags": {
+    "iono_pokemon_ids": [265, 268, 269, 270, 271],
+    "iono_basic_ids": [265, 268, 270],
+    "lightning_energy_id": 4,
+    "main_attackers": [265, 269, 271],
+    "setup_cards": [1086, 1121, 1227, 1233, 1254],
+    "resource_recovery_cards": [1097, 1110, 1118, 1254]
+  },
+  "cards": {
+    "4": {
+      "name_en": "Basic Lightning Energy",
+      "name_ja": "基本雷エネルギー",
+      "card_type": "energy",
+      "energy": {"kind": "basic", "provides": ["L"]},
+      "rules_text_en": "Basic Lightning Energy.",
+      "effect_tags": ["basic_energy", "lightning_energy"],
+      "policy": {
+        "attach_priority_target_ids": [269, 265, 271, 268, 270],
+        "counts_for": [
+          "Iono's Voltorb damage scaling",
+          "Iono's Bellibolt ex attack cost",
+          "Iono's Kilowattrel ability cost",
+          "Levincia recovery",
+          "Energy Retrieval / Night Stretcher / Max Rod recovery"
+        ]
+      }
+    },
+    "265": {
+      "name_en": "Iono's Voltorb",
+      "name_ja": "アノコのボルトロバ",
+      "card_type": "pokemon",
+      "pokemon": {
+        "type": "L", "stage": "Basic", "hp": 70,
+        "is_ex": false, "is_rule_box": false, "is_iono_pokemon": true,
+        "retreat_cost": 1, "weakness": "Fighting", "resistance": null
+      },
+      "attacks": [
+        {
+          "name_en": "Voltaic Chain",
+          "cost": ["C", "C"], "cost_total": 2, "cost_lightning": 0,
+          "damage": {
+            "base": 20,
+            "formula_key": "20_plus_20_per_own_iono_lightning_energy",
+            "formula_en": "20 + 20 * count_lightning_energy_attached_to_all_own_iono_pokemon"
+          },
+          "rules_text_en": "This attack does 20 more damage for each Lightning Energy attached to all of your Iono's Pokemon."
+        }
+      ],
+      "effect_tags": ["basic_attacker", "scaling_attacker", "iono_synergy", "non_ex_attacker"],
+      "policy": {
+        "early_active_priority": 90,
+        "bench_priority": 85,
+        "attack_priority": 90,
+        "energy_attach_priority": {"first_energy": 18, "second_energy": 35, "third_or_more": -10}
+      }
+    },
+    "268": {
+      "name_en": "Iono's Tadbulb",
+      "name_ja": "アノコのズビル",
+      "card_type": "pokemon",
+      "pokemon": {
+        "type": "L", "stage": "Basic", "hp": 60,
+        "is_ex": false, "is_rule_box": false, "is_iono_pokemon": true,
+        "evolves_to": [269], "retreat_cost": 2, "weakness": "Fighting", "resistance": null
+      },
+      "attacks": [
+        {
+          "name_en": "Tiny Charge",
+          "cost": ["L", "C"], "cost_total": 2, "cost_lightning": 1,
+          "damage": {"fixed": 30},
+          "rules_text_en": "30 damage."
+        }
+      ],
+      "effect_tags": ["evolution_base", "bellibolt_base", "iono_synergy"],
+      "policy": {"bench_priority": 95, "search_priority": 85, "keep_priority": 85}
+    },
+    "269": {
+      "name_en": "Iono's Bellibolt ex",
+      "name_ja": "アノコのハラバリー ex",
+      "card_type": "pokemon",
+      "pokemon": {
+        "type": "L", "stage": "Stage 1", "evolves_from": 268,
+        "hp": 280, "is_ex": true, "is_rule_box": true,
+        "prize_value_when_ko": 2, "is_iono_pokemon": true,
+        "retreat_cost": 2, "weakness": "Fighting", "resistance": null
+      },
+      "abilities": [
+        {
+          "name_en": "Electric Streamer",
+          "ability_type": "energy_acceleration",
+          "frequency": "as_often_as_you_like_during_your_turn",
+          "source_zone": "in_play",
+          "from_zone": "hand",
+          "target_filter": {"owner": "self", "pokemon_tag": "Iono's Pokemon"},
+          "energy_filter": {"kind": "basic", "type": "L"},
+          "rules_text_en": "As often as you like during your turn, you may attach a Basic Lightning Energy card from your hand to 1 of your Iono's Pokemon.",
+          "policy_use_cases": [
+            "enable Bellibolt ex attack",
+            "increase Iono's Voltorb damage",
+            "prepare Iono's Kilowattrel",
+            "convert energy-heavy hand into board pressure",
+            "distribute Lightning Energy across Iono's Pokemon"
+          ]
+        }
+      ],
+      "attacks": [
+        {
+          "name_en": "Thunderous Bolt",
+          "cost": ["L", "L", "L", "C"], "cost_total": 4, "cost_lightning": 3,
+          "damage": {"fixed": 230},
+          "post_attack_effects": [
+            {"type": "cannot_attack_next_turn", "target": "this_pokemon", "duration": "during_your_next_turn"}
+          ],
+          "rules_text_en": "230 damage. During your next turn, this Pokemon can't attack."
+        }
+      ],
+      "effect_tags": ["main_attacker", "engine_attacker", "energy_acceleration", "stage1_ex", "iono_synergy"],
+      "policy": {
+        "evolve_priority": 100,
+        "ability_priority": 100,
+        "attack_priority": 95,
+        "attack_cost_total": 4,
+        "attack_cost_lightning": 3,
+        "attack_damage": 230,
+        "retreat_penalty_when_attack_available": -1000
+      },
+      "simulator_override": {
+        "enabled": false,
+        "reason_en": "Enable only if the competition simulator demonstrably differs from official text.",
+        "override_attack_example": {
+          "cost_total": 2, "cost_lightning": 2,
+          "boost_condition": "own_lightning_energy_in_play_at_least_4",
+          "base_damage": null, "boosted_damage": null
+        }
+      }
+    },
+    "270": {
+      "name_en": "Iono's Wattrel",
+      "name_ja": "アノコのカイツブン",
+      "card_type": "pokemon",
+      "pokemon": {
+        "type": "L", "stage": "Basic", "hp": 60,
+        "is_ex": false, "is_rule_box": false, "is_iono_pokemon": true,
+        "evolves_to": [271], "retreat_cost": 1,
+        "weakness": "Lightning", "resistance": "Fighting"
+      },
+      "attacks": [
+        {
+          "name_en": "Quick Attack",
+          "cost": ["L"], "cost_total": 1, "cost_lightning": 1,
+          "damage": {"base": 10, "bonus_condition": "coin_flip_heads", "bonus": 20, "max": 30},
+          "rules_text_en": "Flip a coin. If heads, this attack does 20 more damage."
+        }
+      ],
+      "effect_tags": ["evolution_base", "kilowattrel_base", "iono_synergy"],
+      "policy": {"bench_priority": 80, "search_priority": 75}
+    },
+    "271": {
+      "name_en": "Iono's Kilowattrel",
+      "name_ja": "アノコのタイクイブン",
+      "card_type": "pokemon",
+      "pokemon": {
+        "type": "L", "stage": "Stage 1", "evolves_from": 270,
+        "hp": 120, "is_ex": false, "is_rule_box": false, "is_iono_pokemon": true,
+        "retreat_cost": 1, "weakness": "Lightning", "resistance": "Fighting"
+      },
+      "abilities": [
+        {
+          "name_en": "Flashing Draw",
+          "ability_type": "draw",
+          "frequency": "once_during_your_turn",
+          "cost": {"discard_from_this_pokemon": [{"energy_kind": "basic", "energy_type": "L", "count": 1}]},
+          "effect": {"draw_until_hand_size": 6},
+          "rules_text_en": "You must discard a Basic Lightning Energy from this Pokemon in order to use this Ability. Once during your turn, you may draw cards until you have 6 cards in your hand.",
+          "policy_warning": "Do not discard the last Lightning Energy from an attacking Kilowattrel unless the draw is worth delaying the attack."
+        }
+      ],
+      "attacks": [
+        {
+          "name_en": "Mach Bolt",
+          "cost": ["L", "C", "C"], "cost_total": 3, "cost_lightning": 1,
+          "damage": {"fixed": 70},
+          "rules_text_en": "70 damage."
+        }
+      ],
+      "effect_tags": ["sub_attacker", "draw_engine", "stage1_attacker", "iono_synergy"],
+      "policy": {
+        "evolve_priority": 90,
+        "attack_priority": 80,
+        "attack_cost_total": 3,
+        "attack_cost_lightning": 1,
+        "attack_damage": 70
+      }
+    },
+    "1086": {
+      "name_en": "Buddy-Buddy Poffin",
+      "name_ja": "なかよしこポフィン",
+      "card_type": "trainer",
+      "trainer": {"trainer_type": "Item"},
+      "rules_text_en": "Search your deck for up to 2 Basic Pokemon with 70 HP or less and put them onto your Bench. Then, shuffle your deck.",
+      "effect": {
+        "search_deck": true, "max_count": 2,
+        "filter": {"card_type": "pokemon", "stage": "Basic", "hp_lte": 70},
+        "destination": "bench"
+      },
+      "deck_relevant_targets": [265, 268, 270],
+      "effect_tags": ["basic_search", "bench_setup", "early_setup"],
+      "policy": {
+        "use_priority": 100,
+        "target_priority": [268, 265, 270]
+      }
+    },
+    "1097": {
+      "name_en": "Night Stretcher",
+      "name_ja": "夜のタンカ",
+      "card_type": "trainer",
+      "trainer": {"trainer_type": "Item"},
+      "rules_text_en": "Put a Pokemon or a Basic Energy card from your discard pile into your hand.",
+      "effect": {
+        "recover_from_discard": true, "to_zone": "hand",
+        "choose_one": [
+          {"card_type": "pokemon", "max_count": 1},
+          {"card_type": "energy", "energy_kind": "basic", "max_count": 1}
+        ]
+      },
+      "effect_tags": ["resource_recovery", "pokemon_recovery", "energy_recovery"],
+      "policy": {
+        "use_priority": "medium_high_when_key_resource_in_discard",
+        "target_priority": [269, 268, 271, 270, 265, 4]
+      }
+    },
+    "1110": {
+      "name_en": "Max Rod",
+      "name_ja": "マックスロッド",
+      "card_type": "trainer",
+      "trainer": {"trainer_type": "Item", "ace_spec": true},
+      "rules_text_en": "Put up to 5 in any combination of Pokemon and Basic Energy cards from your discard pile into your hand.",
+      "effect": {
+        "recover_from_discard": true, "to_zone": "hand", "max_count": 5,
+        "allowed": [{"card_type": "pokemon"}, {"card_type": "energy", "energy_kind": "basic"}]
+      },
+      "effect_tags": ["resource_recovery", "pokemon_recovery", "energy_recovery", "ace_spec"],
+      "policy": {
+        "use_priority": "high_mid_late_when_multiple_resources_in_discard",
+        "target_priority": [269, 268, 271, 270, 4, 265]
+      }
+    },
+    "1118": {
+      "name_en": "Energy Retrieval",
+      "name_ja": "エネルギー回収",
+      "card_type": "trainer",
+      "trainer": {"trainer_type": "Item"},
+      "rules_text_en": "Put up to 2 Basic Energy cards from your discard pile into your hand.",
+      "effect": {
+        "recover_from_discard": true, "to_zone": "hand",
+        "filter": {"card_type": "energy", "energy_kind": "basic"}, "max_count": 2
+      },
+      "effect_tags": ["energy_recovery", "basic_energy_recovery"],
+      "policy": {
+        "use_priority": "high_when_lightning_energy_in_discard_and_bellibolt_can_attach",
+        "target_priority": [4]
+      }
+    },
+    "1121": {
+      "name_en": "Ultra Ball",
+      "name_ja": "ハイパーボール",
+      "card_type": "trainer",
+      "trainer": {"trainer_type": "Item"},
+      "rules_text_en": "You can use this card only if you discard 2 other cards from your hand. Search your deck for a Pokemon, reveal it, and put it into your hand. Then, shuffle your deck.",
+      "cost": {"discard_other_cards_from_hand": 2},
+      "effect": {
+        "search_deck": true, "max_count": 1,
+        "filter": {"card_type": "pokemon"}, "destination": "hand"
+      },
+      "deck_relevant_targets": [269, 271, 268, 265, 270],
+      "effect_tags": ["pokemon_search", "discard_cost", "setup"],
+      "policy": {
+        "use_priority": "high_when_missing_evolution_or_core_basic",
+        "target_priority": [269, 271, 268, 265, 270],
+        "discard_priority": ["extra_lightning_energy", "duplicate_stadium", "duplicate_supporter"],
+        "avoid_discard": ["only_evolution_target", "last_needed_energy", "only_basic_for_stage1"]
+      }
+    },
+    "1152": {
+      "name_en": "Poke Pad",
+      "name_ja": "ポケパッド",
+      "card_type": "trainer",
+      "trainer": {"trainer_type": "Item"},
+      "rules_text_en": "Search your deck for a Pokemon that doesn't have a Rule Box, reveal it, and put it into your hand. Then, shuffle your deck. Pokemon ex, Pokemon V, etc. have Rule Boxes.",
+      "effect": {
+        "search_deck": true, "max_count": 1,
+        "filter": {"card_type": "pokemon", "rule_box": false}, "destination": "hand"
+      },
+      "deck_relevant_targets": [265, 268, 270, 271],
+      "excluded_targets": [269],
+      "effect_tags": ["pokemon_search", "non_rule_box_search", "setup"],
+      "policy": {
+        "use_priority": "medium_when_missing_non_ex_piece",
+        "target_priority": [271, 268, 265, 270],
+        "notes_ja": "Bellibolt exはRule Box持ちなので検索不可。"
+      }
+    },
+    "1227": {
+      "name_en": "Lillie's Determination",
+      "name_ja": "リリエの決意",
+      "card_type": "trainer",
+      "trainer": {"trainer_type": "Supporter"},
+      "rules_text_en": "Shuffle your hand into your deck. Then, draw 6 cards. If you have exactly 6 Prize cards remaining, draw 8 cards instead.",
+      "effect": {
+        "shuffle_hand_into_deck": true,
+        "draw": 6,
+        "draw_if_exactly_6_prizes_remaining": 8
+      },
+      "effect_tags": ["draw_supporter", "hand_refresh", "setup_recovery"],
+      "policy": {
+        "use_priority": "high_when_setup_poor_or_energy_flood",
+        "avoid": ["stable_hand_with_needed_evolution_line", "supporter_already_played"]
+      }
+    },
+    "1233": {
+      "name_en": "Canari",
+      "name_ja": "カナイ",
+      "card_type": "trainer",
+      "trainer": {"trainer_type": "Supporter"},
+      "rules_text_en": "You can use this card only if you discard another card from your hand. Search your deck for up to 4 Lightning Pokemon, reveal them, and put them into your hand. Then, shuffle your deck.",
+      "cost": {"discard_another_card_from_hand": 1},
+      "effect": {
+        "search_deck": true, "max_count": 4,
+        "filter": {"card_type": "pokemon", "pokemon_type": "L"}, "destination": "hand"
+      },
+      "deck_relevant_targets": [265, 268, 269, 270, 271],
+      "effect_tags": ["pokemon_search", "lightning_search", "discard_cost", "setup_supporter"],
+      "policy": {
+        "use_priority": "very_high_when_missing_multiple_lightning_pokemon",
+        "target_priority": [269, 268, 265, 271, 270],
+        "discard_priority": ["extra_lightning_energy", "duplicate_card"],
+        "avoid_discard": ["only_evolution_base", "only_evolution_target"]
+      }
+    },
+    "1254": {
+      "name_en": "Levincia",
+      "name_ja": "ルミナシティ",
+      "card_type": "trainer",
+      "trainer": {"trainer_type": "Stadium"},
+      "rules_text_en": "Once during each player's turn, that player may put up to 2 Basic Lightning Energy cards from their discard pile into their hand.",
+      "effect": {
+        "frequency": "once_during_each_players_turn",
+        "recover_from_discard": true, "to_zone": "hand",
+        "filter": {"card_type": "energy", "energy_kind": "basic", "energy_type": "L"},
+        "max_count": 2, "both_players_can_use": true
+      },
+      "effect_tags": ["stadium", "lightning_energy_recovery", "shared_resource"],
+      "policy": {
+        "use_priority": "high_when_lightning_energy_in_discard_or_need_stadium",
+        "synergy": [
+          "Bellibolt ex can attach recovered Basic Lightning Energy",
+          "helps Voltorb damage scaling"
+        ]
+      }
+    }
+  },
+  "recommended_engine_functions": {
+    "load_card_effects": "Load this JSON once and cache it.",
+    "is_attack_option": "type == 13 and attackId is not None",
+    "is_retreat_option": "type == 12",
+    "is_ability_option": "type == 10",
+    "estimate_damage": "Use card effect data for damage scoring; select.option remains the legal-action source of truth.",
+    "score_action": "Combine legal action, card effect, tactical context, and safety penalties."
+  }
+}

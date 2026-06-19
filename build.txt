@@ -1,0 +1,8 @@
+﻿python : C:\Users\shclo\AppData\Local\Programs\Python\Python312\python.exe: can't open file 'C:\\Users\\shclo\\projects
+\\pokemon_card_ai\\build_submission.py': [Errno 2] No such file or directory
+At line:1 char:45
++ ... clo\projects\pokemon_card_ai; python build_submission.py 2>&1 | Out-F ...
++                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\shclo\...le or directory:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

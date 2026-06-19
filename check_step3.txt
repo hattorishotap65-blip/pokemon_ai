@@ -1,0 +1,7 @@
+﻿OK  agent/dragapult_rules.py
+OK  agent/turn_plan.py
+OK  agent/planner.py
+Poffin Dreepy-0: 100.0 poffin_first_dreepy
+Poffin Duskull-0 (Dreepy=0): 40.0 poffin_delay_duskull_until_dreepy
+Lillie with Rare Candy+Dragapult hand: -4.0 dragapult:lillies_discard_key_combo
+Setup mon IDs: {112, 131, 119, 235}

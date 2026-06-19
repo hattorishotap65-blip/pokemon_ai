@@ -1,0 +1,4 @@
+# Required for tools/ scripts only
+# Install with: pip install -r tools/requirements.txt
+
+pdfplumber>=0.10.0   # tools/build_card_master.py: PDF table extraction

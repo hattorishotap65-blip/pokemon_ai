@@ -1,0 +1,18 @@
+card_id,card_name_en,api_card_id,source_api,source_url,supertype,subtypes,hp,types,evolvesFrom,evolvesTo,rules,abilities,attacks,attack_costs,attack_damage,attack_text,weaknesses,resistances,retreatCost,convertedRetreatCost,regulationMark,set_name,set_id,set_ptcgoCode,number,rarity,images_small,images_large
+1079,Rare Candy,sv01-191,tcgdex,https://assets.tcgdex.net/en/sv/sv01/191,Trainer,Item,,,,,,[],[],,,,[],[],,0,,SVI,svi,SVI,191,,https://assets.tcgdex.net/en/sv/sv01/191,https://assets.tcgdex.net/en/sv/sv01/191
+1080,Unfair Stamp,sv06-165,tcgdex,https://assets.tcgdex.net/en/sv/sv06/165,Trainer,Item,,,,,,[],[],,,,[],[],,0,,TWM,twm,TWM,165,,https://assets.tcgdex.net/en/sv/sv06/165,https://assets.tcgdex.net/en/sv/sv06/165
+1086,Buddy-Buddy Poffin,sv05-144,tcgdex,https://assets.tcgdex.net/en/sv/sv05/144,Trainer,Item,,,,,,[],[],,,,[],[],,0,,TEF,tef,TEF,144,,https://assets.tcgdex.net/en/sv/sv05/144,https://assets.tcgdex.net/en/sv/sv05/144
+1088,Prime Catcher,sv05-157,tcgdex,https://assets.tcgdex.net/en/sv/sv05/157,Trainer,Item,,,,,,[],[],,,,[],[],,0,,TEF,tef,TEF,157,,https://assets.tcgdex.net/en/sv/sv05/157,https://assets.tcgdex.net/en/sv/sv05/157
+1097,Night Stretcher,sv06.5-061,tcgdex,https://assets.tcgdex.net/en/sv/sv06.5/061,Trainer,Item,,,,,,[],[],,,,[],[],,0,,SFA,sfa,SFA,061,,https://assets.tcgdex.net/en/sv/sv06.5/061,https://assets.tcgdex.net/en/sv/sv06.5/061
+1116,Energy Switch,sv01-173,tcgdex,https://assets.tcgdex.net/en/sv/sv01/173,Trainer,Item,,,,,,[],[],,,,[],[],,0,,SVI,svi,SVI,173,,https://assets.tcgdex.net/en/sv/sv01/173,https://assets.tcgdex.net/en/sv/sv01/173
+1121,Ultra Ball,sv01-196,tcgdex,https://assets.tcgdex.net/en/sv/sv01/196,Trainer,Item,,,,,,[],[],,,,[],[],,0,,SVI,svi,SVI,196,,https://assets.tcgdex.net/en/sv/sv01/196,https://assets.tcgdex.net/en/sv/sv01/196
+1123,Switch,sv01-194,tcgdex,https://assets.tcgdex.net/en/sv/sv01/194,Trainer,Item,,,,,,[],[],,,,[],[],,0,,SVI,svi,SVI,194,,https://assets.tcgdex.net/en/sv/sv01/194,https://assets.tcgdex.net/en/sv/sv01/194
+1182,Boss's Orders,sv02-172,tcgdex,https://assets.tcgdex.net/en/sv/sv02/172,Trainer,Supporter,,,,,,[],[],,,,[],[],,0,,PAL,pal,PAL,172,,https://assets.tcgdex.net/en/sv/sv02/172,https://assets.tcgdex.net/en/sv/sv02/172
+119,Dreepy,swsh8-128,tcgdex,https://assets.tcgdex.net/en/swsh/swsh8/128,Pokémon,Basic,40,,,Drakloak,,[],[],,,,[],[],,0,,TWM,twm,TWM,128,,https://assets.tcgdex.net/en/swsh/swsh8/128,https://assets.tcgdex.net/en/swsh/swsh8/128
+120,Drakloak,swsh8-129,tcgdex,https://assets.tcgdex.net/en/swsh/swsh8/129,Pokémon,Stage 1,90,,Dreepy,Dragapult ex,,[],[],,,,[],[],,0,,TWM,twm,TWM,129,,https://assets.tcgdex.net/en/swsh/swsh8/129,https://assets.tcgdex.net/en/swsh/swsh8/129
+121,Dragapult ex,sv06-130,tcgdex,https://assets.tcgdex.net/en/sv/sv06/130,Pokémon,Stage 2,320,,Drakloak,,,[],[],,,,[],[],,0,,TWM,twm,TWM,130,,https://assets.tcgdex.net/en/sv/sv06/130,https://assets.tcgdex.net/en/sv/sv06/130
+1213,Judge,sv01-176,tcgdex,https://assets.tcgdex.net/en/sv/sv01/176,Trainer,Supporter,,,,,,[],[],,,,[],[],,0,,SVI,svi,SVI,176,,https://assets.tcgdex.net/en/sv/sv01/176,https://assets.tcgdex.net/en/sv/sv01/176
+122,Tatsugiri,sv06-131,tcgdex,https://assets.tcgdex.net/en/sv/sv06/131,Pokémon,Basic,70,,,,,[],[],,,,[],[],,0,,TWM,twm,TWM,131,,https://assets.tcgdex.net/en/sv/sv06/131,https://assets.tcgdex.net/en/sv/sv06/131
+164,Comfey,sv07-063,tcgdex,https://assets.tcgdex.net/en/sv/sv07/063,Pokémon,Basic,60,,,,,[],[],,,,[],[],,0,,SCR,scr,SCR,063,,https://assets.tcgdex.net/en/sv/sv07/063,https://assets.tcgdex.net/en/sv/sv07/063
+2,Basic Fire Energy,sve-2,manual,,Energy,Basic,,Fire,,,,[],[],,,,[],[],,0,,SVE,sve,SVE,2,,,
+5,Basic Psychic Energy,sve-5,manual,,Energy,Basic,,Psychic,,,,[],[],,,,[],[],,0,,SVE,sve,SVE,5,,,

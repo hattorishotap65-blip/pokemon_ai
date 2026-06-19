@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "target": "F0005",
+  "anomalies_investigated": [
+    {"type": "attack_available_but_no_attack", "game": "g1801", "turn": 3},
+    {"type": "attack_available_but_no_attack", "game": "g1809", "turn": 3},
+    {"type": "ability_without_followup_attack", "game": "g1801", "turn": 3},
+    {"type": "ability_without_followup_attack", "game": "g1809", "turn": 3}
+  ],
+  "investigation": {
+    "g1801": {
+      "events_in_turn": 14,
+      "real_attack_options_found": 0,
+      "type13_with_attackId_None": 2,
+      "active_sequence": "Tadbulb(268) -> evolved to Bellibolt ex(269)",
+      "selected_actions": "energy_attach -> Canari -> Bellibolt evolve -> play basics -> Ability -> End"
+    },
+    "g1809": {
+      "events_in_turn": 13,
+      "real_attack_options_found": 0,
+      "type13_with_attackId_None": 2,
+      "active_sequence": "Tadbulb(268) -> evolved to Bellibolt ex(269)",
+      "selected_actions": "energy_attach -> Canari -> Bellibolt evolve -> play basics -> Ability -> End"
+    }
+  },
+  "root_cause": "detector false positive: is_attack=True with attackId=None was treated as a real attack option",
+  "fix_applied": {
+    "file": "tools/detect_anomalies.py",
+    "description": "Added _candidate_is_real_attack() that requires attackId is not None in addition to type=13 or is_attack=True"
+  },
+  "results_after_fix": {
+    "attack_available_but_no_attack": 0,
+    "ability_without_followup_attack": 0,
+    "high_anomalies": 0,
+    "medium_anomalies": 0,
+    "total_anomalies": 291
+  },
+  "decision": "detector_refinement",
+  "agent_files_changed": []
+}

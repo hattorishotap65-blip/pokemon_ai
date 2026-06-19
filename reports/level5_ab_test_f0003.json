@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "target_candidate": "F0003",
+  "classification": "bellibolt_over_voltorb_high_damage",
+  "baseline": {
+    "games": 50,
+    "source": "g1600 batch",
+    "anomalies_total": 281,
+    "f0003_count": 86,
+    "f0003_per_game": 1.72
+  },
+  "candidate": {
+    "games": 50,
+    "source": "g1700 batch",
+    "anomalies_total": 227,
+    "f0003_count": 37,
+    "f0003_per_game": 0.74
+  },
+  "fix_applied": {
+    "file": "agent/ionos_rules.py",
+    "description": "In Rule 17b RETREAT, when Bellibolt ex is active and attack-ready (4+ energy), override retreat suppression (-700 -> +80) if Voltorb is on bench with 2+ energy and estimated damage >= 240",
+    "times_triggered": 175
+  },
+  "per_game_comparison": {
+    "anomalies_total": {"baseline": 5.62, "candidate": 4.54, "delta": -1.08},
+    "bellibolt_over_voltorb_high_damage": {"baseline": 1.72, "candidate": 0.74, "delta": -0.98},
+    "voltorb_over_kilowattrel_missed": {"baseline": 1.44, "candidate": 1.22, "delta": -0.22},
+    "voltorb_over_wattrel_missed": {"baseline": 0.12, "candidate": 0.02, "delta": -0.10},
+    "bellibolt_attack_probably_correct": {"baseline": 2.34, "candidate": 2.54, "delta": 0.20},
+    "attack_available_but_no_attack": {"baseline": 0.0, "candidate": 0.0, "delta": 0.0},
+    "end_when_attack_available": {"baseline": 0.0, "candidate": 0.0, "delta": 0.0},
+    "retreat_when_attack_available": {"baseline": 0.0, "candidate": 0.0, "delta": 0.0}
+  },
+  "decision": "accept",
+  "reasons": [
+    "F0003 (bellibolt_over_voltorb_high_damage) decreased from 86 to 37 (-57%)",
+    "Fix triggered 175 times in 50 games (3.5/game)",
+    "Total anomalies decreased from 281 to 227 (-19%)",
+    "No increase in critical/high safety metrics",
+    "attack_available_but_no_attack: 0 -> 0",
+    "end_when_attack_available: 0 -> 0",
+    "retreat_when_attack_available: 0 -> 0",
+    "F0001/F0002 improvements preserved (voltorb_over_wattrel 0.12->0.02, voltorb_over_kilowattrel 1.44->1.22)",
+    "compare_anomaly_reports.py decision: accept"
+  ],
+  "safety_check": {
+    "error_rate": "0% (unchanged)",
+    "end_when_attack_available": "0 (unchanged)",
+    "retreat_when_attack_available": "0 (unchanged)",
+    "attack_available_but_no_attack": "0 (unchanged)",
+    "deck_csv_changed": false,
+    "pdf_added": false,
+    "submission_rebuilt": true
+  }
+}

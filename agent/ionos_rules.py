@@ -1097,6 +1097,12 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
         active_cid    = _active_cid(state)
         active_energy = _active_energy_count(state)
         if active_cid == _BELLIBOLT_EX and active_energy >= _BELLIBOLT_ATTACK_ENERGY_REQ:
+            # F0003: override if Voltorb scaling damage clearly exceeds Bellibolt 230
+            vt_energy_bb = _get_target_energy_count(_VOLTORB, state)
+            if vt_energy_bb >= _VOLTORB_ATTACK_ENERGY_REQ and _voltorb_on_field(state):
+                est_dmg_bb = _estimate_voltorb_damage(state)
+                if est_dmg_bb >= 240:
+                    return 80.0, "ionos:retreat_bellibolt_to_voltorb_higher_damage"
             return -700.0, "ionos:avoid_retreat_bellibolt_can_attack"
         if active_cid == _VOLTORB and active_energy >= _VOLTORB_ATTACK_ENERGY_REQ:
             return -300.0, "ionos:avoid_retreat_voltorb_can_attack"

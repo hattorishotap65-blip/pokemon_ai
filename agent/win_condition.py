@@ -146,11 +146,21 @@ def evaluate_late_plan_progress(state: dict, deck_profile: dict, knowledge) -> f
     elif prizes == opp_prizes:
         score += 1.5
 
-    # Attacker ready to close out
-    attacker_ids = set(str(x) for x in (deck_profile or {}).get("main_attackers", []))
+    # Attacker ready to close out (main or backup/sub)
+    dp = deck_profile or {}
+    main_ids  = set(str(x) for x in dp.get("main_attackers", []))
+    backup_ids = set(str(x) for x in dp.get("sub_attackers", []))
+    backup_ids.update(str(x) for x in dp.get("backup_attackers", []))
+    all_attacker_ids = main_ids | backup_ids
     active_cid   = str(active.get("card_id", ""))
-    if active_cid in attacker_ids and int(active.get("energy_count", 0) or 0) >= 1:
+    active_energy = int(active.get("energy_count", 0) or 0)
+
+    if active_cid in main_ids and active_energy >= 1:
         score += 3.0
+    elif active_cid in backup_ids and active_energy >= 1:
+        score += 2.0
+    elif knowledge and knowledge.get_role(active_cid) in ("main_attacker", "sub_attacker") and active_energy >= 1:
+        score += 2.0
 
     # No deck-out risk
     if deck_count > 5:
@@ -163,8 +173,10 @@ def evaluate_late_plan_progress(state: dict, deck_profile: dict, knowledge) -> f
         score += 1.0
 
     # Finisher accessible (winning KO in reach)
-    if prizes <= 2 and active_cid in attacker_ids:
+    if prizes <= 2 and active_cid in all_attacker_ids:
         score += 2.0
+    elif prizes <= 2 and knowledge and knowledge.get_role(active_cid) in ("main_attacker", "sub_attacker"):
+        score += 1.5
 
     return min(max(score, 0.0), 10.0)
 
@@ -187,9 +199,11 @@ def get_missing_plan_pieces(state: dict, deck_profile: dict, knowledge) -> list:
     phase   = detect_current_phase(state)
 
     attacker_ids = set(str(x) for x in deck_profile.get("main_attackers", []))
+    attacker_ids.update(str(x) for x in deck_profile.get("sub_attackers", []))
+    attacker_ids.update(str(x) for x in deck_profile.get("backup_attackers", []))
     active_cid   = str(active.get("card_id", ""))
 
-    # Main attacker not yet active or benched
+    # Any attacker not yet active or benched
     attacker_on_field = (active_cid in attacker_ids) or any(
         str(p.get("card_id", "")) in attacker_ids for p in bench
     )

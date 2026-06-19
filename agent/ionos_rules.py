@@ -796,8 +796,8 @@ def score_voltorb_attack(opt: dict, state: dict, select=None) -> tuple:
 
 def score_voltorb_safety_penalty(opt: dict, state: dict, select=None) -> tuple:
     """
-    Penalise End / Retreat / optional Ability when Voltorb is active and
-    a legal attack is available.
+    Penalise End / Retreat / Ability / non-KO energy attach when Voltorb is
+    active and a legal attack is available.
     """
     if _active_cid(state) != _VOLTORB:
         return 0.0, ""
@@ -819,6 +819,15 @@ def score_voltorb_safety_penalty(opt: dict, state: dict, select=None) -> tuple:
         return -1000.0, "voltorb_avoid_retreat_when_attack_available"
     if _is_ability(opt):
         return -80.0, "voltorb_attack_available_avoid_optional_ability"
+
+    # Energy attach: strongly penalise unless it reaches KO line
+    if opt.get("type") == 8:
+        opp_hp = state.get("opponent", {}).get("active_pokemon", {}).get("hp_remaining", 9999)
+        before_dmg = _estimate_voltorb_damage(state)
+        after_dmg  = before_dmg + 20
+        if after_dmg >= opp_hp > 0 and before_dmg < opp_hp:
+            return 0.0, "voltorb_attach_reaches_ko_line_ok"
+        return -500.0, "voltorb_avoid_attach_when_attack_available"
 
     return 0.0, ""
 

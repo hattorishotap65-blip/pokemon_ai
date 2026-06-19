@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "target_candidate": "F0002",
+  "classification": "voltorb_over_kilowattrel_missed",
+  "baseline": {
+    "games": 50,
+    "source": "g1400 batch",
+    "anomalies_total": 257,
+    "f0002_count": 55,
+    "f0002_per_game": 1.10
+  },
+  "candidate": {
+    "games": 50,
+    "source": "g1500 batch",
+    "anomalies_total": 232,
+    "f0002_count": 47,
+    "f0002_per_game": 0.94
+  },
+  "fix_applied": {
+    "file": "agent/ionos_rules.py",
+    "description": "In Rule 17b RETREAT, when Kilowattrel is active and attack-ready, override retreat suppression (-300 -> +100) if Voltorb is on bench with 2+ energy and estimated damage >= 120",
+    "times_triggered": 0
+  },
+  "per_game_comparison": {
+    "anomalies_total": {"baseline": 5.14, "candidate": 4.64, "delta": -0.50},
+    "voltorb_over_kilowattrel_missed": {"baseline": 1.10, "candidate": 0.94, "delta": -0.16},
+    "voltorb_over_wattrel_missed": {"baseline": 0.10, "candidate": 0.04, "delta": -0.06},
+    "bellibolt_over_voltorb_high_damage": {"baseline": 1.78, "candidate": 1.64, "delta": -0.14},
+    "bellibolt_attack_probably_correct": {"baseline": 2.16, "candidate": 1.98, "delta": -0.18},
+    "attack_available_but_no_attack": {"baseline": 0.0, "candidate": 0.02, "delta": 0.02},
+    "end_when_attack_available": {"baseline": 0.0, "candidate": 0.0, "delta": 0.0},
+    "retreat_when_attack_available": {"baseline": 0.0, "candidate": 0.0, "delta": 0.0}
+  },
+  "decision": "accept_as_harmless_safety_net",
+  "reasons": [
+    "Fix never triggered (0 fires in 50 games)",
+    "Kilowattrel active + Voltorb bench ready (2+ energy, est_dmg >= 120) condition is extremely rare",
+    "Total anomalies improved 257 -> 232 but this is game variance, not caused by fix",
+    "No regression in critical/high safety metrics (end/retreat when attack = 0)",
+    "The +1 attack_available_but_no_attack and +1 ability_without_followup_attack are noise",
+    "Fix is harmless as a safety net"
+  ],
+  "safety_check": {
+    "error_rate": "0% (unchanged)",
+    "end_when_attack_available": "0 (unchanged)",
+    "retreat_when_attack_available": "0 (unchanged)",
+    "attack_available_but_no_attack": "0 -> 1 (noise, unrelated to F0002)",
+    "deck_csv_changed": false,
+    "pdf_added": false,
+    "submission_rebuilt": true
+  },
+  "recommendation": "Keep fix. F0001+F0002 are both harmless safety nets. Consider F0003 (bellibolt_over_voltorb_high_damage) next if retreat-based approach insufficient."
+}

@@ -1,26 +1,26 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-19T08:40:38.239067+00:00",
+  "generated_at": "2026-06-19T10:56:32.371585+00:00",
   "before": "reports/baseline/latest_anomaly_report.json",
   "after": "reports/candidate/latest_anomaly_report.json",
   "summary": {
-    "decision": "reject",
-    "overall_delta": 105,
+    "decision": "human_review",
+    "overall_delta": -25,
     "critical_delta": 0,
     "high_delta": 1,
     "medium_delta": 1,
-    "low_delta": 103,
-    "games_before": 30,
+    "low_delta": -27,
+    "games_before": 50,
     "games_after": 50,
-    "confidence": "medium"
+    "confidence": "high"
   },
   "metrics": [
     {
       "name": "anomalies_total",
-      "before": 158,
-      "after": 263,
-      "delta": 105,
-      "direction": "worsened"
+      "before": 257,
+      "after": 232,
+      "delta": -25,
+      "direction": "improved"
     },
     {
       "name": "critical",
@@ -45,10 +45,10 @@
     },
     {
       "name": "low",
-      "before": 158,
-      "after": 261,
-      "delta": 103,
-      "direction": "worsened"
+      "before": 257,
+      "after": 230,
+      "delta": -27,
+      "direction": "improved"
     },
     {
       "name": "attack_available_but_no_attack",
@@ -150,14 +150,14 @@
     },
     {
       "name": "best_damage_attacker_not_selected",
-      "before": 158,
-      "after": 261,
-      "delta": 103,
-      "direction": "worsened"
+      "before": 257,
+      "after": 230,
+      "delta": -27,
+      "direction": "improved"
     }
   ],
   "reasons": [
-    "Total anomalies increased (+105) with no severity improvement."
+    "Improvement and worsening are mixed across metrics."
   ],
   "warnings": []
 }

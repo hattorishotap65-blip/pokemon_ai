@@ -12,7 +12,7 @@ Wattrel should not be attacking when Voltorb has significantly higher damage pot
 
 - anomaly type: best_damage_attacker_not_selected
 - classification: voltorb_over_wattrel_missed
-- occurrence count: 2
+- occurrence count: 5
 - actual attackers: ['270']
 - Voltorb estimated damage range: [120, 120]
 

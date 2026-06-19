@@ -1101,6 +1101,12 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
         if active_cid == _VOLTORB and active_energy >= _VOLTORB_ATTACK_ENERGY_REQ:
             return -300.0, "ionos:avoid_retreat_voltorb_can_attack"
         if active_cid == _KILOWATTREL and active_energy >= _KILOWATTREL_ATTACK_ENERGY_REQ:
+            # F0002: override retreat suppression if Voltorb scaling damage is much higher
+            vt_energy_kw = _get_target_energy_count(_VOLTORB, state)
+            if vt_energy_kw >= _VOLTORB_ATTACK_ENERGY_REQ and _voltorb_on_field(state):
+                est_dmg_kw = _estimate_voltorb_damage(state)
+                if est_dmg_kw >= 120:
+                    return 100.0, "ionos:retreat_kilowattrel_to_voltorb_high_damage"
             return -300.0, "ionos:avoid_retreat_kilowattrel_can_attack"
 
         # F0001: Wattrel active → retreat to Voltorb if Voltorb has higher damage

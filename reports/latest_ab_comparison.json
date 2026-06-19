@@ -1,82 +1,82 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-19T02:51:52.508353+00:00",
+  "generated_at": "2026-06-19T08:40:38.239067+00:00",
   "before": "reports/baseline/latest_anomaly_report.json",
   "after": "reports/candidate/latest_anomaly_report.json",
   "summary": {
-    "decision": "accept",
-    "overall_delta": -13,
-    "critical_delta": -2,
-    "high_delta": -5,
-    "medium_delta": -4,
-    "low_delta": -2,
-    "games_before": 50,
+    "decision": "reject",
+    "overall_delta": 105,
+    "critical_delta": 0,
+    "high_delta": 1,
+    "medium_delta": 1,
+    "low_delta": 103,
+    "games_before": 30,
     "games_after": 50,
-    "confidence": "high"
+    "confidence": "medium"
   },
   "metrics": [
     {
       "name": "anomalies_total",
-      "before": 25,
-      "after": 12,
-      "delta": -13,
-      "direction": "improved"
+      "before": 158,
+      "after": 263,
+      "delta": 105,
+      "direction": "worsened"
     },
     {
       "name": "critical",
-      "before": 2,
+      "before": 0,
       "after": 0,
-      "delta": -2,
-      "direction": "improved"
+      "delta": 0,
+      "direction": "unchanged"
     },
     {
       "name": "high",
-      "before": 8,
-      "after": 3,
-      "delta": -5,
-      "direction": "improved"
+      "before": 0,
+      "after": 1,
+      "delta": 1,
+      "direction": "worsened"
     },
     {
       "name": "medium",
-      "before": 10,
-      "after": 6,
-      "delta": -4,
-      "direction": "improved"
+      "before": 0,
+      "after": 1,
+      "delta": 1,
+      "direction": "worsened"
     },
     {
       "name": "low",
-      "before": 5,
-      "after": 3,
-      "delta": -2,
-      "direction": "improved"
+      "before": 158,
+      "after": 261,
+      "delta": 103,
+      "direction": "worsened"
     },
     {
       "name": "attack_available_but_no_attack",
-      "before": 8,
-      "after": 3,
-      "delta": -5,
-      "direction": "improved"
+      "before": 0,
+      "after": 1,
+      "delta": 1,
+      "direction": "worsened"
     },
     {
       "name": "end_when_attack_available",
-      "before": 2,
+      "before": 0,
       "after": 0,
-      "delta": -2,
-      "direction": "improved"
+      "delta": 0,
+      "direction": "unchanged"
     },
     {
       "name": "retreat_when_attack_available",
-      "before": 3,
+      "before": 0,
       "after": 0,
-      "delta": -3,
-      "direction": "improved"
+      "delta": 0,
+      "direction": "unchanged"
     },
     {
       "name": "ability_without_followup_attack",
-      "before": 5,
-      "after": 3,
-      "delta": -2,
-      "direction": "improved"
+      "before": 0,
+      "after": 1,
+      "delta": 1,
+      "direction": "worsened"
     },
     {
       "name": "high_value_attack_not_used",
@@ -87,38 +87,38 @@
     },
     {
       "name": "ko_available_but_no_attack",
-      "before": 2,
+      "before": 0,
       "after": 0,
-      "delta": -2,
-      "direction": "improved"
+      "delta": 0,
+      "direction": "unchanged"
     },
     {
       "name": "ability_breaks_attack_ready_state",
-      "before": 1,
+      "before": 0,
       "after": 0,
-      "delta": -1,
-      "direction": "improved"
+      "delta": 0,
+      "direction": "unchanged"
     },
     {
       "name": "overattach_to_ready_attacker",
-      "before": 3,
-      "after": 4,
-      "delta": 1,
-      "direction": "worsened"
+      "before": 0,
+      "after": 0,
+      "delta": 0,
+      "direction": "unchanged"
     },
     {
       "name": "stage1_without_base_search",
-      "before": 1,
-      "after": 1,
+      "before": 0,
+      "after": 0,
       "delta": 0,
       "direction": "unchanged"
     },
     {
       "name": "duplicate_stage1_search",
       "before": 0,
-      "after": 1,
-      "delta": 1,
-      "direction": "worsened"
+      "after": 0,
+      "delta": 0,
+      "direction": "unchanged"
     },
     {
       "name": "low_value_search",
@@ -133,13 +133,31 @@
       "after": 0,
       "delta": 0,
       "direction": "unchanged"
+    },
+    {
+      "name": "stronger_ready_bench_attacker_not_promoted",
+      "before": 0,
+      "after": 0,
+      "delta": 0,
+      "direction": "unchanged"
+    },
+    {
+      "name": "voltorb_scaling_attack_underused",
+      "before": 0,
+      "after": 0,
+      "delta": 0,
+      "direction": "unchanged"
+    },
+    {
+      "name": "best_damage_attacker_not_selected",
+      "before": 158,
+      "after": 261,
+      "delta": 103,
+      "direction": "worsened"
     }
   ],
   "reasons": [
-    "Total anomalies decreased.",
-    "Critical anomalies decreased.",
-    "High severity anomalies decreased.",
-    "Worsened metrics are minor (low/info or delta<=1)."
+    "Total anomalies increased (+105) with no severity improvement."
   ],
   "warnings": []
 }

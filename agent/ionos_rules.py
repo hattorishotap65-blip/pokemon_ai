@@ -1103,6 +1103,14 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
         if active_cid == _KILOWATTREL and active_energy >= _KILOWATTREL_ATTACK_ENERGY_REQ:
             return -300.0, "ionos:avoid_retreat_kilowattrel_can_attack"
 
+        # F0001: Wattrel active → retreat to Voltorb if Voltorb has higher damage
+        if active_cid == _WATTREL:
+            vt_energy = _get_target_energy_count(_VOLTORB, state)
+            if vt_energy >= _VOLTORB_ATTACK_ENERGY_REQ and _voltorb_on_field(state):
+                est_dmg = _estimate_voltorb_damage(state)
+                if est_dmg >= 100:
+                    return 150.0, "ionos:retreat_wattrel_to_voltorb_high_damage"
+
     # -- 17. Night Stretcher ---------------------------------------------------
     if opt_type == 7 and cid == _NIGHT_STRETCHER:
         return 2.0, "ionos:night_stretcher"

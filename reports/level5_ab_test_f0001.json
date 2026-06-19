@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "target_candidate": "F0001",
+  "classification": "voltorb_over_wattrel_missed",
+  "baseline": {
+    "games": 30,
+    "source": "g1200 batch",
+    "anomalies_total": 158,
+    "f0001_count": 4,
+    "f0001_per_game": 0.13
+  },
+  "candidate": {
+    "games": 50,
+    "source": "g1300 batch",
+    "anomalies_total": 263,
+    "f0001_count": 13,
+    "f0001_per_game": 0.26
+  },
+  "fix_applied": {
+    "file": "agent/ionos_rules.py",
+    "description": "Added retreat bonus (+150) when Wattrel is active, Voltorb is on bench with 2+ energy, and estimated damage >= 100",
+    "times_triggered": 0
+  },
+  "per_game_comparison": {
+    "anomalies_total": {"baseline": 5.27, "candidate": 5.26, "delta": -0.01},
+    "voltorb_over_wattrel_missed": {"baseline": 0.13, "candidate": 0.26, "delta": 0.13},
+    "voltorb_over_kilowattrel_missed": {"baseline": 1.17, "candidate": 1.06, "delta": -0.11},
+    "bellibolt_over_voltorb_high_damage": {"baseline": 1.30, "candidate": 1.62, "delta": 0.32},
+    "bellibolt_attack_probably_correct": {"baseline": 2.67, "candidate": 2.28, "delta": -0.39},
+    "attack_available_but_no_attack": {"baseline": 0.0, "candidate": 0.02, "delta": 0.02},
+    "end_when_attack_available": {"baseline": 0.0, "candidate": 0.0, "delta": 0.0},
+    "retreat_when_attack_available": {"baseline": 0.0, "candidate": 0.0, "delta": 0.0}
+  },
+  "decision": "no_measurable_impact",
+  "reasons": [
+    "Fix never triggered (0 fires in 50 games)",
+    "Wattrel active + Voltorb bench ready condition is extremely rare",
+    "F0001 count variation (0.13 -> 0.26/game) is within small-sample noise",
+    "No regression in critical/high safety metrics",
+    "Fix is harmless but has no observable effect"
+  ],
+  "recommendation": "Keep fix (harmless safety net), proceed to F0002 which has 35-53 cases and higher impact potential"
+}

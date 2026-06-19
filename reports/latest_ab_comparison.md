@@ -1,42 +1,31 @@
 # A/B Anomaly Comparison
 
-Generated: 2026-06-19 02:51 UTC
+Generated: 2026-06-19 08:40 UTC
 
 ## Decision
 
-**accept**
+**reject**
 
 ## Summary
 
-- anomalies_total: 25 -> 12 (-13)
-- critical: 2 -> 0 (-2)
-- high: 8 -> 3 (-5)
-- medium: 10 -> 6 (-4)
-- low: 5 -> 3 (-2)
-- games: 50 (before) / 50 (after)
-- confidence: high
-
-## Improved
-
-- attack_available_but_no_attack: 8 -> 3 (-5)
-- end_when_attack_available: 2 -> 0 (-2)
-- retreat_when_attack_available: 3 -> 0 (-3)
-- ability_without_followup_attack: 5 -> 3 (-2)
-- ko_available_but_no_attack: 2 -> 0 (-2)
-- ability_breaks_attack_ready_state: 1 -> 0 (-1)
+- anomalies_total: 158 -> 263 (+105)
+- critical: 0 -> 0 (0)
+- high: 0 -> 1 (+1)
+- medium: 0 -> 1 (+1)
+- low: 158 -> 261 (+103)
+- games: 30 (before) / 50 (after)
+- confidence: medium
 
 ## Worsened
 
-- overattach_to_ready_attacker: 3 -> 4 (+1)
-- duplicate_stage1_search: 0 -> 1 (+1)
+- attack_available_but_no_attack: 0 -> 1 (+1)
+- ability_without_followup_attack: 0 -> 1 (+1)
+- best_damage_attacker_not_selected: 158 -> 261 (+103)
 
 ## Reasons
 
-- Total anomalies decreased.
-- Critical anomalies decreased.
-- High severity anomalies decreased.
-- Worsened metrics are minor (low/info or delta<=1).
+- Total anomalies increased (+105) with no severity improvement.
 
 ## Recommendation
 
-Candidate is safe to adopt.
+Candidate should be rejected — severity increased.

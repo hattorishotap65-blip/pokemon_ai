@@ -1,0 +1,255 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-19T08:41:44.625751+00:00",
+  "source_report": "reports/candidate/latest_anomaly_report.json",
+  "deck_profile_id": "ionos_kilowattrel",
+  "summary": {
+    "anomalies_total": 263,
+    "candidate_total": 6,
+    "high_priority_candidates": 3,
+    "medium_priority_candidates": 1,
+    "low_priority_candidates": 2
+  },
+  "classification": {
+    "attack_available_but_no_attack": 1,
+    "ability_without_followup_attack": 1,
+    "bellibolt_attack_probably_correct": 114,
+    "voltorb_over_wattrel_missed": 13,
+    "voltorb_over_kilowattrel_missed": 53,
+    "bellibolt_over_voltorb_high_damage": 81
+  },
+  "fix_candidates": [
+    {
+      "id": "F0001",
+      "priority": "high",
+      "source_anomaly_type": "best_damage_attacker_not_selected",
+      "classification": "voltorb_over_wattrel_missed",
+      "title": "Avoid attacking with Wattrel when Voltorb scaling damage is clearly superior",
+      "root_cause_hypothesis": "Wattrel should not be attacking when Voltorb has significantly higher damage potential.",
+      "evidence": {
+        "count": 13,
+        "representative_anomaly_ids": [
+          "A0005",
+          "A0010",
+          "A0012",
+          "A0018",
+          "A0027"
+        ],
+        "actual_attackers": [
+          "270"
+        ],
+        "estimated_voltorb_damage_range": [
+          120,
+          120
+        ]
+      },
+      "suggested_change_type": "scoring_adjustment",
+      "suggested_target_files": [
+        "agent/ionos_rules.py",
+        "agent/policy.py"
+      ],
+      "risk": "low",
+      "expected_effect": "Avoid attacking with Wattrel when Voltorb scaling damage is clearly superior",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": true,
+      "ab_test_metric": [
+        "win_rate",
+        "voltorb_attack_count",
+        "best_damage_attacker_not_selected"
+      ]
+    },
+    {
+      "id": "F0002",
+      "priority": "high",
+      "source_anomaly_type": "best_damage_attacker_not_selected",
+      "classification": "voltorb_over_kilowattrel_missed",
+      "title": "Prefer Voltorb scaling attack over Kilowattrel fixed 70 damage when Voltorb has high estimated damage",
+      "root_cause_hypothesis": "Attacker selection may underweight Voltorb scaling damage compared with Kilowattrel static priority. Agent does not consider retreating to Voltorb when Voltorb has higher expected damage.",
+      "evidence": {
+        "count": 53,
+        "representative_anomaly_ids": [
+          "A0008",
+          "A0015",
+          "A0025",
+          "A0031",
+          "A0045"
+        ],
+        "actual_attackers": [
+          "271"
+        ],
+        "estimated_voltorb_damage_range": [
+          120,
+          280
+        ]
+      },
+      "suggested_change_type": "scoring_adjustment",
+      "suggested_target_files": [
+        "agent/ionos_rules.py",
+        "agent/policy.py",
+        "data/deck_profile.json"
+      ],
+      "risk": "medium",
+      "expected_effect": "Prefer Voltorb scaling attack over Kilowattrel fixed 70 damage when Voltorb has high estimated damage",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": true,
+      "ab_test_metric": [
+        "win_rate",
+        "voltorb_attack_count",
+        "best_damage_attacker_not_selected"
+      ]
+    },
+    {
+      "id": "F0003",
+      "priority": "high",
+      "source_anomaly_type": "attack_available_but_no_attack",
+      "classification": "attack_available_but_no_attack",
+      "title": "Ensure attack is selected when a legal attack option exists",
+      "root_cause_hypothesis": "Turn ended without attacking despite a legal attack being available in the select options.",
+      "evidence": {
+        "count": 1,
+        "representative_anomaly_ids": [
+          "A0001"
+        ],
+        "actual_attackers": [
+          "269"
+        ],
+        "estimated_voltorb_damage_range": []
+      },
+      "suggested_change_type": "scoring_adjustment",
+      "suggested_target_files": [
+        "agent/turn_rule_engine.py",
+        "agent/policy.py",
+        "agent/ionos_rules.py"
+      ],
+      "risk": "medium",
+      "expected_effect": "Ensure attack is selected when a legal attack option exists",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": true,
+      "ab_test_metric": [
+        "win_rate",
+        "attack_available_but_no_attack"
+      ]
+    },
+    {
+      "id": "F0004",
+      "priority": "low",
+      "source_anomaly_type": "ability_without_followup_attack",
+      "classification": "ability_without_followup_attack",
+      "title": "Ensure Ability usage is followed by attack when possible",
+      "root_cause_hypothesis": "Root cause for ability_without_followup_attack needs investigation.",
+      "evidence": {
+        "count": 1,
+        "representative_anomaly_ids": [
+          "A0002"
+        ],
+        "actual_attackers": [
+          "269"
+        ],
+        "estimated_voltorb_damage_range": []
+      },
+      "suggested_change_type": "scoring_adjustment",
+      "suggested_target_files": [
+        "tools/detect_anomalies.py"
+      ],
+      "risk": "medium",
+      "expected_effect": "Ensure Ability usage is followed by attack when possible",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": true,
+      "ab_test_metric": [
+        "win_rate"
+      ]
+    },
+    {
+      "id": "F0005",
+      "priority": "medium",
+      "source_anomaly_type": "best_damage_attacker_not_selected",
+      "classification": "bellibolt_over_voltorb_high_damage",
+      "title": "Consider Voltorb over Bellibolt ex when Voltorb estimated damage exceeds 230",
+      "root_cause_hypothesis": "Bellibolt ex is being used as primary attacker even when Voltorb scaling damage exceeds 230. Non-ex Voltorb would be more prize-efficient.",
+      "evidence": {
+        "count": 81,
+        "representative_anomaly_ids": [
+          "A0017",
+          "A0038",
+          "A0042",
+          "A0048",
+          "A0049"
+        ],
+        "actual_attackers": [
+          "269"
+        ],
+        "estimated_voltorb_damage_range": [
+          240,
+          400
+        ]
+      },
+      "suggested_change_type": "scoring_adjustment",
+      "suggested_target_files": [
+        "agent/ionos_rules.py",
+        "agent/policy.py",
+        "data/deck_profile.json"
+      ],
+      "risk": "medium",
+      "expected_effect": "Consider Voltorb over Bellibolt ex when Voltorb estimated damage exceeds 230",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": true,
+      "ab_test_metric": [
+        "win_rate",
+        "voltorb_attack_count",
+        "best_damage_attacker_not_selected"
+      ]
+    },
+    {
+      "id": "F0006",
+      "priority": "low",
+      "source_anomaly_type": "best_damage_attacker_not_selected",
+      "classification": "bellibolt_attack_probably_correct",
+      "title": "Bellibolt ex attack is likely correct (Voltorb damage <= 230)",
+      "root_cause_hypothesis": "Bellibolt ex attack is reasonable when its 230 damage equals or exceeds Voltorb estimate. No fix needed.",
+      "evidence": {
+        "count": 114,
+        "representative_anomaly_ids": [
+          "A0003",
+          "A0004",
+          "A0006",
+          "A0007",
+          "A0009"
+        ],
+        "actual_attackers": [
+          "269"
+        ],
+        "estimated_voltorb_damage_range": [
+          120,
+          220
+        ]
+      },
+      "suggested_change_type": "no_fix_needed",
+      "suggested_target_files": [],
+      "risk": "low",
+      "expected_effect": "Bellibolt ex attack is likely correct (Voltorb damage <= 230)",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": false,
+      "ab_test_metric": [
+        "win_rate"
+      ]
+    }
+  ]
+}

@@ -1,45 +1,49 @@
 {
   "schema_version": "1.0",
   "target": "F0009",
-  "purpose": "Extend F0002/F0003 mild retreat bonus to overcome turn_rule -1000",
+  "purpose": "Extend KW mild retreat bonus to overcome turn_rule -1000 (BB reverted)",
   "implementation": {
     "file": "agent/ionos_rules.py",
     "changes": [
-      "BB mild (est 240-259): +80 -> +1100 (pivot_bellibolt_to_voltorb_f0009)",
-      "KW mild (est 120-179): +100 -> +1100 (pivot_kilowattrel_to_voltorb_f0009)"
+      "BB mild (est 240-259): reverted to +80 (F0003 mild, cannot overcome -1000)",
+      "KW mild (est 120-179): +1100 (F0009 pivot, overcomes -1000)"
     ],
     "turn_rule_engine_changed": false
   },
-  "baseline": {"games": 200, "source": "F0008 200g validation (F0007 only)"},
-  "candidate": {"games": 200, "source": "g2800-g3149 (F0007+F0009)"},
-  "per_game_comparison_200g_vs_200g": {
-    "bellibolt_attack_probably_correct": {"baseline": 2.75, "candidate": 2.85, "delta": 0.09},
-    "bellibolt_over_voltorb_high_damage": {"baseline": 0.67, "candidate": 0.82, "delta": 0.16},
-    "voltorb_over_kilowattrel_missed": {"baseline": 1.42, "candidate": 1.47, "delta": 0.05},
-    "voltorb_over_wattrel_missed": {"baseline": 0.15, "candidate": 0.34, "delta": 0.19},
-    "attack_available_but_no_attack": {"baseline": 0, "candidate": 0, "delta": 0},
-    "end_when_attack_available": {"baseline": 0, "candidate": 0, "delta": 0},
-    "retreat_when_attack_available": {"baseline": 0, "candidate": 0, "delta": 0},
-    "ability_without_followup_attack": {"baseline": 0, "candidate": 0, "delta": 0}
+  "f0009_full_result": {
+    "decision": "hold",
+    "reason": "BB 240-259 caused bellibolt_over_voltorb_high_damage +22% and voltorb_over_wattrel_missed +127%"
   },
-  "triggers_200g": {
-    "f0007_kw_pivot_ge180": 178,
-    "f0007_bb_pivot_ge260": 79,
-    "f0009_kw_pivot_120_179": 41,
-    "f0009_bb_pivot_240_259": 310,
-    "total_f0009_new": 351
+  "f0009_kw_only_result": {
+    "baseline": {"games": 200, "source": "F0008 200g (F0007 only)"},
+    "candidate": {"games": 200, "source": "g3200-g3549 (F0007 + F0009 KW-only)"},
+    "per_game_comparison": {
+      "bellibolt_attack_probably_correct": {"baseline": 2.75, "candidate": 2.74, "delta": -0.01},
+      "bellibolt_over_voltorb_high_damage": {"baseline": 0.67, "candidate": 0.70, "delta": 0.03},
+      "voltorb_over_kilowattrel_missed": {"baseline": 1.42, "candidate": 1.55, "delta": 0.14},
+      "voltorb_over_wattrel_missed": {"baseline": 0.15, "candidate": 0.12, "delta": -0.04},
+      "attack_available_but_no_attack": {"baseline": 0, "candidate": 0, "delta": 0},
+      "end_when_attack_available": {"baseline": 0, "candidate": 0, "delta": 0},
+      "retreat_when_attack_available": {"baseline": 0, "candidate": 0, "delta": 0},
+      "ability_without_followup_attack": {"baseline": 0, "candidate": 0, "delta": 0}
+    },
+    "triggers_200g": {
+      "f0007_kw_ge180": 197,
+      "f0007_bb_ge260": 188,
+      "f0009_kw_120_179": 36,
+      "f0003_bb_mild_240_259": 353
+    },
+    "decision": "hold",
+    "reasons": [
+      "Safety all 0 (good)",
+      "F0009 KW triggered 36 times (0.18/g)",
+      "bellibolt_over_voltorb_high_damage: +0.03 (stable, BB revert worked)",
+      "voltorb_over_wattrel_missed: -0.04 (improved, BB revert worked)",
+      "voltorb_over_kilowattrel_missed: +0.14 (slightly worsened, within variance but notable)",
+      "BB revert successfully fixed the full-F0009 regressions",
+      "KW-only pivot has marginal effect (36 triggers in 200g)"
+    ]
   },
-  "decision": "hold",
-  "reasons": [
-    "Safety metrics all 0 (good)",
-    "F0009 triggered 351 times in 200g (1.75/g) — actively working",
-    "bellibolt_over_voltorb_high_damage: 0.67 -> 0.82 (+22%, worsened)",
-    "voltorb_over_wattrel_missed: 0.15 -> 0.34 (+127%, worsened)",
-    "voltorb_over_kilowattrel_missed: 1.42 -> 1.47 (+3.5%, stable)",
-    "bellibolt_attack_probably_correct: 2.75 -> 2.85 (+3.6%, stable)",
-    "F0009 pivot causes more retreat, which changes game flow and creates new anomaly patterns",
-    "Improvement in pivot itself is real, but downstream effects are mixed"
-  ],
   "safety_check": {
     "all_safety_metrics_zero": true,
     "submission_rebuilt": true

@@ -46,6 +46,8 @@ _ANOMALY_TYPE_KEYS = [
     "low_value_search",
     "discarded_protected_card",
     "stronger_ready_bench_attacker_not_promoted",
+    "voltorb_scaling_attack_underused",
+    "best_damage_attacker_not_selected",
 ]
 
 _ALL_METRIC_KEYS = (

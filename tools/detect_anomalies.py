@@ -109,6 +109,9 @@ def normalize_event(raw: dict, filename: str = "") -> dict | None:
         # deck_log fields for bench inference
         "bellibolt_in_play":    (raw.get("deck_log") or {}).get("bellibolt", {}).get("bellibolt_in_play", False),
         "bellibolt_is_active":  (raw.get("deck_log") or {}).get("bellibolt", {}).get("bellibolt_is_active", False),
+        # Voltorb scaling data
+        "iono_lightning_count": (raw.get("deck_log") or {}).get("voltorb", {}).get("iono_lightning_count"),
+        "estimated_voltorb_damage": (raw.get("deck_log") or {}).get("voltorb", {}).get("estimated_voltorb_damage"),
     }
 
 
@@ -129,6 +132,8 @@ class DeckProfile:
         self._main_attackers: set[str] = set()
         self._sub_attackers: set[str] = set()
         self._setup_cards: set[str] = set()
+        self._voltorb_policy: dict = {}
+        self._iono_pokemon_ids: set[str] = set()
         self._build_indexes()
 
     def _build_indexes(self):
@@ -149,6 +154,18 @@ class DeckProfile:
             self._roles.setdefault(str(cid), "energy_engine")
         for cid in d.get("draw_engine", []):
             self._roles.setdefault(str(cid), "draw_support")
+        for cid in d.get("backup_attackers", []):
+            s = str(cid)
+            self._sub_attackers.add(s)
+            self._roles.setdefault(s, "backup_attacker")
+
+        vsp = d.get("voltorb_scaling_policy") or {}
+        self._voltorb_policy = vsp
+        for cid in vsp.get("count_lightning_energy_on_card_ids", []):
+            self._iono_pokemon_ids.add(str(cid))
+        main_scaler = vsp.get("main_scaling_attacker")
+        if main_scaler:
+            self._main_attackers.add(str(main_scaler))
 
         cards = d.get("cards") or {}
         for cid_str, info in cards.items():
@@ -187,6 +204,23 @@ class DeckProfile:
     @property
     def deck_id(self) -> str:
         return self._data.get("deck_id", "unknown")
+
+    @property
+    def voltorb_scaling_attacker(self) -> str | None:
+        cid = self._voltorb_policy.get("main_scaling_attacker")
+        return str(cid) if cid else None
+
+    @property
+    def voltorb_attack_req(self) -> int:
+        return int(self._voltorb_policy.get("required_lightning_to_attack", 2))
+
+    @property
+    def voltorb_high_damage_threshold(self) -> int:
+        return int(self._voltorb_policy.get("estimated_damage_high_threshold", 120))
+
+    @property
+    def iono_pokemon_ids(self) -> set[str]:
+        return self._iono_pokemon_ids
 
 
 # ---------------------------------------------------------------------------
@@ -464,6 +498,64 @@ def detect_turn_anomalies(
             ))
             break
 
+    # --- voltorb_scaling_attack_underused ---
+    voltorb_cid = profile.voltorb_scaling_attacker
+    if voltorb_cid and attack_available_in_turn and not attack_selected_in_turn:
+        for ev in turn_events:
+            if not ev.get("has_legal_attack"):
+                continue
+            active_cid = str(ev.get("active_id") or "")
+            est_dmg    = ev.get("estimated_voltorb_damage")
+            lightning  = ev.get("iono_lightning_count")
+            if active_cid == voltorb_cid and est_dmg is not None and est_dmg > 0:
+                threshold = profile.voltorb_high_damage_threshold
+                confidence = "high" if est_dmg >= threshold else "medium" if est_dmg >= 60 else "low"
+                results.append(_anomaly(
+                    "medium", "voltorb_scaling_attack_underused", ev,
+                    expected="attack_with_voltorb_scaling_damage",
+                    actual=ev.get("selected_option_class", "unknown"),
+                    why=(
+                        f"Voltorb was active with estimated damage {est_dmg} "
+                        f"({lightning or '?'} Lightning on Iono's Pokemon) "
+                        f"but the turn ended without attacking."
+                    ),
+                    confidence=confidence,
+                    suggested_fix_area=[
+                        "ionos_rules.py score_voltorb_attack",
+                        "data/deck_profile.json voltorb_scaling_policy",
+                    ],
+                    extra={"estimated_voltorb_damage": est_dmg,
+                           "iono_lightning_count": lightning},
+                ))
+                break
+
+    # --- best_damage_attacker_not_selected ---
+    if attack_selected_in_turn and voltorb_cid:
+        for ev in turn_events:
+            if ev.get("selected_option_class") != "attack":
+                continue
+            active_cid = str(ev.get("active_id") or "")
+            est_dmg    = ev.get("estimated_voltorb_damage")
+            if active_cid != voltorb_cid and est_dmg is not None and est_dmg >= profile.voltorb_high_damage_threshold:
+                results.append(_anomaly(
+                    "low", "best_damage_attacker_not_selected", ev,
+                    expected=f"consider_voltorb_scaling_attack_{est_dmg}dmg",
+                    actual=f"attacked_with_{active_cid}",
+                    why=(
+                        f"Attacked with {active_cid} instead of Voltorb. "
+                        f"Voltorb estimated damage was {est_dmg} (high scaling), "
+                        f"which may have been a better prize-race option."
+                    ),
+                    confidence="low",
+                    suggested_fix_area=[
+                        "ionos_rules.py attacker selection",
+                        "data/deck_profile.json attacker_selection_policy",
+                    ],
+                    extra={"estimated_voltorb_damage": est_dmg,
+                           "actual_attacker": active_cid},
+                ))
+                break
+
     return results
 
 
@@ -535,6 +627,8 @@ def build_summary(anomalies: list[dict], files_count: int, events: list[dict]) -
         "low_value_search",
         "discarded_protected_card",
         "stronger_ready_bench_attacker_not_promoted",
+        "voltorb_scaling_attack_underused",
+        "best_damage_attacker_not_selected",
     ]:
         summary[atype] = type_counts.get(atype, 0)
 

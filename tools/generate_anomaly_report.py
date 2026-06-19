@@ -12,6 +12,7 @@ def generate_json_report(
     summary: dict,
     deck_profile_id: str = "unknown",
     source_dir: str = "battle_logs/inbox",
+    ignored_files: list[str] | None = None,
 ) -> dict:
     """Build the full JSON report structure."""
     return {
@@ -21,6 +22,7 @@ def generate_json_report(
         "source_dir":      source_dir,
         "summary":         summary,
         "anomalies":       anomalies,
+        "ignored_files":   ignored_files or [],
     }
 
 

@@ -147,6 +147,7 @@ def main():
         anomalies, summary,
         deck_profile_id=profile.deck_id,
         source_dir=args.input,
+        ignored_files=[os.path.basename(p) for p in bad_files],
     )
     md_report   = generate_markdown_report(anomalies, summary, top_n=args.top)
     llm_summary = generate_llm_summary(anomalies, summary, top_n=min(args.top, 10))

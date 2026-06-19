@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "target": "F0003 threshold investigation",
+  "current_threshold": 240,
+  "current_bonus": 80,
+  "investigation_results": {
+    "remaining_f0003_count": 31,
+    "remaining_damage_distribution": {
+      "240-259": 20,
+      "260-279": 4,
+      "280-299": 5,
+      "300-319": 2
+    },
+    "all_remaining_have_damage_gte_240": true,
+    "cases_between_231_and_239": 0,
+    "current_fix_trigger_count": 181,
+    "root_cause": "retreat bonus (+80) cannot overcome turn_rule_engine -1000 penalty when attack is available"
+  },
+  "experiment_1200_bonus": {
+    "description": "Increased F0003 retreat bonus from +80 to +1200 to overcome -1000",
+    "f0003_result": "31 -> 25 (minor improvement)",
+    "retreat_when_attack_available": "0 -> 1 (REGRESSION)",
+    "attack_available_but_no_attack": "2 -> 3 (slight increase)",
+    "voltorb_over_wattrel_missed": "5 -> 11 (REGRESSION)",
+    "decision": "reject - retreat-based approach at this magnitude causes safety regressions"
+  },
+  "analysis": {
+    "why_threshold_change_wont_help": "All remaining 31 cases have Voltorb damage >= 240, so lowering threshold to 230 would catch 0 additional cases",
+    "why_bonus_increase_is_dangerous": "Boosting retreat bonus to overcome turn_rule -1000 causes Bellibolt to retreat at inappropriate times, creating retreat_when_attack_available regressions",
+    "fundamental_limitation": "turn_rule_engine universally penalizes retreat by -1000 when attack is available. This is correct 99% of the time but blocks pivot-to-better-attacker. Solving this requires architectural change, not parameter tuning.",
+    "alternative_approaches": [
+      "Add a 'pivot_to_better_attacker' exception in turn_rule_engine that conditionally reduces the -1000 penalty",
+      "Add a Bellibolt attack penalty in ionos_rules when Voltorb has higher damage, instead of boosting retreat",
+      "Implement active Pokemon selection logic that prefers Voltorb during TO_ACTIVE/SWITCH contexts",
+      "Accept current level as sufficient (F0003 already reduced 57% from original 86)"
+    ]
+  },
+  "decision": "keep_current_threshold",
+  "recommendation": "Maintain threshold=240 with bonus=+80. Further improvement requires turn_rule_engine architecture change or Bellibolt attack penalty approach, not threshold tuning."
+}

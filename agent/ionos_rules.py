@@ -1103,9 +1103,9 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
                 # F0007: strong pivot when Voltorb clearly exceeds BB 230
                 if est_dmg_bb >= 260:
                     return 1100.0, "ionos:pivot_bellibolt_to_voltorb_f0007"
-                # F0003: mild retreat bonus for 240-259 range
+                # F0009/F0003: pivot for 240-259 range (overcomes turn_rule -1000)
                 if est_dmg_bb >= 240:
-                    return 80.0, "ionos:retreat_bellibolt_to_voltorb_higher_damage"
+                    return 1100.0, "ionos:pivot_bellibolt_to_voltorb_f0009"
             return -700.0, "ionos:avoid_retreat_bellibolt_can_attack"
         if active_cid == _VOLTORB and active_energy >= _VOLTORB_ATTACK_ENERGY_REQ:
             return -300.0, "ionos:avoid_retreat_voltorb_can_attack"
@@ -1116,9 +1116,9 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
                 # F0007: strong pivot when Voltorb greatly exceeds KW 70
                 if est_dmg_kw >= 180:
                     return 1100.0, "ionos:pivot_kilowattrel_to_voltorb_f0007"
-                # F0002: mild retreat bonus for 120-179 range
+                # F0009/F0002: pivot for 120-179 range (overcomes turn_rule -1000)
                 if est_dmg_kw >= 120:
-                    return 100.0, "ionos:retreat_kilowattrel_to_voltorb_high_damage"
+                    return 1100.0, "ionos:pivot_kilowattrel_to_voltorb_f0009"
             return -300.0, "ionos:avoid_retreat_kilowattrel_can_attack"
 
         # F0001: Wattrel active → retreat to Voltorb if Voltorb has higher damage

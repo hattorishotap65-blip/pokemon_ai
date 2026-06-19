@@ -1,58 +1,108 @@
 {
   "deck_id": "ionos_kilowattrel",
-  "archetype": "aggro",
-  "confidence_score": 0.90,
+  "archetype": "voltorb_scaling_aggro",
+  "confidence_score": 0.95,
   "human_review_required": false,
   "archetype_scores": {
     "aggro": 30.0,
-    "prize_race": 24.0,
+    "prize_race": 26.0,
     "setup_midrange": 18.0,
-    "combo": 12.0,
+    "combo": 14.0,
     "resource_loop": 10.0,
     "control": 6.0
   },
-  "primary_win_condition": "Iono's Voltorb scales damage via total Lightning on Iono's Pokemon; Bellibolt ex accelerates energy; take prizes before opponent sets up",
+  "primary_win_condition": "Use Iono's Bellibolt ex as an energy acceleration engine, spread Basic Lightning Energy across Iono's Pokemon, and attack primarily with Iono's Voltorb's scaling non-ex attack when its expected damage is high enough.",
   "sub_win_conditions": [
-    "Iono's Bellibolt ex attacks after Voltorb line falls",
-    "Iono's Kilowattrel as non-ex follow-up attacker",
-    "Energy Retrieval / Night Stretcher for sustained pressure"
+    "Iono's Bellibolt ex attacks as a backup or closer when 230 damage is needed or Voltorb is unavailable",
+    "Iono's Kilowattrel acts as a non-ex follow-up attacker and draw support, not the default main win condition",
+    "Energy Retrieval / Night Stretcher / Max Rod sustain Lightning Energy and Iono's Pokemon so Voltorb damage scaling stays online"
   ],
-  "main_attackers": [265, 269],
-  "sub_attackers": [271],
+  "main_attackers": [265],
+  "backup_attackers": [269, 271],
+  "sub_attackers": [269, 271],
   "setup_cards": [268, 270],
-  "draw_engine": [1227, 1233],
+  "draw_engine": [1227, 1233, 271],
   "search_engine": [1086, 1121],
   "energy_engine": [269],
   "disruption_cards": [],
   "recovery_cards": [1097, 1110, 1118, 1152],
   "energy_scaling_cards": [265],
+  "damage_model": {
+    "voltorb_scaling_attack": {
+      "attacker_id": 265,
+      "attack_name": "Voltaic Chain",
+      "requires_energy_count_on_voltorb": 2,
+      "damage_formula": "20 + 20 * total_basic_lightning_energy_attached_to_own_iono_pokemon",
+      "energy_count_scope": [265, 268, 269, 270, 271],
+      "side_efficiency_note": "Voltorb is non-ex, so prefer Voltorb when its expected damage is comparable to or better than Bellibolt ex / Kilowattrel attacks."
+    }
+  },
+  "attacker_selection_policy": {
+    "primary_rule": "Prefer the attacker with the best combination of expected damage, KO potential, prize efficiency, and next-turn risk.",
+    "prefer_voltorb_when": [
+      "Voltorb has at least 2 energy and can legally attack",
+      "Voltorb's estimated scaling damage can take KO or apply meaningful pressure",
+      "Bellibolt ex attacking would expose a 2-prize Pokemon without a clear damage advantage"
+    ],
+    "use_bellibolt_attack_when": [
+      "Bellibolt ex's fixed 230 damage reaches an important KO that Voltorb cannot reach",
+      "Voltorb is not ready or has been knocked out",
+      "The opponent's board requires immediate 230 damage pressure"
+    ],
+    "use_kilowattrel_attack_when": [
+      "Voltorb is not ready and Kilowattrel can maintain non-ex pressure",
+      "Kilowattrel attack is the best legal damage option",
+      "Kilowattrel's draw ability does not break attack readiness"
+    ]
+  },
+  "energy_policy": {
+    "core_rule": "Energy attached anywhere on own Iono's Pokemon increases Voltorb damage, so Bellibolt ex Ability should value distributed Lightning Energy, not only Bellibolt attack readiness.",
+    "attach_priorities": [
+      "get Voltorb to 2 energy when it can attack",
+      "spread Lightning Energy to Iono's Pokemon to raise Voltorb damage",
+      "prepare Tadbulb/Bellibolt ex as the energy engine",
+      "prepare Kilowattrel as backup attacker/draw support",
+      "avoid over-focusing energy on Bellibolt ex if Voltorb already provides better prize-efficient damage"
+    ]
+  },
   "weak_points": [
     "stage1_setup_required",
     "no_ace_spec_disruption",
-    "reliant_on_energy_acceleration"
+    "reliant_on_energy_acceleration",
+    "can_mis-prioritize_evolution_attackers_over_voltorb_scaling_damage"
   ],
   "early_priorities": [
     "find_tadbulb_and_voltorb",
     "setup_bench_with_poffin",
-    "attach_lightning_to_voltorb",
+    "attach_lightning_to_voltorb_until_attack_ready",
     "setup_bellibolt_ex_line"
   ],
   "mid_priorities": [
     "evolve_bellibolt_ex",
-    "bellibolt_ability_energy_acceleration",
-    "voltorb_scales_damage_with_lightning",
-    "evolve_kilowattrel_as_backup"
+    "use_bellibolt_ability_to_spread_lightning_energy",
+    "evaluate_voltorb_expected_damage_before_choosing_attacker",
+    "attack_with_voltorb_when_scaling_damage_is_best",
+    "evolve_kilowattrel_as_backup_draw_and_attack_option"
   ],
   "late_priorities": [
-    "attack_with_bellibolt_or_kilowattrel",
+    "choose_best_damage_and_prize_efficient_attacker",
+    "prefer_voltorb_when_scaling_damage_reaches_KO_or_key_pressure",
+    "use_bellibolt_or_kilowattrel_as_backup_or_closer",
     "recovery_with_night_stretcher",
     "take_final_prizes"
+  ],
+  "anomaly_detection_focus": [
+    "voltorb_scaling_attack_underused",
+    "best_damage_attacker_not_selected",
+    "bellibolt_attack_overpreferred_when_voltorb_damage_is_sufficient",
+    "energy_spread_does_not_improve_voltorb_damage",
+    "stronger_ready_bench_attacker_not_promoted"
   ],
   "advantage_weights": {
     "early": {
       "card_adv": 1.2,
       "board_adv": 1.8,
-      "energy_adv": 1.5,
+      "energy_adv": 1.6,
       "tempo_adv": 1.2,
       "prize_adv": 0.7,
       "resource_adv": 0.7,
@@ -62,9 +112,9 @@
     "mid": {
       "card_adv": 0.9,
       "board_adv": 1.3,
-      "energy_adv": 1.2,
+      "energy_adv": 1.4,
       "tempo_adv": 1.5,
-      "prize_adv": 1.6,
+      "prize_adv": 1.7,
       "resource_adv": 0.8,
       "info_adv": 0.4,
       "risk_reduction_adv": 0.8
@@ -72,7 +122,7 @@
     "late": {
       "card_adv": 0.6,
       "board_adv": 0.8,
-      "energy_adv": 0.9,
+      "energy_adv": 1.1,
       "tempo_adv": 1.0,
       "prize_adv": 2.0,
       "resource_adv": 1.2,

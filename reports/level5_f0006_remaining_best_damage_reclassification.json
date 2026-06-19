@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "source_report": "reports/latest_anomaly_report.json",
+  "games": 50,
+  "total_best_damage": 291,
+  "reclassification": {
+    "bellibolt_attack_probably_correct": 153,
+    "bellibolt_over_voltorb_high_damage_remaining": 2,
+    "kilowattrel_over_voltorb_remaining": 11,
+    "wattrel_over_voltorb_remaining": 5,
+    "pivot_to_better_attacker_candidate": 120,
+    "detector_refinement_candidate": 0,
+    "no_fix_needed": 0
+  },
+  "summary": {
+    "no_fix_needed_total": 153,
+    "pivot_to_better_attacker": 120,
+    "detector_refinement": 0,
+    "remaining_individual": 18
+  },
+  "pivot_by_actual_attacker": {
+    "271": 91,
+    "269": 29
+  }
+}

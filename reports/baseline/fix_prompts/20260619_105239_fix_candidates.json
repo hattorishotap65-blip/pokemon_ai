@@ -1,0 +1,186 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-19T10:52:39.685347+00:00",
+  "source_report": "reports/baseline/latest_anomaly_report.json",
+  "deck_profile_id": "ionos_kilowattrel",
+  "summary": {
+    "anomalies_total": 257,
+    "candidate_total": 4,
+    "high_priority_candidates": 2,
+    "medium_priority_candidates": 1,
+    "low_priority_candidates": 1
+  },
+  "classification": {
+    "voltorb_over_wattrel_missed": 5,
+    "bellibolt_attack_probably_correct": 108,
+    "bellibolt_over_voltorb_high_damage": 89,
+    "voltorb_over_kilowattrel_missed": 55
+  },
+  "fix_candidates": [
+    {
+      "id": "F0001",
+      "priority": "high",
+      "source_anomaly_type": "best_damage_attacker_not_selected",
+      "classification": "voltorb_over_wattrel_missed",
+      "title": "Avoid attacking with Wattrel when Voltorb scaling damage is clearly superior",
+      "root_cause_hypothesis": "Wattrel should not be attacking when Voltorb has significantly higher damage potential.",
+      "evidence": {
+        "count": 5,
+        "representative_anomaly_ids": [
+          "A0001",
+          "A0005",
+          "A0151",
+          "A0190",
+          "A0209"
+        ],
+        "actual_attackers": [
+          "270"
+        ],
+        "estimated_voltorb_damage_range": [
+          120,
+          120
+        ]
+      },
+      "suggested_change_type": "scoring_adjustment",
+      "suggested_target_files": [
+        "agent/ionos_rules.py",
+        "agent/policy.py"
+      ],
+      "risk": "low",
+      "expected_effect": "Avoid attacking with Wattrel when Voltorb scaling damage is clearly superior",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": true,
+      "ab_test_metric": [
+        "win_rate",
+        "voltorb_attack_count",
+        "best_damage_attacker_not_selected"
+      ]
+    },
+    {
+      "id": "F0002",
+      "priority": "high",
+      "source_anomaly_type": "best_damage_attacker_not_selected",
+      "classification": "voltorb_over_kilowattrel_missed",
+      "title": "Prefer Voltorb scaling attack over Kilowattrel fixed 70 damage when Voltorb has high estimated damage",
+      "root_cause_hypothesis": "Attacker selection may underweight Voltorb scaling damage compared with Kilowattrel static priority. Agent does not consider retreating to Voltorb when Voltorb has higher expected damage.",
+      "evidence": {
+        "count": 55,
+        "representative_anomaly_ids": [
+          "A0038",
+          "A0046",
+          "A0056",
+          "A0063",
+          "A0067"
+        ],
+        "actual_attackers": [
+          "271"
+        ],
+        "estimated_voltorb_damage_range": [
+          140,
+          360
+        ]
+      },
+      "suggested_change_type": "scoring_adjustment",
+      "suggested_target_files": [
+        "agent/ionos_rules.py",
+        "agent/policy.py",
+        "data/deck_profile.json"
+      ],
+      "risk": "medium",
+      "expected_effect": "Prefer Voltorb scaling attack over Kilowattrel fixed 70 damage when Voltorb has high estimated damage",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": true,
+      "ab_test_metric": [
+        "win_rate",
+        "voltorb_attack_count",
+        "best_damage_attacker_not_selected"
+      ]
+    },
+    {
+      "id": "F0003",
+      "priority": "medium",
+      "source_anomaly_type": "best_damage_attacker_not_selected",
+      "classification": "bellibolt_over_voltorb_high_damage",
+      "title": "Consider Voltorb over Bellibolt ex when Voltorb estimated damage exceeds 230",
+      "root_cause_hypothesis": "Bellibolt ex is being used as primary attacker even when Voltorb scaling damage exceeds 230. Non-ex Voltorb would be more prize-efficient.",
+      "evidence": {
+        "count": 89,
+        "representative_anomaly_ids": [
+          "A0019",
+          "A0022",
+          "A0030",
+          "A0045",
+          "A0047"
+        ],
+        "actual_attackers": [
+          "269"
+        ],
+        "estimated_voltorb_damage_range": [
+          240,
+          440
+        ]
+      },
+      "suggested_change_type": "scoring_adjustment",
+      "suggested_target_files": [
+        "agent/ionos_rules.py",
+        "agent/policy.py",
+        "data/deck_profile.json"
+      ],
+      "risk": "medium",
+      "expected_effect": "Consider Voltorb over Bellibolt ex when Voltorb estimated damage exceeds 230",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": true,
+      "ab_test_metric": [
+        "win_rate",
+        "voltorb_attack_count",
+        "best_damage_attacker_not_selected"
+      ]
+    },
+    {
+      "id": "F0004",
+      "priority": "low",
+      "source_anomaly_type": "best_damage_attacker_not_selected",
+      "classification": "bellibolt_attack_probably_correct",
+      "title": "Bellibolt ex attack is likely correct (Voltorb damage <= 230)",
+      "root_cause_hypothesis": "Bellibolt ex attack is reasonable when its 230 damage equals or exceeds Voltorb estimate. No fix needed.",
+      "evidence": {
+        "count": 108,
+        "representative_anomaly_ids": [
+          "A0002",
+          "A0003",
+          "A0004",
+          "A0006",
+          "A0007"
+        ],
+        "actual_attackers": [
+          "269"
+        ],
+        "estimated_voltorb_damage_range": [
+          120,
+          220
+        ]
+      },
+      "suggested_change_type": "no_fix_needed",
+      "suggested_target_files": [],
+      "risk": "low",
+      "expected_effect": "Bellibolt ex attack is likely correct (Voltorb damage <= 230)",
+      "do_not_change": [
+        "deck.csv",
+        "submission.tar.gz"
+      ],
+      "requires_ab_test": false,
+      "ab_test_metric": [
+        "win_rate"
+      ]
+    }
+  ]
+}

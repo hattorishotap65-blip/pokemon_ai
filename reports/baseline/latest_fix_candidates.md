@@ -1,27 +1,25 @@
 # Fix Candidate Report
 
-Generated: 2026-06-19 10:56 UTC
+Generated: 2026-06-19 10:52 UTC
 
 ## Summary
 
 | Metric | Count |
 |---|---:|
-| anomalies_total | 232 |
-| fix_candidates | 6 |
-| high_priority | 3 |
+| anomalies_total | 257 |
+| fix_candidates | 4 |
+| high_priority | 2 |
 | medium_priority | 1 |
-| low_priority | 2 |
+| low_priority | 1 |
 
 ## Classification Summary
 
 | Classification | Count | Suggested Action |
 |---|---:|---|
-| bellibolt_attack_probably_correct | 99 | no_fix_needed |
-| bellibolt_over_voltorb_high_damage | 82 | scoring_adjustment |
-| voltorb_over_kilowattrel_missed | 47 | scoring_adjustment |
-| voltorb_over_wattrel_missed | 2 | scoring_adjustment |
-| attack_available_but_no_attack | 1 | scoring_adjustment |
-| ability_without_followup_attack | 1 | scoring_adjustment |
+| bellibolt_attack_probably_correct | 108 | no_fix_needed |
+| bellibolt_over_voltorb_high_damage | 89 | scoring_adjustment |
+| voltorb_over_kilowattrel_missed | 55 | scoring_adjustment |
+| voltorb_over_wattrel_missed | 5 | scoring_adjustment |
 
 ## Fix Candidates
 
@@ -29,7 +27,7 @@ Generated: 2026-06-19 10:56 UTC
 - priority: high
 - source anomaly: best_damage_attacker_not_selected
 - classification: voltorb_over_wattrel_missed
-- evidence: 2 cases
+- evidence: 5 cases
 - voltorb damage range: [120, 120]
 - root cause hypothesis: Wattrel should not be attacking when Voltorb has significantly higher damage potential.
 - suggested target files: agent/ionos_rules.py, agent/policy.py
@@ -40,39 +38,19 @@ Generated: 2026-06-19 10:56 UTC
 - priority: high
 - source anomaly: best_damage_attacker_not_selected
 - classification: voltorb_over_kilowattrel_missed
-- evidence: 47 cases
-- voltorb damage range: [120, 320]
+- evidence: 55 cases
+- voltorb damage range: [140, 360]
 - root cause hypothesis: Attacker selection may underweight Voltorb scaling damage compared with Kilowattrel static priority. Agent does not consider retreating to Voltorb when Voltorb has higher expected damage.
 - suggested target files: agent/ionos_rules.py, agent/policy.py, data/deck_profile.json
 - risk: medium
 - requires A/B test: True
 
-### F0003: Ensure attack is selected when a legal attack option exists
-- priority: high
-- source anomaly: attack_available_but_no_attack
-- classification: attack_available_but_no_attack
-- evidence: 1 cases
-- root cause hypothesis: Turn ended without attacking despite a legal attack being available in the select options.
-- suggested target files: agent/turn_rule_engine.py, agent/policy.py, agent/ionos_rules.py
-- risk: medium
-- requires A/B test: True
-
-### F0004: Ensure Ability usage is followed by attack when possible
-- priority: low
-- source anomaly: ability_without_followup_attack
-- classification: ability_without_followup_attack
-- evidence: 1 cases
-- root cause hypothesis: Root cause for ability_without_followup_attack needs investigation.
-- suggested target files: tools/detect_anomalies.py
-- risk: medium
-- requires A/B test: True
-
-### F0005: Consider Voltorb over Bellibolt ex when Voltorb estimated damage exceeds 230
+### F0003: Consider Voltorb over Bellibolt ex when Voltorb estimated damage exceeds 230
 - priority: medium
 - source anomaly: best_damage_attacker_not_selected
 - classification: bellibolt_over_voltorb_high_damage
-- evidence: 82 cases
-- voltorb damage range: [240, 420]
+- evidence: 89 cases
+- voltorb damage range: [240, 440]
 - root cause hypothesis: Bellibolt ex is being used as primary attacker even when Voltorb scaling damage exceeds 230. Non-ex Voltorb would be more prize-efficient.
 - suggested target files: agent/ionos_rules.py, agent/policy.py, data/deck_profile.json
 - risk: medium
@@ -80,9 +58,9 @@ Generated: 2026-06-19 10:56 UTC
 
 ## No-Fix / Detector Refinement Candidates
 
-### F0006: Bellibolt ex attack is likely correct (Voltorb damage <= 230)
+### F0004: Bellibolt ex attack is likely correct (Voltorb damage <= 230)
 - classification: bellibolt_attack_probably_correct
-- count: 99
+- count: 108
 - suggested action: no_fix_needed
 
 ## Next Recommended Action

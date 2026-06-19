@@ -1,0 +1,145 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-19T02:51:52.508353+00:00",
+  "before": "reports/baseline/latest_anomaly_report.json",
+  "after": "reports/candidate/latest_anomaly_report.json",
+  "summary": {
+    "decision": "accept",
+    "overall_delta": -13,
+    "critical_delta": -2,
+    "high_delta": -5,
+    "medium_delta": -4,
+    "low_delta": -2,
+    "games_before": 50,
+    "games_after": 50,
+    "confidence": "high"
+  },
+  "metrics": [
+    {
+      "name": "anomalies_total",
+      "before": 25,
+      "after": 12,
+      "delta": -13,
+      "direction": "improved"
+    },
+    {
+      "name": "critical",
+      "before": 2,
+      "after": 0,
+      "delta": -2,
+      "direction": "improved"
+    },
+    {
+      "name": "high",
+      "before": 8,
+      "after": 3,
+      "delta": -5,
+      "direction": "improved"
+    },
+    {
+      "name": "medium",
+      "before": 10,
+      "after": 6,
+      "delta": -4,
+      "direction": "improved"
+    },
+    {
+      "name": "low",
+      "before": 5,
+      "after": 3,
+      "delta": -2,
+      "direction": "improved"
+    },
+    {
+      "name": "attack_available_but_no_attack",
+      "before": 8,
+      "after": 3,
+      "delta": -5,
+      "direction": "improved"
+    },
+    {
+      "name": "end_when_attack_available",
+      "before": 2,
+      "after": 0,
+      "delta": -2,
+      "direction": "improved"
+    },
+    {
+      "name": "retreat_when_attack_available",
+      "before": 3,
+      "after": 0,
+      "delta": -3,
+      "direction": "improved"
+    },
+    {
+      "name": "ability_without_followup_attack",
+      "before": 5,
+      "after": 3,
+      "delta": -2,
+      "direction": "improved"
+    },
+    {
+      "name": "high_value_attack_not_used",
+      "before": 0,
+      "after": 0,
+      "delta": 0,
+      "direction": "unchanged"
+    },
+    {
+      "name": "ko_available_but_no_attack",
+      "before": 2,
+      "after": 0,
+      "delta": -2,
+      "direction": "improved"
+    },
+    {
+      "name": "ability_breaks_attack_ready_state",
+      "before": 1,
+      "after": 0,
+      "delta": -1,
+      "direction": "improved"
+    },
+    {
+      "name": "overattach_to_ready_attacker",
+      "before": 3,
+      "after": 4,
+      "delta": 1,
+      "direction": "worsened"
+    },
+    {
+      "name": "stage1_without_base_search",
+      "before": 1,
+      "after": 1,
+      "delta": 0,
+      "direction": "unchanged"
+    },
+    {
+      "name": "duplicate_stage1_search",
+      "before": 0,
+      "after": 1,
+      "delta": 1,
+      "direction": "worsened"
+    },
+    {
+      "name": "low_value_search",
+      "before": 0,
+      "after": 0,
+      "delta": 0,
+      "direction": "unchanged"
+    },
+    {
+      "name": "discarded_protected_card",
+      "before": 0,
+      "after": 0,
+      "delta": 0,
+      "direction": "unchanged"
+    }
+  ],
+  "reasons": [
+    "Total anomalies decreased.",
+    "Critical anomalies decreased.",
+    "High severity anomalies decreased.",
+    "Worsened metrics are minor (low/info or delta<=1)."
+  ],
+  "warnings": []
+}

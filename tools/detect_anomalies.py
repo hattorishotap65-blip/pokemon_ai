@@ -98,10 +98,17 @@ def normalize_event(raw: dict, filename: str = "") -> dict | None:
         "selected_card_id":      sel_cid,
         "selected_card_name":    sel_cname,
         "has_legal_attack":  has_attack,
+        "has_retreat_option": any(
+            (c.get("is_retreat") or _is_retreat(c)) for c in candidates
+        ),
         "available_attack_ids": attack_ids,
         "reason":            raw.get("reason", ""),
         "selected_score":    raw.get("selected_score"),
-        "opp_active_hp":     (raw.get("state_summary") or {}).get("opp_active_hp"),
+        "opp_active_hp":     ss.get("opp_active_hp"),
+        "bench_count":       ss.get("bench_count", 0),
+        # deck_log fields for bench inference
+        "bellibolt_in_play":    (raw.get("deck_log") or {}).get("bellibolt", {}).get("bellibolt_in_play", False),
+        "bellibolt_is_active":  (raw.get("deck_log") or {}).get("bellibolt", {}).get("bellibolt_is_active", False),
     }
 
 
@@ -392,6 +399,47 @@ def detect_turn_anomalies(
                         ],
                     ))
 
+    # --- stronger_ready_bench_attacker_not_promoted ---
+    # Only flag when active is a NON-attacker (evolution_base, draw_support, etc.)
+    # and the turn is past early setup (game_turn >= 3).
+    # An attacker that simply lacks energy is normal and not flagged here.
+    if not attack_available_in_turn and not attack_selected_in_turn:
+        retreat_available_in_turn = any(ev.get("has_retreat_option") for ev in turn_events)
+        if retreat_available_in_turn:
+            last_ev     = turn_events[-1]
+            game_turn   = last_ev.get("game_turn", 0) or 0
+            active_cid  = str(last_ev.get("active_id") or "")
+            active_en   = last_ev.get("active_energy_count", 0) or 0
+            bench_count = last_ev.get("bench_count", 0) or 0
+
+            active_is_attacker = profile.is_attacker(active_cid)
+            active_role = profile.role(active_cid) or "unknown"
+
+            # Only flag non-attackers stuck in active, after early setup
+            if not active_is_attacker and bench_count > 0 and game_turn >= 3:
+                confidence = "medium"
+                bb_in_play   = last_ev.get("bellibolt_in_play", False)
+                bb_is_active = last_ev.get("bellibolt_is_active", False)
+                if bb_in_play and not bb_is_active:
+                    confidence = "high"
+
+                results.append(_anomaly(
+                    "medium", "stronger_ready_bench_attacker_not_promoted", last_ev,
+                    expected="retreat_to_bench_attacker",
+                    actual=f"stayed_with_{active_role}_{active_cid}",
+                    why=(
+                        f"Non-attacker ({active_cid}, role={active_role}) is active on turn {game_turn}. "
+                        f"Retreat was available with {bench_count} bench Pokemon, "
+                        f"but no switch to an attacker occurred."
+                    ),
+                    confidence=confidence,
+                    suggested_fix_area=[
+                        "policy.py _score_retreat",
+                        "ionos_rules.py retreat scoring",
+                        "deck_profile.json switch_policy",
+                    ],
+                ))
+
     # --- ko_available_but_no_attack ---
     for ev in turn_events:
         if not ev.get("has_legal_attack"):
@@ -486,6 +534,7 @@ def build_summary(anomalies: list[dict], files_count: int, events: list[dict]) -
         "duplicate_stage1_search",
         "low_value_search",
         "discarded_protected_card",
+        "stronger_ready_bench_attacker_not_promoted",
     ]:
         summary[atype] = type_counts.get(atype, 0)
 

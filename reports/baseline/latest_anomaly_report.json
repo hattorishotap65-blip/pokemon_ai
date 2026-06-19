@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "summary": {
+    "files": 50,
+    "games": 50,
+    "turns": 800,
+    "actions": 9000,
+    "anomalies_total": 25,
+    "critical": 2,
+    "high": 8,
+    "medium": 10,
+    "low": 5,
+    "info": 0,
+    "attack_available_but_no_attack": 8,
+    "end_when_attack_available": 2,
+    "retreat_when_attack_available": 3,
+    "ability_without_followup_attack": 5,
+    "high_value_attack_not_used": 0,
+    "ko_available_but_no_attack": 2,
+    "ability_breaks_attack_ready_state": 1,
+    "overattach_to_ready_attacker": 3,
+    "stage1_without_base_search": 1,
+    "duplicate_stage1_search": 0,
+    "low_value_search": 0,
+    "discarded_protected_card": 0
+  },
+  "anomalies": []
+}

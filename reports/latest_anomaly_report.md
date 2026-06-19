@@ -1,15 +1,15 @@
 # Battle Log Anomaly Report
 
-Generated: 2026-06-19 02:10 UTC
+Generated: 2026-06-19 03:47 UTC
 
 ## Summary
 
 | Metric | Count |
 |---|---:|
-| files | 600 |
-| games | 600 |
-| turns | 11595 |
-| actions | 92696 |
+| files | 0 |
+| games | 0 |
+| turns | 0 |
+| actions | 0 |
 | anomalies_total | 0 |
 
 ## Severity Breakdown

@@ -534,6 +534,9 @@ def detect_turn_anomalies(
         for ev in turn_events:
             if ev.get("selected_option_class") != "attack":
                 continue
+            opp_hp_check = ev.get("opp_active_hp")
+            if opp_hp_check is not None and opp_hp_check <= 0:
+                continue
             active_cid = str(ev.get("active_id") or "")
             est_dmg    = ev.get("estimated_voltorb_damage")
             if active_cid != voltorb_cid and est_dmg is not None and est_dmg >= profile.voltorb_high_damage_threshold:

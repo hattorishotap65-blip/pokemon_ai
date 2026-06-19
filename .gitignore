@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+logs/
+reports/latest_*.json
+reports/latest_*.md
+reports/anomaly_reports/
+reports/comparisons/
+reports/fix_prompts/
+reports/baseline/latest_*.json
+reports/candidate/latest_*.json
+battle_logs/inbox/*.jsonl
+battle_logs/inbox/*.json
+battle_logs/inbox/*.log
+battle_logs/processed/
+battle_logs/ignored/
+submission.tar.gz

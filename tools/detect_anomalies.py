@@ -58,15 +58,23 @@ def normalize_event(raw: dict, filename: str = "") -> dict | None:
     ss = raw.get("state_summary") or {}
 
     selected = next((c for c in candidates if c.get("selected")), None)
-    has_attack = any(
-        (c.get("is_attack") or (_is_attack(c))) for c in candidates
-    )
+
+    def _candidate_is_real_attack(c: dict) -> bool:
+        """type=13 + attackId is not None — same rule as turn_rule_engine."""
+        opt_type = c.get("option_type") or c.get("type")
+        attack_id = c.get("attackId") or c.get("attack_id")
+        if opt_type == _OT_ATTACK and attack_id is not None:
+            return True
+        if c.get("is_attack") and attack_id is not None:
+            return True
+        return False
+
+    has_attack = any(_candidate_is_real_attack(c) for c in candidates)
     attack_ids = [
         c.get("attackId") or c.get("attack_id")
         for c in candidates
-        if c.get("is_attack") or _is_attack(c)
+        if _candidate_is_real_attack(c)
     ]
-    attack_ids = [a for a in attack_ids if a is not None]
 
     sel_type  = None
     sel_class = None

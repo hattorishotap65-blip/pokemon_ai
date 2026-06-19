@@ -16,17 +16,23 @@ from typing import Any
 def _classify_best_damage(a: dict) -> str:
     """Sub-classify a best_damage_attacker_not_selected anomaly."""
     actual = str(a.get("actual_attacker") or a.get("active_id") or "")
-    est_dmg = a.get("estimated_voltorb_damage") or 0
+    est_dmg = a.get("estimated_voltorb_damage")
 
     if actual == "270":
-        return "voltorb_over_wattrel_missed"
+        if est_dmg is not None and est_dmg >= 100:
+            return "voltorb_over_wattrel_missed"
+        return "unknown_due_to_missing_pivot_or_energy_info"
+
     if actual == "271":
-        return "voltorb_over_kilowattrel_missed"
+        if est_dmg is not None and est_dmg >= 120:
+            return "voltorb_over_kilowattrel_missed"
+        return "unknown_due_to_missing_pivot_or_energy_info"
+
     if actual == "269":
-        if est_dmg > 230:
+        if est_dmg is not None and est_dmg > 230:
             return "bellibolt_over_voltorb_high_damage"
-        else:
-            return "bellibolt_attack_probably_correct"
+        return "bellibolt_attack_probably_correct"
+
     return "unknown_due_to_missing_pivot_or_energy_info"
 
 
@@ -183,16 +189,16 @@ def _root_cause_for(classification: str) -> str:
 
 def _target_files_for(classification: str) -> list[str]:
     targets = {
-        "voltorb_over_kilowattrel_missed": ["ionos_rules.py", "policy.py", "data/deck_profile.json"],
-        "voltorb_over_wattrel_missed": ["ionos_rules.py", "policy.py"],
-        "bellibolt_over_voltorb_high_damage": ["ionos_rules.py", "policy.py", "data/deck_profile.json"],
+        "voltorb_over_kilowattrel_missed": ["agent/ionos_rules.py", "agent/policy.py", "data/deck_profile.json"],
+        "voltorb_over_wattrel_missed": ["agent/ionos_rules.py", "agent/policy.py"],
+        "bellibolt_over_voltorb_high_damage": ["agent/ionos_rules.py", "agent/policy.py", "data/deck_profile.json"],
         "bellibolt_attack_probably_correct": [],
         "unknown_due_to_missing_pivot_or_energy_info": ["agent/logger.py", "main.py"],
-        "attack_available_but_no_attack": ["turn_rule_engine.py", "policy.py", "ionos_rules.py"],
-        "end_when_attack_available": ["turn_rule_engine.py", "policy.py"],
-        "retreat_when_attack_available": ["ionos_rules.py", "turn_rule_engine.py"],
-        "overattach_to_ready_attacker": ["ionos_rules.py", "data/deck_profile.json"],
-        "voltorb_scaling_attack_underused": ["ionos_rules.py", "data/deck_profile.json"],
+        "attack_available_but_no_attack": ["agent/turn_rule_engine.py", "agent/policy.py", "agent/ionos_rules.py"],
+        "end_when_attack_available": ["agent/turn_rule_engine.py", "agent/policy.py"],
+        "retreat_when_attack_available": ["agent/ionos_rules.py", "agent/turn_rule_engine.py"],
+        "overattach_to_ready_attacker": ["agent/ionos_rules.py", "data/deck_profile.json"],
+        "voltorb_scaling_attack_underused": ["agent/ionos_rules.py", "data/deck_profile.json"],
     }
     return targets.get(classification, ["tools/detect_anomalies.py"])
 

@@ -1,6 +1,6 @@
 # Battle Log Anomaly Report
 
-Generated: 2026-06-19 10:52 UTC
+Generated: 2026-06-19 11:48 UTC
 
 ## Summary
 
@@ -8,20 +8,20 @@ Generated: 2026-06-19 10:52 UTC
 |---|---:|
 | files | 50 |
 | games | 50 |
-| turns | 1140 |
-| actions | 9128 |
-| anomalies_total | 257 |
+| turns | 1067 |
+| actions | 8715 |
+| anomalies_total | 281 |
 
 ## Severity Breakdown
 
 | Severity | Count |
 |---|---:|
-| low | 257 |
+| low | 281 |
 
 ## Top Issues
 
 ### best_damage_attacker_not_selected
-- count: 257
+- count: 281
 - likely fix area: data/deck_profile.json attacker_selection_policy, ionos_rules.py attacker selection
 
 ## Representative Anomalies
@@ -29,52 +29,52 @@ Generated: 2026-06-19 10:52 UTC
 ### A0001
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1415.jsonl
+- file: game_g1621.jsonl
 - turn: 3
-- active: 270
-- expected: consider_voltorb_scaling_attack_120dmg
-- actual: attacked_with_270
-- why suspicious: Attacked with 270 instead of Voltorb. Voltorb estimated damage was 120 (high scaling), which may have been a better prize-race option.
+- active: 269
+- expected: consider_voltorb_scaling_attack_140dmg
+- actual: attacked_with_269
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 140 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
 ### A0002
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1425.jsonl
-- turn: 6
-- active: 269
-- expected: consider_voltorb_scaling_attack_220dmg
-- actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 220 (high scaling), which may have been a better prize-race option.
-- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
-
-### A0003
-- severity: low
-- type: best_damage_attacker_not_selected
-- file: game_g1439.jsonl
-- turn: 6
-- active: 269
-- expected: consider_voltorb_scaling_attack_220dmg
-- actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 220 (high scaling), which may have been a better prize-race option.
-- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
-
-### A0004
-- severity: low
-- type: best_damage_attacker_not_selected
-- file: game_g1445.jsonl
-- turn: 6
+- file: game_g1604.jsonl
+- turn: 4
 - active: 269
 - expected: consider_voltorb_scaling_attack_180dmg
 - actual: attacked_with_269
 - why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 180 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
+### A0003
+- severity: low
+- type: best_damage_attacker_not_selected
+- file: game_g1624.jsonl
+- turn: 4
+- active: 269
+- expected: consider_voltorb_scaling_attack_140dmg
+- actual: attacked_with_269
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 140 (high scaling), which may have been a better prize-race option.
+- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
+
+### A0004
+- severity: low
+- type: best_damage_attacker_not_selected
+- file: game_g1635.jsonl
+- turn: 5
+- active: 269
+- expected: consider_voltorb_scaling_attack_140dmg
+- actual: attacked_with_269
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 140 (high scaling), which may have been a better prize-race option.
+- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
+
 ### A0005
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1409.jsonl
-- turn: 7
+- file: game_g1601.jsonl
+- turn: 6
 - active: 270
 - expected: consider_voltorb_scaling_attack_120dmg
 - actual: attacked_with_270
@@ -84,7 +84,40 @@ Generated: 2026-06-19 10:52 UTC
 ### A0006
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1411.jsonl
+- file: game_g1614.jsonl
+- turn: 6
+- active: 270
+- expected: consider_voltorb_scaling_attack_120dmg
+- actual: attacked_with_270
+- why suspicious: Attacked with 270 instead of Voltorb. Voltorb estimated damage was 120 (high scaling), which may have been a better prize-race option.
+- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
+
+### A0007
+- severity: low
+- type: best_damage_attacker_not_selected
+- file: game_g1617.jsonl
+- turn: 6
+- active: 271
+- expected: consider_voltorb_scaling_attack_180dmg
+- actual: attacked_with_271
+- why suspicious: Attacked with 271 instead of Voltorb. Voltorb estimated damage was 180 (high scaling), which may have been a better prize-race option.
+- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
+
+### A0008
+- severity: low
+- type: best_damage_attacker_not_selected
+- file: game_g1646.jsonl
+- turn: 6
+- active: 269
+- expected: consider_voltorb_scaling_attack_140dmg
+- actual: attacked_with_269
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 140 (high scaling), which may have been a better prize-race option.
+- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
+
+### A0009
+- severity: low
+- type: best_damage_attacker_not_selected
+- file: game_g1608.jsonl
 - turn: 7
 - active: 269
 - expected: consider_voltorb_scaling_attack_120dmg
@@ -92,55 +125,22 @@ Generated: 2026-06-19 10:52 UTC
 - why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 120 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
-### A0007
-- severity: low
-- type: best_damage_attacker_not_selected
-- file: game_g1433.jsonl
-- turn: 7
-- active: 269
-- expected: consider_voltorb_scaling_attack_160dmg
-- actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 160 (high scaling), which may have been a better prize-race option.
-- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
-
-### A0008
-- severity: low
-- type: best_damage_attacker_not_selected
-- file: game_g1412.jsonl
-- turn: 8
-- active: 269
-- expected: consider_voltorb_scaling_attack_200dmg
-- actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 200 (high scaling), which may have been a better prize-race option.
-- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
-
-### A0009
-- severity: low
-- type: best_damage_attacker_not_selected
-- file: game_g1446.jsonl
-- turn: 8
-- active: 269
-- expected: consider_voltorb_scaling_attack_140dmg
-- actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 140 (high scaling), which may have been a better prize-race option.
-- suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
-
 ### A0010
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1414.jsonl
-- turn: 9
+- file: game_g1614.jsonl
+- turn: 7
 - active: 269
-- expected: consider_voltorb_scaling_attack_140dmg
+- expected: consider_voltorb_scaling_attack_120dmg
 - actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 140 (high scaling), which may have been a better prize-race option.
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 120 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
 ### A0011
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1415.jsonl
-- turn: 9
+- file: game_g1621.jsonl
+- turn: 7
 - active: 269
 - expected: consider_voltorb_scaling_attack_140dmg
 - actual: attacked_with_269
@@ -150,19 +150,19 @@ Generated: 2026-06-19 10:52 UTC
 ### A0012
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1417.jsonl
-- turn: 9
-- active: 269
-- expected: consider_voltorb_scaling_attack_140dmg
-- actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 140 (high scaling), which may have been a better prize-race option.
+- file: game_g1628.jsonl
+- turn: 7
+- active: 271
+- expected: consider_voltorb_scaling_attack_160dmg
+- actual: attacked_with_271
+- why suspicious: Attacked with 271 instead of Voltorb. Voltorb estimated damage was 160 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
 ### A0013
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1424.jsonl
-- turn: 9
+- file: game_g1637.jsonl
+- turn: 7
 - active: 269
 - expected: consider_voltorb_scaling_attack_140dmg
 - actual: attacked_with_269
@@ -172,30 +172,30 @@ Generated: 2026-06-19 10:52 UTC
 ### A0014
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1432.jsonl
-- turn: 9
+- file: game_g1641.jsonl
+- turn: 7
 - active: 269
-- expected: consider_voltorb_scaling_attack_200dmg
+- expected: consider_voltorb_scaling_attack_180dmg
 - actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 200 (high scaling), which may have been a better prize-race option.
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 180 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
 ### A0015
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1401.jsonl
-- turn: 10
+- file: game_g1646.jsonl
+- turn: 7
 - active: 269
-- expected: consider_voltorb_scaling_attack_120dmg
+- expected: consider_voltorb_scaling_attack_180dmg
 - actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 120 (high scaling), which may have been a better prize-race option.
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 180 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
 ### A0016
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1402.jsonl
-- turn: 10
+- file: game_g1617.jsonl
+- turn: 8
 - active: 269
 - expected: consider_voltorb_scaling_attack_180dmg
 - actual: attacked_with_269
@@ -205,19 +205,19 @@ Generated: 2026-06-19 10:52 UTC
 ### A0017
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1405.jsonl
-- turn: 10
+- file: game_g1624.jsonl
+- turn: 8
 - active: 269
-- expected: consider_voltorb_scaling_attack_140dmg
+- expected: consider_voltorb_scaling_attack_160dmg
 - actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 140 (high scaling), which may have been a better prize-race option.
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 160 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
 ### A0018
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1417.jsonl
-- turn: 10
+- file: game_g1600.jsonl
+- turn: 9
 - active: 269
 - expected: consider_voltorb_scaling_attack_140dmg
 - actual: attacked_with_269
@@ -227,23 +227,23 @@ Generated: 2026-06-19 10:52 UTC
 ### A0019
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1425.jsonl
-- turn: 10
+- file: game_g1609.jsonl
+- turn: 9
 - active: 269
-- expected: consider_voltorb_scaling_attack_280dmg
+- expected: consider_voltorb_scaling_attack_180dmg
 - actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 280 (high scaling), which may have been a better prize-race option.
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 180 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
 ### A0020
 - severity: low
 - type: best_damage_attacker_not_selected
-- file: game_g1433.jsonl
-- turn: 10
+- file: game_g1611.jsonl
+- turn: 9
 - active: 269
-- expected: consider_voltorb_scaling_attack_200dmg
+- expected: consider_voltorb_scaling_attack_180dmg
 - actual: attacked_with_269
-- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 200 (high scaling), which may have been a better prize-race option.
+- why suspicious: Attacked with 269 instead of Voltorb. Voltorb estimated damage was 180 (high scaling), which may have been a better prize-race option.
 - suggested fix area: ionos_rules.py attacker selection, data/deck_profile.json attacker_selection_policy
 
 ## Suggested Next Actions

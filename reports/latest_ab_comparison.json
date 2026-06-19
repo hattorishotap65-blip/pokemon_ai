@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-19T12:29:49.201971+00:00",
+  "generated_at": "2026-06-19T13:19:36.653242+00:00",
   "before": "reports/baseline/latest_anomaly_report.json",
   "after": "reports/candidate/latest_anomaly_report.json",
   "summary": {
-    "decision": "accept",
-    "overall_delta": -54,
+    "decision": "reject",
+    "overall_delta": 6,
     "critical_delta": 0,
-    "high_delta": 0,
-    "medium_delta": 0,
-    "low_delta": -54,
+    "high_delta": 2,
+    "medium_delta": -1,
+    "low_delta": 5,
     "games_before": 50,
     "games_after": 50,
     "confidence": "high"
@@ -17,10 +17,10 @@
   "metrics": [
     {
       "name": "anomalies_total",
-      "before": 281,
-      "after": 227,
-      "delta": -54,
-      "direction": "improved"
+      "before": 295,
+      "after": 301,
+      "delta": 6,
+      "direction": "worsened"
     },
     {
       "name": "critical",
@@ -31,31 +31,31 @@
     },
     {
       "name": "high",
-      "before": 0,
-      "after": 0,
-      "delta": 0,
-      "direction": "unchanged"
+      "before": 2,
+      "after": 4,
+      "delta": 2,
+      "direction": "worsened"
     },
     {
       "name": "medium",
-      "before": 0,
-      "after": 0,
-      "delta": 0,
-      "direction": "unchanged"
-    },
-    {
-      "name": "low",
-      "before": 281,
-      "after": 227,
-      "delta": -54,
+      "before": 2,
+      "after": 1,
+      "delta": -1,
       "direction": "improved"
     },
     {
+      "name": "low",
+      "before": 291,
+      "after": 296,
+      "delta": 5,
+      "direction": "worsened"
+    },
+    {
       "name": "attack_available_but_no_attack",
-      "before": 0,
-      "after": 0,
-      "delta": 0,
-      "direction": "unchanged"
+      "before": 2,
+      "after": 3,
+      "delta": 1,
+      "direction": "worsened"
     },
     {
       "name": "end_when_attack_available",
@@ -67,16 +67,16 @@
     {
       "name": "retreat_when_attack_available",
       "before": 0,
-      "after": 0,
-      "delta": 0,
-      "direction": "unchanged"
+      "after": 1,
+      "delta": 1,
+      "direction": "worsened"
     },
     {
       "name": "ability_without_followup_attack",
-      "before": 0,
-      "after": 0,
-      "delta": 0,
-      "direction": "unchanged"
+      "before": 2,
+      "after": 1,
+      "delta": -1,
+      "direction": "improved"
     },
     {
       "name": "high_value_attack_not_used",
@@ -150,15 +150,14 @@
     },
     {
       "name": "best_damage_attacker_not_selected",
-      "before": 281,
-      "after": 227,
-      "delta": -54,
-      "direction": "improved"
+      "before": 291,
+      "after": 296,
+      "delta": 5,
+      "direction": "worsened"
     }
   ],
   "reasons": [
-    "Total anomalies decreased.",
-    "No metric worsened."
+    "Total anomalies increased (+6) with no severity improvement."
   ],
   "warnings": []
 }

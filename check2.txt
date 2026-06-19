@@ -1,7 +1,0 @@
-﻿  Attack         : score= 25.27  reason=dragapult:phantom_dive
-  Boss Orders    : score= 16.73  reason=dragapult:boss_for_ko
-  End Turn       : score=  0.50  reason=end_turn
-
-Pre-supp: [25.27, 16.73, 0.5]
-Post-supp: [25.27, 16.73, 0.5]
-Winner: Attack

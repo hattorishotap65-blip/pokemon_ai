@@ -1,7 +1,0 @@
-﻿  Attack              : score= 18.27  reason=dragapult:phantom_dive  breakdown={'type_score': 9.0, 'adv_score': 2.265, 'rule_bonus': 7.0, 'rule_reason': 'dragapult:phantom_dive'}
-  Boss Orders         : score= 19.73  reason=dragapult:boss_dwebble  breakdown={'type_score': 13.0, 'adv_score': 1.735, 'rule_bonus': 5.0, 'rule_reason': 'dragapult:boss_dwebble'}
-  Crushing Hammer     : score= 12.34  reason=dragapult:crushing_hammer_crustle  breakdown={'type_score': 8.0, 'adv_score': 1.335, 'rule_bonus': 3.0, 'rule_reason': 'dragapult:crushing_hammer_crustle'}
-
-Pre-suppression: [18.27, 19.73, 12.34]
-Post-suppression: [-11.73, 19.73, 12.34]
-Winner: Boss Orders

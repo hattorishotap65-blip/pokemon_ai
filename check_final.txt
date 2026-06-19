@@ -1,7 +1,0 @@
-﻿Lillie+combo: -10.0 dragapult:lillies_keep_rare_candy_dragapult
-Lillie+bad hand: 6.0 dragapult:lillies_fix_bad_hand
-Poffin Dreepy(0 on field): 100.0 poffin_first_dreepy
-Poffin Duskull(Dreepy=0): 40.0 poffin_delay_duskull_until_dreepy
-Poffin Duskull(Dreepy=2): 75.0 poffin_first_duskull
-Attach Fire to active Duskull: -8.0 dragapult:avoid_attach_dusk_line
-Attach Fire to active Dragapult: 4.0 dragapult:energy_to_active_dragapult

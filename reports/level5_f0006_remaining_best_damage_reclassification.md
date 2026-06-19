@@ -7,8 +7,8 @@
 | Games | 50 |
 | Total best_damage_attacker_not_selected | 291 |
 | → no_fix_needed | **153 (52.6%)** |
-| → pivot_to_better_attacker_candidate | **120 (41.2%)** |
-| → remaining individual fix areas | 18 (6.2%) |
+| → pivot_design_needed | **120 (41.2%)** |
+| → no_actionable_fix_due_to_no_retreat | **18 (6.2%)** |
 | → detector_refinement | 0 |
 
 ## Reclassification Results
@@ -16,12 +16,17 @@
 | Category | Count | /game | Action |
 |----------|-------|-------|--------|
 | bellibolt_attack_probably_correct | 153 | 3.06 | **no_fix_needed** |
-| pivot_to_better_attacker_candidate | 120 | 2.40 | **構造的課題** |
-| kilowattrel_over_voltorb_remaining | 11 | 0.22 | retreat なしの個別ケース |
-| wattrel_over_voltorb_remaining | 5 | 0.10 | retreat なしの個別ケース |
-| bellibolt_over_voltorb_high_damage_remaining | 2 | 0.04 | retreat なしの個別ケース |
+| pivot_to_better_attacker_candidate | 120 | 2.40 | **pivot_design_needed** |
+| no_actionable_fix_due_to_no_retreat | 18 | 0.36 | retreat 不可（修正手段なし） |
 | detector_refinement_candidate | 0 | 0.00 | — |
-| no_fix_needed (KW/Wattrel低打点) | 0 | 0.00 | — |
+
+no_actionable_fix_due_to_no_retreat 内訳:
+
+| Sub-category | Count |
+|-------------|-------|
+| kilowattrel_over_voltorb_remaining | 11 |
+| wattrel_over_voltorb_remaining | 5 |
+| bellibolt_over_voltorb_high_damage_remaining | 2 |
 
 ## Category Details
 
@@ -56,23 +61,17 @@ Voltorb 推定打点分布:
 > turn_rule_engine が「攻撃可能なら retreat しない」を -1000 で強制。  
 > より良いアタッカーへの pivot を例外として扱う仕組みがない。
 
-### 3. kilowattrel_over_voltorb_remaining (11件)
+### 3. no_actionable_fix_due_to_no_retreat (18件)
 
-- Kilowattrel がアクティブで攻撃可能だが retreat option がない
-- Voltorb 推定打点 180-300 で KW 70 を大幅に上回る
-- retreat 不可のため交代手段なし → **no_fix_needed**（交代手段がない以上やむを得ない）
+retreat option が存在しないため、Voltorb が高打点でも交代手段がなく、現在のアタッカーで攻撃するしかない。
 
-### 4. wattrel_over_voltorb_remaining (5件)
+| Sub-category | Count | 状況 |
+|-------------|-------|------|
+| kilowattrel_over_voltorb_remaining | 11 | KW 70 vs VT 180-300、retreat 不可 |
+| wattrel_over_voltorb_remaining | 5 | Wattrel vs VT 120-160、retreat 不可 |
+| bellibolt_over_voltorb_high_damage_remaining | 2 | BB 230 vs VT 240、retreat 不可 |
 
-- Wattrel がアクティブで retreat option がない
-- Voltorb 推定打点 120-160
-- 同上 → **no_fix_needed**
-
-### 5. bellibolt_over_voltorb_high_damage_remaining (2件)
-
-- Bellibolt がアクティブで retreat option がない
-- Voltorb 推定打点 240
-- 同上 → **no_fix_needed**
+→ **修正手段なし**（retreat が使えない以上やむを得ない）
 
 ## F0003 閾値調査との関連
 
@@ -101,9 +100,9 @@ F0003 閾値調査で判明済み: retreat bonus を +1200 にすると `retreat
 
 **pivot_design_needed**
 
-- 残件 291 のうち 153件 (52.6%) は **no_fix_needed**
-- 120件 (41.2%) は **pivot_to_better_attacker の構造的課題**（retreat penalty -1000 によるブロック）
-- 18件 (6.2%) は retreat 不可で **no_fix_needed**
+- 残件 291 のうち 153件 (52.6%) は **no_fix_needed**（Bellibolt 攻撃が妥当）
+- 120件 (41.2%) は **pivot_design_needed**（retreat penalty -1000 によるブロック）
+- 18件 (6.2%) は **no_actionable_fix_due_to_no_retreat**（retreat 手段自体がない）
 - agent 本体は変更なし
 - 次の F0007 で pivot_to_better_attacker の設計を検討すべき
 

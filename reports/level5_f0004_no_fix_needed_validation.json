@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-19T13:53:10.183235+00:00",
+  "target": "F0004",
+  "classification": "bellibolt_attack_probably_correct",
+  "source_report": "reports/latest_anomaly_report.json",
+  "games": 50,
+  "f0004_count": 153,
+  "f0003_count": 31,
+  "boundary": {
+    "f0003_condition": "actual_attacker=269 AND estimated_voltorb_damage > 230",
+    "f0004_condition": "actual_attacker=269 AND estimated_voltorb_damage <= 230",
+    "f0003_min_damage": 240,
+    "f0004_max_damage": 220,
+    "gap": "221-239",
+    "boundary_leaks": 0,
+    "boundary_clean": true
+  },
+  "damage_distribution": {
+    "120-159": 25,
+    "160-199": 45,
+    "200-239": 83
+  },
+  "analysis": {
+    "bellibolt_damage": 230,
+    "voltorb_max_damage_in_f0004": 220,
+    "bellibolt_always_higher": true,
+    "reason_no_fix": "Bellibolt ex fixed 230 damage >= Voltorb estimated damage (max 220) in all F0004 cases. Retreat cost 3 makes pivoting irrational for 10-point difference.",
+    "prize_efficiency_note": "Voltorb is non-ex (1 prize risk) vs Bellibolt ex (2 prize risk), but 10-point damage difference does not justify retreat cost and tempo loss."
+  },
+  "decision": "no_fix_needed",
+  "agent_files_changed": [],
+  "separate_issue_candidates": [
+    {
+      "id": "A0001",
+      "type": "attack_available_but_no_attack",
+      "severity": "high",
+      "game_id": "g1801",
+      "turn": 3,
+      "note": "Not related to F0004. Separate investigation needed."
+    },
+    {
+      "id": "A0002",
+      "type": "attack_available_but_no_attack",
+      "severity": "high",
+      "game_id": "g1809",
+      "turn": 3,
+      "note": "Not related to F0004. Separate investigation needed."
+    }
+  ]
+}

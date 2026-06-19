@@ -1,50 +1,89 @@
 {
   "deck_id": "ionos_kilowattrel",
   "archetype": "aggro",
-  "confidence_score": 0.90,
+  "confidence_score": 0.92,
   "human_review_required": false,
   "archetype_scores": {
     "aggro": 30.0,
-    "prize_race": 24.0,
+    "prize_race": 26.0,
     "setup_midrange": 18.0,
     "combo": 12.0,
     "resource_loop": 10.0,
-    "control": 6.0
+    "control": 4.0
   },
-  "primary_win_condition": "Iono's Voltorb scales damage via total Lightning on Iono's Pokemon; Bellibolt ex accelerates energy; take prizes before opponent sets up",
+  "primary_win_condition": "Use Iono's Bellibolt ex as a Lightning Energy acceleration engine, spread Lightning Energy across own Iono's Pokemon, and attack primarily with Iono's Voltorb as a non-ex scaling attacker whose damage grows with total Lightning Energy on Iono's Pokemon.",
   "sub_win_conditions": [
-    "Iono's Bellibolt ex attacks after Voltorb line falls",
-    "Iono's Kilowattrel as non-ex follow-up attacker",
-    "Energy Retrieval / Night Stretcher for sustained pressure"
+    "Iono's Bellibolt ex attacks as a backup attacker or finisher when Voltorb is unavailable or cannot take the needed KO",
+    "Iono's Kilowattrel acts as a non-ex follow-up attacker and support attacker",
+    "Energy Retrieval / Night Stretcher / Max Rod sustain Lightning Energy and attacker loops"
   ],
-  "main_attackers": [265, 269],
-  "sub_attackers": [271],
+  "main_attackers": [265],
+  "backup_attackers": [269, 271],
+  "sub_attackers": [269, 271],
   "setup_cards": [268, 270],
-  "draw_engine": [1227, 1233],
+  "draw_engine": [1227, 1233, 271],
   "search_engine": [1086, 1121],
   "energy_engine": [269],
   "disruption_cards": [],
   "recovery_cards": [1097, 1110, 1118, 1152],
   "energy_scaling_cards": [265],
+  "voltorb_scaling_policy": {
+    "main_scaling_attacker": 265,
+    "required_lightning_to_attack": 2,
+    "damage_formula": "20 + 20 * total_lightning_energy_attached_to_own_iono_pokemon",
+    "count_lightning_energy_on_card_ids": [265, 268, 269, 270, 271],
+    "prefer_voltorb_when_attack_ready_and_estimated_damage_is_high": true,
+    "estimated_damage_high_threshold": 120,
+    "prefer_non_ex_prize_race_when_damage_is_sufficient": true,
+    "do_not_prefer_bellibolt_ex_over_voltorb_by_static_priority_only": true
+  },
+  "attacker_selection_policy": {
+    "compare_by_expected_value_not_fixed_priority": true,
+    "factors": [
+      "estimated_damage",
+      "ko_possible",
+      "prize_efficiency",
+      "attacker_risk",
+      "future_energy_board_state"
+    ],
+    "default_priority_when_damage_unknown": {
+      "265_ready_high_scaling_damage": 100,
+      "269_bellibolt_ex_backup_or_finisher": 85,
+      "271_kilowattrel_backup": 75,
+      "265_not_ready": 50,
+      "270_wattrel": 20,
+      "268_tadbulb": 5
+    }
+  },
+  "bellibolt_ex_policy": {
+    "card_id": 269,
+    "primary_role": "energy_engine",
+    "secondary_roles": ["backup_attacker", "finisher", "stage1_ex_attacker"],
+    "ability_goal": "increase total Lightning Energy on own Iono's Pokemon to improve Voltorb scaling damage while preparing backup attackers",
+    "avoid_treating_as_always_best_attacker": true
+  },
   "weak_points": [
     "stage1_setup_required",
     "no_ace_spec_disruption",
-    "reliant_on_energy_acceleration"
+    "reliant_on_energy_acceleration",
+    "Voltorb needs board-wide Lightning Energy to reach high damage"
   ],
   "early_priorities": [
     "find_tadbulb_and_voltorb",
     "setup_bench_with_poffin",
-    "attach_lightning_to_voltorb",
+    "attach_lightning_to_voltorb_until_attack_ready",
     "setup_bellibolt_ex_line"
   ],
   "mid_priorities": [
     "evolve_bellibolt_ex",
     "bellibolt_ability_energy_acceleration",
-    "voltorb_scales_damage_with_lightning",
+    "spread_lightning_to_iono_pokemon_for_voltorb_scaling",
+    "attack_with_voltorb_when_estimated_damage_is_best",
     "evolve_kilowattrel_as_backup"
   ],
   "late_priorities": [
-    "attack_with_bellibolt_or_kilowattrel",
+    "use_voltorb_scaling_attack_if_damage_is_sufficient",
+    "attack_with_bellibolt_ex_or_kilowattrel_when_they_are_best_KO_option",
     "recovery_with_night_stretcher",
     "take_final_prizes"
   ],
@@ -61,8 +100,8 @@
     },
     "mid": {
       "card_adv": 0.9,
-      "board_adv": 1.3,
-      "energy_adv": 1.2,
+      "board_adv": 1.4,
+      "energy_adv": 1.4,
       "tempo_adv": 1.5,
       "prize_adv": 1.6,
       "resource_adv": 0.8,
@@ -71,8 +110,8 @@
     },
     "late": {
       "card_adv": 0.6,
-      "board_adv": 0.8,
-      "energy_adv": 0.9,
+      "board_adv": 0.9,
+      "energy_adv": 1.1,
       "tempo_adv": 1.0,
       "prize_adv": 2.0,
       "resource_adv": 1.2,

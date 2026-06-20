@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "tag": "v1.0-stable",
+  "weights": {
+    "attack_suppress_penalty": -40.0,
+    "retreat_to_better_attacker_bonus": 1400.0,
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0
+  },
+  "tests": "141/141 pass",
+  "submission_updated": true,
+  "safety": "all 0"
+}

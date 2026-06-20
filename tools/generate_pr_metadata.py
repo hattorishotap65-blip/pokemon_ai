@@ -88,13 +88,28 @@ def _generate_body(pr_candidate: dict) -> str:
             lines.append(f"| {m['metric']} | {m['before']} | {m['after']} | {m['delta']:+.4f} |")
         lines.append("")
 
+    # Safety: use actual values from metrics
+    _SAFETY_NAMES = {
+        "attack_available_but_no_attack",
+        "end_when_attack_available",
+        "retreat_when_attack_available",
+        "ability_without_followup_attack",
+    }
+    all_metrics = improved + worsened + pr_candidate.get("safe_metrics", [])
+    safety_entries = [m for m in all_metrics if m.get("metric") in _SAFETY_NAMES]
+
     lines.append("## Safety")
     lines.append("")
-    lines.append("All safety metrics confirmed at 0:")
-    lines.append("- attack_available_but_no_attack: 0")
-    lines.append("- end_when_attack_available: 0")
-    lines.append("- retreat_when_attack_available: 0")
-    lines.append("- ability_without_followup_attack: 0")
+    if safety_entries:
+        all_zero = all(m.get("after", 0) == 0 for m in safety_entries)
+        if all_zero:
+            lines.append("All safety metrics confirmed at 0:")
+        else:
+            lines.append("**WARNING: Safety metrics may have changed:**")
+        for m in safety_entries:
+            lines.append(f"- {m['metric']}: {m.get('before', '?')} -> {m.get('after', '?')}")
+    else:
+        lines.append("**Safety metrics not available in evaluation data.**")
     lines.append("")
 
     if missing:
@@ -116,6 +131,12 @@ def _generate_body(pr_candidate: dict) -> str:
         lines.append("")
         for r in reasons:
             lines.append(f"- {r}")
+        lines.append("")
+
+    if next_action:
+        lines.append("## Next Action")
+        lines.append("")
+        lines.append(next_action)
         lines.append("")
 
     lines.extend([
@@ -143,19 +164,40 @@ def generate_metadata(pr_candidate: dict) -> dict:
             "reason": pr_candidate.get("reason", "Candidate is not eligible for PR creation."),
         }
 
+    # Safety gate: check that safety metrics are available and all zero
+    _SAFETY_NAMES = {
+        "attack_available_but_no_attack",
+        "end_when_attack_available",
+        "retreat_when_attack_available",
+        "ability_without_followup_attack",
+    }
+    all_metrics = (pr_candidate.get("improved_metrics", [])
+                   + pr_candidate.get("worsened_metrics", [])
+                   + pr_candidate.get("safe_metrics", []))
+    safety_found = [m for m in all_metrics if m.get("metric") in _SAFETY_NAMES]
+    if not safety_found:
+        return {
+            "ready_to_create_pr": False,
+            "candidate": candidate,
+            "reason": "Safety metrics not found in evaluation data. Cannot confirm safety.",
+        }
+
     title = _generate_title(candidate)
     branch = _generate_branch(candidate)
     body = _generate_body(pr_candidate)
 
+    safety_all_zero = all(m.get("after", 0) == 0 for m in safety_found)
+
     return {
-        "ready_to_create_pr": True,
+        "ready_to_create_pr": safety_all_zero,
         "candidate": candidate,
         "title": title,
         "branch_name": branch,
         "base_branch": "main",
         "body": body,
         "suggested_changed_files": pr_candidate.get("suggested_changed_files", []),
-        "safety_note": "All safety metrics confirmed at 0. Human review required before merge.",
+        "safety_note": "All safety metrics confirmed at 0. Human review required before merge." if safety_all_zero
+                       else "Safety metrics NOT all zero. CHECK NEEDED.",
     }
 
 

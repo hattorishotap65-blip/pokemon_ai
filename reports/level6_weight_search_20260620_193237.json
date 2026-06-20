@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0",
+  "search_grid": {
+    "advantage_weight": [
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6
+    ],
+    "energy_to_plan_bonus": [
+      3.0,
+      4.0,
+      5.0,
+      6.0,
+      7.0,
+      8.0
+    ],
+    "energy_to_plan_bonus_no_need": [
+      1.0,
+      2.0,
+      3.0,
+      4.0
+    ]
+  },
+  "baseline": {
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0,
+    "attack_suppress_penalty": -40.0,
+    "retreat_to_better_attacker_bonus": 1400.0
+  },
+  "games_per_pattern": 30,
+  "results": [
+    {
+      "pattern_id": 0,
+      "weights": {
+        "energy_to_plan_bonus": 3.0
+      },
+      "metrics": {
+        "games": 30,
+        "anomalies_total": 153,
+        "attack_available_but_no_attack": 0,
+        "end_when_attack_available": 0,
+        "retreat_when_attack_available": 0,
+        "best_damage_attacker_not_selected": 153
+      }
+    },
+    {
+      "pattern_id": 1,
+      "weights": {
+        "energy_to_plan_bonus": 4.0
+      },
+      "metrics": {
+        "games": 30,
+        "anomalies_total": 146,
+        "attack_available_but_no_attack": 0,
+        "end_when_attack_available": 0,
+        "retreat_when_attack_available": 0,
+        "best_damage_attacker_not_selected": 146
+      }
+    },
+    {
+      "pattern_id": 2,
+      "weights": {
+        "energy_to_plan_bonus": 6.0
+      },
+      "metrics": {
+        "games": 30,
+        "anomalies_total": 153,
+        "attack_available_but_no_attack": 0,
+        "end_when_attack_available": 0,
+        "retreat_when_attack_available": 0,
+        "best_damage_attacker_not_selected": 153
+      }
+    },
+    {
+      "pattern_id": 3,
+      "weights": {
+        "energy_to_plan_bonus": 7.0
+      },
+      "metrics": {
+        "games": 30,
+        "anomalies_total": 179,
+        "attack_available_but_no_attack": 0,
+        "end_when_attack_available": 0,
+        "retreat_when_attack_available": 0,
+        "best_damage_attacker_not_selected": 179
+      }
+    },
+    {
+      "pattern_id": 4,
+      "weights": {
+        "energy_to_plan_bonus": 8.0
+      },
+      "metrics": {
+        "games": 30,
+        "anomalies_total": 137,
+        "attack_available_but_no_attack": 0,
+        "end_when_attack_available": 0,
+        "retreat_when_attack_available": 0,
+        "best_damage_attacker_not_selected": 137
+      }
+    }
+  ]
+}

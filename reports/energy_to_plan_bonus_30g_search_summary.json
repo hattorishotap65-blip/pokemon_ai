@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "search": "energy_to_plan_bonus 30g",
+  "baseline": {
+    "energy_to_plan_bonus": 5.0,
+    "anomalies_per_game": 4.2
+  },
+  "candidates": [
+    {
+      "value": 3.0,
+      "anomalies_per_game": 5.1,
+      "delta": 0.9,
+      "vs_baseline_pct": 21.43,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 4.0,
+      "anomalies_per_game": 4.87,
+      "delta": 0.67,
+      "vs_baseline_pct": 15.95,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 6.0,
+      "anomalies_per_game": 5.1,
+      "delta": 0.9,
+      "vs_baseline_pct": 21.43,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 7.0,
+      "anomalies_per_game": 5.97,
+      "delta": 1.77,
+      "vs_baseline_pct": 42.14,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 8.0,
+      "anomalies_per_game": 4.57,
+      "delta": 0.37,
+      "vs_baseline_pct": 8.81,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    }
+  ],
+  "promoted_to_50g": [],
+  "notes": "30g results have high variance. No candidates beat baseline."
+}

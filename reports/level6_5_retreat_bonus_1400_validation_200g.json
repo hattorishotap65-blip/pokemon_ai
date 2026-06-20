@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6.5 retreat_to_better_attacker_bonus=1400 validation 200g",
+  "baseline": {"games": 200, "bonus": 1100, "anomalies_per_game": 5.43},
+  "candidate": {"games": 200, "bonus": 1400, "anomalies_per_game": 4.97},
+  "improvement": "-8.5%",
+  "consistency": {"30g": "-12%", "50g": "-18%", "200g": "-8.5%", "trend": "improvement maintained across all scales"},
+  "safety": {
+    "attack_available_but_no_attack": "0 -> 0",
+    "end_when_attack_available": "0 -> 0",
+    "retreat_when_attack_available": "0 -> 0",
+    "ability_without_followup_attack": "0 -> 0"
+  },
+  "key_improvements": {
+    "anomalies_total": {"baseline": 5.43, "candidate": 4.97, "delta": -0.46},
+    "kw_f0007_range_game_flow": {"baseline": 1.66, "candidate": 1.10, "delta": -0.55, "pct": "-33%"},
+    "bellibolt_attack_probably_correct": {"baseline": 2.73, "candidate": 2.25, "delta": -0.49}
+  },
+  "side_effects": {
+    "bb_f0007_range_no_retreat": {"baseline": 0.27, "candidate": 0.57, "delta": 0.30},
+    "wt_game_flow_no_actionable_fix": {"baseline": 0.15, "candidate": 0.38, "delta": 0.23}
+  },
+  "f0007_triggers": {"baseline": 2.42, "candidate": 2.19},
+  "decision": "adoption_pr_recommended",
+  "weights_restored": true,
+  "agent_behavior_changed": false
+}

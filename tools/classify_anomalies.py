@@ -33,20 +33,25 @@ def _classify_best_damage(a: dict) -> str:
     est_dmg = a.get("estimated_voltorb_damage")
 
     if actual == "270":
+        # Wattrel: F0001 addressed via retreat bonus, remaining = game flow
         if est_dmg is not None and est_dmg >= 100:
-            return "voltorb_over_wattrel_missed"
+            return "wt_game_flow_no_actionable_fix"
         return "unknown_due_to_missing_pivot_or_energy_info"
 
     if actual == "271":
+        # KW >=180: F0007 pivot exists, remaining = game flow re-creation
         if est_dmg is not None and est_dmg >= 180:
-            return "voltorb_over_kilowattrel_missed"
+            return "kw_f0007_range_game_flow_no_actionable_fix"
+        # KW 120-179: F0009 rejected
         if est_dmg is not None and est_dmg >= 120:
             return "kw_120_179_no_actionable_fix"
         return "unknown_due_to_missing_pivot_or_energy_info"
 
     if actual == "269":
+        # BB >=260: F0007 pivot exists, remaining = no retreat available
         if est_dmg is not None and est_dmg >= 260:
-            return "bellibolt_over_voltorb_high_damage"
+            return "bb_f0007_range_no_retreat_no_actionable_fix"
+        # BB 240-259: F0009/F0010 rejected
         if est_dmg is not None and est_dmg > 230:
             return "bb_240_259_no_actionable_fix"
         return "bellibolt_attack_probably_correct"
@@ -76,9 +81,12 @@ _SUGGESTED_ACTION = {
     "duplicate_stage1_search":             "detector_refinement",
     # No fix needed
     "bellibolt_attack_probably_correct":   "no_fix_needed",
-    # No actionable fix (proven by F0009/F0010)
+    # No actionable fix (proven by F0007/F0009/F0010 or game flow)
     "bb_240_259_no_actionable_fix":        "no_actionable_fix_game_flow",
     "kw_120_179_no_actionable_fix":        "no_actionable_fix_game_flow",
+    "kw_f0007_range_game_flow_no_actionable_fix": "no_actionable_fix_game_flow",
+    "bb_f0007_range_no_retreat_no_actionable_fix": "no_actionable_fix_game_flow",
+    "wt_game_flow_no_actionable_fix":      "no_actionable_fix_game_flow",
     # Logging
     "unknown_due_to_missing_pivot_or_energy_info": "logging_improvement",
 }
@@ -164,6 +172,12 @@ def _title_for(classification: str) -> str:
             "BB 240-259: pivot proven to cause regressions (F0009/F0010 rejected)",
         "kw_120_179_no_actionable_fix":
             "KW 120-179: pivot proven ineffective (F0009 rejected)",
+        "kw_f0007_range_game_flow_no_actionable_fix":
+            "KW >=180: F0007 pivot exists but game flow re-creates KW active turns",
+        "bb_f0007_range_no_retreat_no_actionable_fix":
+            "BB >=260: F0007 pivot exists but retreat option was not available",
+        "wt_game_flow_no_actionable_fix":
+            "Wattrel: F0001 addressed, remaining are game flow or retreat unavailable",
         "unknown_due_to_missing_pivot_or_energy_info":
             "Improve logging to determine if Voltorb was actually available as an attacker",
         "attack_available_but_no_attack":
@@ -198,6 +212,12 @@ def _root_cause_for(classification: str) -> str:
             "Voltorb 240-259 exceeds BB 230 but pivot causes downstream regressions. Proven by F0009/F0010.",
         "kw_120_179_no_actionable_fix":
             "Voltorb 120-179 exceeds KW 70 but pivot has insufficient effect. Proven by F0009.",
+        "kw_f0007_range_game_flow_no_actionable_fix":
+            "F0007 pivot exists for KW >=180 but game flow re-creates KW active turns. Not fixable by pivot.",
+        "bb_f0007_range_no_retreat_no_actionable_fix":
+            "F0007 pivot exists for BB >=260 but retreat option was unavailable. Not fixable by pivot.",
+        "wt_game_flow_no_actionable_fix":
+            "F0001 retreat bonus exists but Wattrel active recurs due to game flow. Not fixable by pivot.",
         "unknown_due_to_missing_pivot_or_energy_info":
             "Cannot determine if Voltorb was available. Log does not contain bench attacker readiness.",
         "attack_available_but_no_attack":
@@ -251,22 +271,22 @@ def generate_fix_candidates(
     candidates = []
 
     priority_order = [
-        "voltorb_over_wattrel_missed",
-        "voltorb_over_kilowattrel_missed",
         "attack_available_but_no_attack",
         "end_when_attack_available",
         "ko_available_but_no_attack",
         "retreat_when_attack_available",
         "ability_without_followup_attack",
         "voltorb_scaling_attack_underused",
-        "bellibolt_over_voltorb_high_damage",
         "overattach_to_ready_attacker",
         "ability_breaks_attack_ready_state",
         "stage1_without_base_search",
         "duplicate_stage1_search",
         "stronger_ready_bench_attacker_not_promoted",
         "unknown_due_to_missing_pivot_or_energy_info",
-        # Excluded from fix candidates (listed last for reporting only)
+        # Excluded: F0007 addressed or game flow or F0009/F0010 rejected
+        "kw_f0007_range_game_flow_no_actionable_fix",
+        "bb_f0007_range_no_retreat_no_actionable_fix",
+        "wt_game_flow_no_actionable_fix",
         "bb_240_259_no_actionable_fix",
         "kw_120_179_no_actionable_fix",
         "bellibolt_attack_probably_correct",

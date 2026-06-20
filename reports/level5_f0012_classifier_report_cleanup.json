@@ -1,22 +1,25 @@
 {
   "schema_version": "1.0",
   "target": "F0012",
-  "purpose": "Classifier and report cleanup after F0009/F0010 rejection",
-  "changes": [
-    "tools/classify_anomalies.py: added bb_240_259_no_actionable_fix and kw_120_179_no_actionable_fix categories",
-    "tools/classify_anomalies.py: excluded_from_fix_prompt flag for no_fix_needed and no_actionable_fix",
-    "tools/generate_fix_prompt.py: 3-section report layout (Fix / No Fix / No Actionable)",
-    "tools/generate_fix_prompt.py: excluded categories not shown in fix candidates section"
-  ],
+  "purpose": "Classifier and report cleanup — align with F0011 conclusion",
   "verification_result": {
     "games": 200,
     "total_anomalies": 998,
-    "actionable_in_fix_prompt": 357,
-    "excluded_from_fix_prompt": 641,
+    "behavior_fix_candidates": 0,
     "no_fix_needed": 551,
-    "no_actionable_fix_game_flow": 90,
-    "f0009_f0010_pivot_re_proposed": false,
-    "no_actionable_separate_from_no_fix": true
+    "no_actionable_fix_game_flow": 447,
+    "logging_insufficient": 0,
+    "classifier_false_positive": 0,
+    "no_actionable_breakdown": {
+      "kw_f0007_range_game_flow": 260,
+      "bb_240_259_proven_unreachable": 67,
+      "bb_f0007_range_no_retreat": 66,
+      "wt_game_flow": 31,
+      "kw_120_179_proven_unreachable": 23
+    },
+    "fix_prompt_behavior_candidates": 0,
+    "fix_prompt_target": "none",
+    "f0009_f0010_pivot_re_proposed": false
   },
   "agent_behavior_changed": false,
   "level5_complete": true,

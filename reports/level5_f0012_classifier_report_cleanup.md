@@ -2,73 +2,60 @@
 
 ## 変更概要
 
-classifier と fix prompt 生成を整理し、F0009/F0010 で rejected な分類を修正候補から除外。
+F0011 の結論（real_fix_candidate 0件）と整合するよう、classifier の分類を修正。F0007 で既に対応済み・ゲーム展開で再発するもの・retreat 不可のものを fix prompt から完全に除外。
 
 ## 変更ファイル
 
 | File | Change |
 |------|--------|
-| `tools/classify_anomalies.py` | 分類カテゴリ追加、fix prompt 除外ロジック |
-| `tools/generate_fix_prompt.py` | レポート表示を3セクションに分離 |
+| `tools/classify_anomalies.py` | 分類カテゴリ 5種追加、全 best_damage を no_actionable_fix に |
+| `tools/generate_fix_prompt.py` | 3セクション表示維持 |
 | `agent/` | **変更なし** |
 | `deck.csv` | **変更なし** |
 | `submission.tar.gz` | **変更なし** |
 
-## 分類カテゴリ定義
+## 分類カテゴリ
 
-| Category | Action | Fix Prompt |
-|----------|--------|-----------|
-| `voltorb_over_wattrel_missed` | scoring_adjustment | **含む** |
-| `voltorb_over_kilowattrel_missed` | scoring_adjustment | **含む** |
-| `bellibolt_over_voltorb_high_damage` | scoring_adjustment | **含む** |
-| `bellibolt_attack_probably_correct` | no_fix_needed | **除外** |
-| `bb_240_259_no_actionable_fix` | no_actionable_fix_game_flow | **除外** |
-| `kw_120_179_no_actionable_fix` | no_actionable_fix_game_flow | **除外** |
-| `unknown_due_to_missing_pivot_or_energy_info` | logging_improvement | **除外** |
+| Category | Count | Action | Fix Prompt |
+|----------|-------|--------|-----------|
+| bellibolt_attack_probably_correct | 551 | no_fix_needed | **excluded** |
+| kw_f0007_range_game_flow | 260 | no_actionable_fix | **excluded** |
+| bb_240_259_no_actionable_fix | 67 | no_actionable_fix | **excluded** |
+| bb_f0007_range_no_retreat | 66 | no_actionable_fix | **excluded** |
+| wt_game_flow | 31 | no_actionable_fix | **excluded** |
+| kw_120_179_no_actionable_fix | 23 | no_actionable_fix | **excluded** |
+| **Behavior Fix Candidates** | **0** | — | — |
 
-## Fix Candidates MD 表示
+## F0011 との整合
 
-3セクションに分離：
+| F0011 Category | Count | F0012 Classification |
+|---------------|-------|---------------------|
+| no_fix_needed | 551 | bellibolt_attack_probably_correct (**excluded**) |
+| kw_f0007_range_game_flow | 260 | kw_f0007_range_game_flow (**excluded**) |
+| bb_240_259_proven_unreachable | 96→67 | bb_240_259_no_actionable_fix (**excluded**) |
+| bb_f0007_range_but_no_retreat | 37→66 | bb_f0007_range_no_retreat (**excluded**) |
+| wt_game_flow | 31 | wt_game_flow (**excluded**) |
+| kw_120_179_proven_unreachable | 23 | kw_120_179_no_actionable_fix (**excluded**) |
 
-1. **Fix Candidates** — 修正候補（actionable のみ）
-2. **No Fix Needed** — 現在の行動が妥当
-3. **No Actionable Fix** — ゲーム展開の制約で修正不能
+no_fix_needed (551) + no_actionable_fix (447) = 998 = 全件。Behavior Fix = 0。
 
-## 再実行結果 (200g)
+## Fix Prompt 出力
 
-| Classification | Count | Action |
-|----------------|-------|--------|
-| bellibolt_attack_probably_correct | 551 | **excluded** (no_fix_needed) |
-| voltorb_over_kilowattrel_missed | 260 | scoring_adjustment |
-| bb_240_259_no_actionable_fix | 67 | **excluded** (no_actionable_fix) |
-| bellibolt_over_voltorb_high_damage | 66 | scoring_adjustment |
-| voltorb_over_wattrel_missed | 31 | scoring_adjustment |
-| kw_120_179_no_actionable_fix | 23 | **excluded** (no_actionable_fix) |
+```
+Behavior Fix Candidates: 0
+No Fix Needed: 551
+No Actionable Fix: 447
+  kw_f0007_range_game_flow: 260
+  bb_240_259: 67
+  bb_f0007_no_retreat: 66
+  wt_game_flow: 31
+  kw_120_179: 23
+```
 
-- **real_fix_candidate**: voltorb_over_wattrel (31) + voltorb_over_kilowattrel (260) + bellibolt_over_voltorb (66) = 357件
-- ただし F0007 で既に対応済み（pivot >=260/>=180）。追加の behavior 修正なし。
-- **excluded**: 641件（no_fix_needed 551 + no_actionable_fix 90）
-
-## F0009/F0010 再提案防止
-
-`bb_240_259_no_actionable_fix` と `kw_120_179_no_actionable_fix` は fix prompt に含まれない。root_cause に「F0009/F0010 rejected」と明記。
+target: **none** — behavior 修正候補なし。
 
 ## 最終判断
 
-### Level 5 完了扱いできるか
-
-**はい。** F0001-F0012 で以下を達成：
-- L5 behavior 修正: F0007 (pivot >=260/>=180) が accepted
-- L5 不採用記録: F0009/F0010
-- L5 classifier 整備: F0012 (本PR)
-
-### Level 6 重み探索に進んでよいか
-
-**条件付きで可。** ただし：
-- 残りの actionable anomaly (357件) は F0007 の既存 pivot 範囲内
-- これ以上の retreat-based 改善は見込み薄
-- Level 6 では retreat 以外のアプローチ（エネルギー配分、アクティブ選択改善等）を検討すべき
-
-### classifier / logger の追加整備が必要か
-
-**現時点では不要。** F0012 で分類は十分整理された。将来的にベンチ詳細ログが追加されれば、logging_improvement 分類が活用できる。
+- **Level 5: 完了** (behavior_fix_candidates == 0)
+- **Level 6: 進行可能** (fix prompt が behavior 候補 0 件)
+- **classifier/logger 追加整備: 現時点では不要**

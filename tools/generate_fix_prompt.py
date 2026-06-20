@@ -79,8 +79,10 @@ def _build_candidates_md(candidates: list[dict], classification: dict) -> str:
         lines.append(f"| {key} | {cnt} | {action} |")
     lines.append("")
 
-    fix_cands = [c for c in candidates if c["suggested_change_type"] not in ("no_fix_needed", "logging_improvement")]
-    nofix_cands = [c for c in candidates if c["suggested_change_type"] in ("no_fix_needed", "logging_improvement", "detector_refinement")]
+    fix_cands = [c for c in candidates if not c.get("excluded_from_fix_prompt", False)
+                 and c["suggested_change_type"] not in ("no_fix_needed", "no_actionable_fix_game_flow", "logging_improvement")]
+    nofix_cands = [c for c in candidates if c.get("excluded_from_fix_prompt", False)
+                   or c["suggested_change_type"] in ("no_fix_needed", "no_actionable_fix_game_flow", "logging_improvement", "detector_refinement")]
 
     if fix_cands:
         lines.append("## Fix Candidates")
@@ -100,16 +102,30 @@ def _build_candidates_md(candidates: list[dict], classification: dict) -> str:
             lines.append(f"- requires A/B test: {c['requires_ab_test']}")
             lines.append("")
 
-    if nofix_cands:
-        lines.append("## No-Fix / Detector Refinement Candidates")
+    nofix_proper = [c for c in nofix_cands if c["suggested_change_type"] == "no_fix_needed"]
+    no_actionable = [c for c in nofix_cands if c["suggested_change_type"] == "no_actionable_fix_game_flow"]
+    other_nofix = [c for c in nofix_cands if c["suggested_change_type"] not in ("no_fix_needed", "no_actionable_fix_game_flow")]
+
+    if nofix_proper:
+        lines.append("## No Fix Needed (correct behavior)")
         lines.append("")
-        for c in nofix_cands:
-            ev = c["evidence"]
-            lines.append(f"### {c['id']}: {c['title']}")
-            lines.append(f"- classification: {c['classification']}")
-            lines.append(f"- count: {ev['count']}")
-            lines.append(f"- suggested action: {c['suggested_change_type']}")
-            lines.append("")
+        for c in nofix_proper:
+            lines.append(f"- **{c['classification']}**: {c['evidence']['count']} cases — {c['title']}")
+        lines.append("")
+
+    if no_actionable:
+        lines.append("## No Actionable Fix (game flow constraints)")
+        lines.append("")
+        for c in no_actionable:
+            lines.append(f"- **{c['classification']}**: {c['evidence']['count']} cases — {c['root_cause_hypothesis']}")
+        lines.append("")
+
+    if other_nofix:
+        lines.append("## Detector Refinement / Logging Improvement")
+        lines.append("")
+        for c in other_nofix:
+            lines.append(f"- **{c['classification']}**: {c['evidence']['count']} cases — {c['suggested_change_type']}")
+        lines.append("")
 
     lines.append("## Next Recommended Action")
     lines.append("")

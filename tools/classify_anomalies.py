@@ -1,8 +1,15 @@
 """
 Classify anomalies from Level 3 reports into actionable fix candidate groups.
 
-Special focus: best_damage_attacker_not_selected is subdivided by attacker
-and Voltorb estimated damage.
+Categories:
+  real_fix_candidate        — agent behavior fix needed
+  no_fix_needed             — current behavior is correct
+  no_actionable_fix_game_flow — ideal differs but safe fix not available
+  logging_insufficient      — cannot determine from available log data
+  classifier_false_positive — detection logic error (should not reach here after F0005)
+
+Special: best_damage_attacker_not_selected is subdivided by attacker,
+damage range, and whether the gap has been proven unreachable by F0009/F0010.
 """
 from __future__ import annotations
 from collections import Counter
@@ -12,6 +19,13 @@ from typing import Any
 # ---------------------------------------------------------------------------
 # best_damage_attacker_not_selected sub-classification
 # ---------------------------------------------------------------------------
+
+# Ranges proven unreachable by F0009/F0010 A/B tests
+_PIVOT_REJECTED_RANGES = {
+    "bb_240_259": "F0009/F0010 rejected: BB 240-259 pivot causes downstream regressions",
+    "kw_120_179": "F0009 rejected: KW 120-179 pivot has insufficient effect",
+}
+
 
 def _classify_best_damage(a: dict) -> str:
     """Sub-classify a best_damage_attacker_not_selected anomaly."""
@@ -24,53 +38,61 @@ def _classify_best_damage(a: dict) -> str:
         return "unknown_due_to_missing_pivot_or_energy_info"
 
     if actual == "271":
-        if est_dmg is not None and est_dmg >= 120:
+        if est_dmg is not None and est_dmg >= 180:
             return "voltorb_over_kilowattrel_missed"
+        if est_dmg is not None and est_dmg >= 120:
+            return "kw_120_179_no_actionable_fix"
         return "unknown_due_to_missing_pivot_or_energy_info"
 
     if actual == "269":
-        if est_dmg is not None and est_dmg > 230:
+        if est_dmg is not None and est_dmg >= 260:
             return "bellibolt_over_voltorb_high_damage"
+        if est_dmg is not None and est_dmg > 230:
+            return "bb_240_259_no_actionable_fix"
         return "bellibolt_attack_probably_correct"
 
     return "unknown_due_to_missing_pivot_or_energy_info"
 
 
 # ---------------------------------------------------------------------------
-# General classification
+# Action mapping
 # ---------------------------------------------------------------------------
 
 _SUGGESTED_ACTION = {
+    # Actionable
     "voltorb_over_wattrel_missed":        "scoring_adjustment",
     "voltorb_over_kilowattrel_missed":    "scoring_adjustment",
     "bellibolt_over_voltorb_high_damage":  "scoring_adjustment",
-    "bellibolt_attack_probably_correct":   "no_fix_needed",
-    "unknown_due_to_missing_pivot_or_energy_info": "logging_improvement",
     "attack_available_but_no_attack":      "scoring_adjustment",
     "end_when_attack_available":           "scoring_adjustment",
     "retreat_when_attack_available":       "scoring_adjustment",
     "ability_without_followup_attack":     "scoring_adjustment",
     "voltorb_scaling_attack_underused":    "scoring_adjustment",
-    "stage1_without_base_search":          "detector_refinement",
-    "duplicate_stage1_search":             "detector_refinement",
-    "overattach_to_ready_attacker":        "profile_adjustment",
     "ko_available_but_no_attack":          "scoring_adjustment",
     "ability_breaks_attack_ready_state":   "scoring_adjustment",
+    "overattach_to_ready_attacker":        "profile_adjustment",
     "stronger_ready_bench_attacker_not_promoted": "scoring_adjustment",
+    "stage1_without_base_search":          "detector_refinement",
+    "duplicate_stage1_search":             "detector_refinement",
+    # No fix needed
+    "bellibolt_attack_probably_correct":   "no_fix_needed",
+    # No actionable fix (proven by F0009/F0010)
+    "bb_240_259_no_actionable_fix":        "no_actionable_fix_game_flow",
+    "kw_120_179_no_actionable_fix":        "no_actionable_fix_game_flow",
+    # Logging
+    "unknown_due_to_missing_pivot_or_energy_info": "logging_improvement",
+}
+
+# Classifications excluded from fix prompt generation
+_EXCLUDED_FROM_FIX_PROMPT = {
+    "no_fix_needed",
+    "no_actionable_fix_game_flow",
+    "classifier_false_positive",
 }
 
 
 def classify_anomalies(anomalies: list[dict]) -> dict:
-    """
-    Classify a list of anomalies into groups.
-
-    Returns a dict:
-      {
-        "groups": { classification_key: [anomaly, ...] },
-        "summary": { classification_key: count },
-        "suggested_actions": { classification_key: action_type },
-      }
-    """
+    """Classify anomalies into groups with action recommendations."""
     groups: dict[str, list] = {}
     for a in anomalies:
         atype = a.get("type", "unknown")
@@ -104,7 +126,6 @@ def _next_fid() -> str:
 
 
 def _priority_for(classification: str, count: int, anomalies: list[dict]) -> str:
-    """Determine priority for a fix candidate group."""
     high_sev = sum(1 for a in anomalies if a.get("severity") in ("critical", "high"))
     if classification == "voltorb_over_wattrel_missed":
         return "high"
@@ -117,9 +138,6 @@ def _priority_for(classification: str, count: int, anomalies: list[dict]) -> str
         return "high" if high_sev > 0 else "medium"
     if classification in ("retreat_when_attack_available", "ability_breaks_attack_ready_state"):
         return "high" if count >= 5 else "medium"
-    if classification in ("bellibolt_attack_probably_correct",
-                          "unknown_due_to_missing_pivot_or_energy_info"):
-        return "low"
     return "medium" if count >= 5 else "low"
 
 
@@ -128,9 +146,6 @@ def _risk_for(classification: str) -> str:
                           "voltorb_over_kilowattrel_missed"):
         return "medium"
     if classification == "voltorb_over_wattrel_missed":
-        return "low"
-    if classification in ("bellibolt_attack_probably_correct",
-                          "unknown_due_to_missing_pivot_or_energy_info"):
         return "low"
     return "medium"
 
@@ -145,6 +160,10 @@ def _title_for(classification: str) -> str:
             "Consider Voltorb over Bellibolt ex when Voltorb estimated damage exceeds 230",
         "bellibolt_attack_probably_correct":
             "Bellibolt ex attack is likely correct (Voltorb damage <= 230)",
+        "bb_240_259_no_actionable_fix":
+            "BB 240-259: pivot proven to cause regressions (F0009/F0010 rejected)",
+        "kw_120_179_no_actionable_fix":
+            "KW 120-179: pivot proven ineffective (F0009 rejected)",
         "unknown_due_to_missing_pivot_or_energy_info":
             "Improve logging to determine if Voltorb was actually available as an attacker",
         "attack_available_but_no_attack":
@@ -168,21 +187,23 @@ def _title_for(classification: str) -> str:
 def _root_cause_for(classification: str) -> str:
     causes = {
         "voltorb_over_kilowattrel_missed":
-            "Attacker selection may underweight Voltorb scaling damage compared with Kilowattrel static priority. "
-            "Agent does not consider retreating to Voltorb when Voltorb has higher expected damage.",
+            "Attacker selection may underweight Voltorb scaling damage compared with Kilowattrel static priority.",
         "voltorb_over_wattrel_missed":
             "Wattrel should not be attacking when Voltorb has significantly higher damage potential.",
         "bellibolt_over_voltorb_high_damage":
-            "Bellibolt ex is being used as primary attacker even when Voltorb scaling damage exceeds 230. "
-            "Non-ex Voltorb would be more prize-efficient.",
+            "Bellibolt ex is being used as primary attacker even when Voltorb scaling damage exceeds 230.",
         "bellibolt_attack_probably_correct":
             "Bellibolt ex attack is reasonable when its 230 damage equals or exceeds Voltorb estimate. No fix needed.",
+        "bb_240_259_no_actionable_fix":
+            "Voltorb 240-259 exceeds BB 230 but pivot causes downstream regressions. Proven by F0009/F0010.",
+        "kw_120_179_no_actionable_fix":
+            "Voltorb 120-179 exceeds KW 70 but pivot has insufficient effect. Proven by F0009.",
         "unknown_due_to_missing_pivot_or_energy_info":
             "Cannot determine if Voltorb was available. Log does not contain bench attacker readiness.",
         "attack_available_but_no_attack":
-            "Turn ended without attacking despite a legal attack being available in the select options.",
+            "Turn ended without attacking despite a legal attack being available.",
         "end_when_attack_available":
-            "End was selected over a legal attack. turn_rule_engine or policy scoring may be insufficient.",
+            "End was selected over a legal attack.",
     }
     return causes.get(classification, f"Root cause for {classification} needs investigation.")
 
@@ -193,6 +214,8 @@ def _target_files_for(classification: str) -> list[str]:
         "voltorb_over_wattrel_missed": ["agent/ionos_rules.py", "agent/policy.py"],
         "bellibolt_over_voltorb_high_damage": ["agent/ionos_rules.py", "agent/policy.py", "data/deck_profile.json"],
         "bellibolt_attack_probably_correct": [],
+        "bb_240_259_no_actionable_fix": [],
+        "kw_120_179_no_actionable_fix": [],
         "unknown_due_to_missing_pivot_or_energy_info": ["agent/logger.py", "main.py"],
         "attack_available_but_no_attack": ["agent/turn_rule_engine.py", "agent/policy.py", "agent/ionos_rules.py"],
         "end_when_attack_available": ["agent/turn_rule_engine.py", "agent/policy.py"],
@@ -215,23 +238,18 @@ def _ab_metrics_for(classification: str) -> list[str]:
     return base + specific.get(classification, [])
 
 
-def _change_type_for(classification: str) -> str:
-    return _SUGGESTED_ACTION.get(classification, "unknown")
-
-
 def generate_fix_candidates(
     classification_result: dict,
     deck_profile_id: str = "unknown",
 ) -> list[dict]:
-    """Generate fix candidate entries from classification result."""
+    """Generate fix candidates. Excludes no_fix_needed and no_actionable_fix."""
     global _CANDIDATE_COUNTER
     _CANDIDATE_COUNTER = 0
 
-    groups   = classification_result["groups"]
-    actions  = classification_result["suggested_actions"]
+    groups  = classification_result["groups"]
+    actions = classification_result["suggested_actions"]
     candidates = []
 
-    # Sort by priority order
     priority_order = [
         "voltorb_over_wattrel_missed",
         "voltorb_over_kilowattrel_missed",
@@ -248,6 +266,9 @@ def generate_fix_candidates(
         "duplicate_stage1_search",
         "stronger_ready_bench_attacker_not_promoted",
         "unknown_due_to_missing_pivot_or_energy_info",
+        # Excluded from fix candidates (listed last for reporting only)
+        "bb_240_259_no_actionable_fix",
+        "kw_120_179_no_actionable_fix",
         "bellibolt_attack_probably_correct",
     ]
     sorted_keys = sorted(groups.keys(), key=lambda k: (
@@ -260,6 +281,9 @@ def generate_fix_candidates(
         if count == 0:
             continue
 
+        action = actions.get(key, "unknown")
+        is_excluded = action in _EXCLUDED_FROM_FIX_PROMPT
+
         rep_ids = [a["id"] for a in group[:5]]
         actual_attackers = list(set(
             str(a.get("actual_attacker") or a.get("active_id") or "")
@@ -269,8 +293,8 @@ def generate_fix_candidates(
                       if a.get("estimated_voltorb_damage")]
         dmg_range = [min(dmg_values), max(dmg_values)] if dmg_values else []
 
-        priority = _priority_for(key, count, group)
-        change_type = _change_type_for(key)
+        priority = "excluded" if is_excluded else _priority_for(key, count, group)
+        change_type = action
 
         candidates.append({
             "id": _next_fid(),
@@ -287,11 +311,12 @@ def generate_fix_candidates(
             },
             "suggested_change_type": change_type,
             "suggested_target_files": _target_files_for(key),
-            "risk": _risk_for(key),
+            "risk": _risk_for(key) if not is_excluded else "n/a",
             "expected_effect": _title_for(key),
             "do_not_change": ["deck.csv", "submission.tar.gz"],
-            "requires_ab_test": change_type in ("scoring_adjustment", "profile_adjustment"),
-            "ab_test_metric": _ab_metrics_for(key),
+            "requires_ab_test": change_type in ("scoring_adjustment", "profile_adjustment") and not is_excluded,
+            "ab_test_metric": _ab_metrics_for(key) if not is_excluded else [],
+            "excluded_from_fix_prompt": is_excluded,
         })
 
     return candidates

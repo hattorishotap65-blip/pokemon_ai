@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "target": "F0012",
+  "purpose": "Classifier and report cleanup after F0009/F0010 rejection",
+  "changes": [
+    "tools/classify_anomalies.py: added bb_240_259_no_actionable_fix and kw_120_179_no_actionable_fix categories",
+    "tools/classify_anomalies.py: excluded_from_fix_prompt flag for no_fix_needed and no_actionable_fix",
+    "tools/generate_fix_prompt.py: 3-section report layout (Fix / No Fix / No Actionable)",
+    "tools/generate_fix_prompt.py: excluded categories not shown in fix candidates section"
+  ],
+  "verification_result": {
+    "games": 200,
+    "total_anomalies": 998,
+    "actionable_in_fix_prompt": 357,
+    "excluded_from_fix_prompt": 641,
+    "no_fix_needed": 551,
+    "no_actionable_fix_game_flow": 90,
+    "f0009_f0010_pivot_re_proposed": false,
+    "no_actionable_separate_from_no_fix": true
+  },
+  "agent_behavior_changed": false,
+  "level5_complete": true,
+  "level6_ready": true
+}

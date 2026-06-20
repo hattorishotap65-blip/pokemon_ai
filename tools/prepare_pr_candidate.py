@@ -57,6 +57,24 @@ def prepare(evaluation: dict) -> dict:
     games_before = evaluation.get("games_before", 0)
     games_after = evaluation.get("games_after", 0)
 
+    # Safety gate: reject if any safety metric is missing
+    _SAFETY_REQUIRED = {
+        "attack_available_but_no_attack",
+        "end_when_attack_available",
+        "retreat_when_attack_available",
+        "ability_without_followup_attack",
+    }
+    missing_safety = _SAFETY_REQUIRED & set(missing)
+    if missing_safety:
+        return {
+            "eligible_for_pr": False,
+            "candidate": candidate,
+            "decision": "accept",
+            "reason": f"Safety metrics missing: {sorted(missing_safety)}. Cannot confirm safety.",
+            "reasons": reasons,
+            "next_action": "Re-run evaluation with safety metrics available.",
+        }
+
     # Build PR summary
     imp_lines = []
     for m in improved:

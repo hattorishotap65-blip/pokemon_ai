@@ -1,0 +1,17 @@
+{
+  "parameter": "energy_to_plan_bonus",
+  "value": 8.0,
+  "stage": "30g",
+  "baseline_anomalies_per_game": 4.2,
+  "candidate_anomalies_per_game": 4.57,
+  "delta": 0.37,
+  "improvement_percent": 8.81,
+  "safety_ok": true,
+  "safety": "all_0",
+  "category_regressions": [],
+  "date": "2026-06-20",
+  "decision": "no_promote",
+  "promote": false,
+  "reason": "Candidate worse than baseline at 30g (delta=+0.3700).",
+  "next_action": "Do not promote to 50g. Consider other candidates."
+}

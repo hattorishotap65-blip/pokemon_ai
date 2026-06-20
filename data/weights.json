@@ -1,9 +1,10 @@
 {
   "schema_version": "1.0",
-  "description": "Scoring weights for policy.py. Edit to tune behavior without code changes.",
+  "description": "Scoring weights for policy.py and ionos_rules.py. Edit to tune behavior without code changes.",
   "advantage_weight": 0.4,
   "energy_to_plan_bonus": 5.0,
   "energy_to_plan_bonus_no_need": 2.0,
   "attack_suppress_penalty": -30.0,
+  "retreat_to_better_attacker_bonus": 1100.0,
   "notes": "Initial values match hardcoded defaults. weights.json is optional — agent falls back to defaults if missing."
 }

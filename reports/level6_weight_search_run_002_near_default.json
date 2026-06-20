@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6 weight search run 002 near-default",
+  "design": "1-axis scan: change one weight at a time from default",
+  "games_per_pattern": 30,
+  "patterns_tested": 8,
+  "all_safety_ok": true,
+  "results_ranked": [
+    {"weight": "energy_to_plan_bonus", "value": 4.0, "anomalies_per_game": 4.20},
+    {"weight": "advantage_weight", "value": 0.35, "anomalies_per_game": 4.43},
+    {"weight": "advantage_weight", "value": 0.45, "anomalies_per_game": 4.53},
+    {"weight": "attack_suppress_penalty", "value": -20.0, "anomalies_per_game": 5.10},
+    {"weight": "attack_suppress_penalty", "value": -40.0, "anomalies_per_game": 5.30},
+    {"weight": "energy_to_plan_bonus_no_need", "value": 3.0, "anomalies_per_game": 5.83},
+    {"weight": "energy_to_plan_bonus", "value": 6.0, "anomalies_per_game": 5.97},
+    {"weight": "energy_to_plan_bonus_no_need", "value": 1.0, "anomalies_per_game": 6.03}
+  ],
+  "candidates_for_50g": [
+    {"weight": "energy_to_plan_bonus", "value": 4.0, "reason": "best 30g result, opposite direction from Run 001 e=7.0"},
+    {"weight": "advantage_weight", "value": 0.35, "reason": "consistent with Run 001 adv=0.3 trend but more conservative"}
+  ],
+  "weights_restored": true,
+  "agent_behavior_changed": false
+}

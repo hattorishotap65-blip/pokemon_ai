@@ -142,16 +142,27 @@ def main():
     parser.add_argument("--patterns", type=int, default=0, help="Max patterns to test (0=all)")
     parser.add_argument("--use-wsl", action="store_true", help="Run simulation via WSL")
     parser.add_argument("--start-game", type=int, default=4000, help="Starting game ID")
+    parser.add_argument("--grid-file", default=None, help="JSON file with custom pattern list")
     args = parser.parse_args()
 
-    keys = sorted(_SEARCH_GRID.keys())
-    values = [_SEARCH_GRID[k] for k in keys]
-    all_patterns = []
-    for combo in itertools.product(*values):
-        w = dict(_DEFAULTS)
-        for k, v in zip(keys, combo):
-            w[k] = v
-        all_patterns.append(w)
+    if args.grid_file and os.path.exists(args.grid_file):
+        with open(args.grid_file, encoding="utf-8") as f:
+            grid_data = json.load(f)
+        all_patterns = []
+        for p in grid_data.get("patterns", []):
+            w = dict(_DEFAULTS)
+            w.update(p)
+            all_patterns.append(w)
+        keys = sorted(set(k for p in grid_data.get("patterns", []) for k in p.keys()))
+    else:
+        keys = sorted(_SEARCH_GRID.keys())
+        values = [_SEARCH_GRID[k] for k in keys]
+        all_patterns = []
+        for combo in itertools.product(*values):
+            w = dict(_DEFAULTS)
+            for k, v in zip(keys, combo):
+                w[k] = v
+            all_patterns.append(w)
 
     if args.patterns > 0:
         all_patterns = all_patterns[:args.patterns]

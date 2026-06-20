@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "target": "F0009",
+  "purpose": "Extend F0002/F0003 mild retreat bonus to overcome turn_rule -1000",
+  "final_decision": "not_adopted",
+  "f0009_full": {
+    "decision": "rejected",
+    "reason": "BB 240-259 caused bellibolt_over_voltorb_high_damage +22% and voltorb_over_wattrel_missed +127% in 200g"
+  },
+  "f0009_kw_only": {
+    "decision": "rejected",
+    "reason": "voltorb_over_kilowattrel_missed worsened 1.42->1.55, trigger count only 36/200g (0.18/g), insufficient improvement to justify adoption"
+  },
+  "agent_behavior_change": "none (reverted to F0007/F0008 state)",
+  "implementation_reverted": true,
+  "safety_check": {
+    "all_safety_metrics_zero": true,
+    "submission_rebuilt": false
+  }
+}

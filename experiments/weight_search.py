@@ -19,6 +19,17 @@ import itertools
 from datetime import datetime, timezone
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+
+def _to_wsl_path(path: str) -> str:
+    """Convert a path to WSL-compatible format. Handles both Windows and Linux paths."""
+    if path.startswith("/"):
+        return path
+    if len(path) >= 2 and path[1] == ":":
+        drive = path[0].lower()
+        rest = path[2:].replace("\\", "/")
+        return f"/mnt/{drive}{rest}"
+    return path
 _WEIGHTS_PATH = os.path.join(_REPO_ROOT, "data", "weights.json")
 _INBOX = os.path.join(_REPO_ROOT, "battle_logs", "inbox")
 _LOGS = os.path.join(_REPO_ROOT, "logs")
@@ -64,10 +75,11 @@ def _restore_weights(backup: dict):
 def _run_simulation(games: int, start_game: int, use_wsl: bool) -> bool:
     """Run simulation. Returns True on success."""
     if use_wsl:
+        wsl_root = _to_wsl_path(_REPO_ROOT)
         cmd = (
             f'wsl -d Ubuntu -e bash -c '
-            f'"cd {_REPO_ROOT.replace(os.sep, "/")} && '
-            f'PYTHONPATH={_REPO_ROOT.replace(os.sep, "/")}/reference/extracted '
+            f'"cd {wsl_root} && '
+            f'PYTHONPATH={wsl_root}/reference/extracted '
             f'python3 experiments/run_matches_real.py --n {games} --start-game {start_game}"'
         )
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600)
@@ -83,12 +95,14 @@ def _run_simulation(games: int, start_game: int, use_wsl: bool) -> bool:
     return result.returncode == 0
 
 
-def _run_anomaly_detection(log_prefix: str, output_dir: str) -> dict:
-    """Run anomaly detection on logs matching prefix."""
+def _run_anomaly_detection(start_id: int, count: int, output_dir: str) -> dict:
+    """Run anomaly detection on logs from start_id to start_id+count-1."""
     import glob
     os.makedirs(_INBOX, exist_ok=True)
-    for f in glob.glob(os.path.join(_LOGS, f"game_{log_prefix}*.jsonl")):
-        shutil.copy(f, _INBOX)
+    for gid in range(start_id, start_id + count):
+        src = os.path.join(_LOGS, f"game_g{gid:04d}.jsonl")
+        if os.path.exists(src):
+            shutil.copy(src, _INBOX)
 
     subprocess.run(
         [sys.executable, "tools/analyze_battle_logs.py",
@@ -160,14 +174,13 @@ def main():
 
             ok = _run_simulation(args.games, start_game, args.use_wsl)
             if not ok:
-                print(f"  FAILED — skipping")
+                print(f"  FAILED - skipping")
                 start_game += args.games
                 continue
 
-            prefix = f"g{start_game:04d}"
             out_dir = os.path.join(args.output, f"weight_search_{i:02d}")
             os.makedirs(os.path.join(_REPO_ROOT, out_dir), exist_ok=True)
-            report = _run_anomaly_detection(prefix, out_dir)
+            report = _run_anomaly_detection(start_game, args.games, out_dir)
             metrics = _extract_metrics(report)
 
             result = {"pattern_id": i, "weights": {k: pattern[k] for k in keys}, "metrics": metrics}

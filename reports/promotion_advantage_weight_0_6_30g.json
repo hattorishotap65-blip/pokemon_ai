@@ -1,0 +1,17 @@
+{
+  "parameter": "advantage_weight",
+  "value": 0.6,
+  "stage": "30g",
+  "baseline_anomalies_per_game": 4.53,
+  "candidate_anomalies_per_game": 5.3,
+  "delta": 0.77,
+  "improvement_percent": 17.0,
+  "safety_ok": true,
+  "safety": "all_0",
+  "category_regressions": [],
+  "date": "2026-06-20",
+  "decision": "no_promote",
+  "promote": false,
+  "reason": "Candidate worse than baseline at 30g (delta=+0.7700).",
+  "next_action": "Do not promote to 50g. Consider other candidates."
+}

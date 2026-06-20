@@ -1,0 +1,9 @@
+{
+  "description": "Advantage weight 30g search candidates",
+  "patterns": [
+    {"advantage_weight": 0.2},
+    {"advantage_weight": 0.3},
+    {"advantage_weight": 0.5},
+    {"advantage_weight": 0.6}
+  ]
+}

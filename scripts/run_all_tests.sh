@@ -22,4 +22,12 @@ echo "=== Kilowattrel ability ==="
 python experiments/test_kilowattrel_ability.py
 
 echo ""
+echo "=== Search history ==="
+python experiments/test_search_history.py
+
+echo ""
+echo "=== Promotion gate ==="
+python experiments/test_promotion_gate.py
+
+echo ""
 echo "All tests passed."

@@ -30,3 +30,9 @@ jobs:
 
       - name: Run Kilowattrel ability tests
         run: python experiments/test_kilowattrel_ability.py
+
+      - name: Run search history tests
+        run: python experiments/test_search_history.py
+
+      - name: Run promotion gate tests
+        run: python experiments/test_promotion_gate.py

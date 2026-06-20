@@ -1,0 +1,7 @@
+{
+  "description": "energy_to_plan_bonus_no_need 1.0 50g validation with matched baseline",
+  "patterns": [
+    {"energy_to_plan_bonus_no_need": 2.0},
+    {"energy_to_plan_bonus_no_need": 1.0}
+  ]
+}

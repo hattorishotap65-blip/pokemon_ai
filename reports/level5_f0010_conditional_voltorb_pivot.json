@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "target": "F0010",
+  "purpose": "Conditional Voltorb pivot: only when Voltorb can KO opponent active",
+  "final_decision": "reject",
+  "implementation_tested": {
+    "file": "agent/ionos_rules.py",
+    "condition": "Voltorb est_dmg >= opp_hp (KO possible) AND est_dmg >= 120/240 threshold",
+    "bb_240_259_ko_condition": "+1100 only if Voltorb can KO",
+    "kw_120_179_ko_condition": "+1100 only if Voltorb can KO",
+    "difference_from_f0009": "F0009 was unconditional +1100; F0010 requires KO possibility"
+  },
+  "baseline": {"games": 200, "source": "F0008 200g (F0007 only)"},
+  "candidate": {"games": 200, "source": "g3600-g3949 (F0007 + F0010)"},
+  "per_game_comparison": {
+    "bellibolt_attack_probably_correct": {"baseline": 2.75, "candidate": 2.61, "delta": -0.15},
+    "bellibolt_over_voltorb_high_damage": {"baseline": 0.67, "candidate": 0.62, "delta": -0.04},
+    "voltorb_over_kilowattrel_missed": {"baseline": 1.42, "candidate": 1.62, "delta": 0.21},
+    "voltorb_over_wattrel_missed": {"baseline": 0.15, "candidate": 0.27, "delta": 0.11},
+    "attack_available_but_no_attack": {"baseline": 0, "candidate": 0, "delta": 0},
+    "end_when_attack_available": {"baseline": 0, "candidate": 0, "delta": 0},
+    "retreat_when_attack_available": {"baseline": 0, "candidate": 0, "delta": 0}
+  },
+  "triggers_200g": {
+    "f0010_bb_ko_pivot": 206,
+    "f0010_kw_ko_pivot": 36,
+    "f0010_total": 242,
+    "f0007_kw": 215,
+    "f0007_bb": 76
+  },
+  "reject_reasons": [
+    "voltorb_over_kilowattrel_missed: +0.21/g (worsened, reject condition)",
+    "voltorb_over_wattrel_missed: +0.11/g (worsened, reject condition)",
+    "F0010 triggered 242 times but downstream anomalies increased",
+    "KO-conditional pivot still causes too many game-flow disruptions",
+    "BB ko-pivot alone (206 triggers) drives most of the regression"
+  ],
+  "agent_behavior_change": "none (reverted to F0007 state)",
+  "safety_check": {"all_safety_metrics_zero": true, "submission_rebuilt": false}
+}

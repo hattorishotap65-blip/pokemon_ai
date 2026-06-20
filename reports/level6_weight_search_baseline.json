@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6 foundation",
+  "weights_file": "data/weights.json",
+  "defaults": {
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0,
+    "attack_suppress_penalty": -30.0
+  },
+  "search_grid": {
+    "advantage_weight": [0.3, 0.4, 0.5],
+    "energy_to_plan_bonus": [3.0, 5.0, 7.0]
+  },
+  "foundation_complete": true,
+  "weights_json_fallback_tested": true,
+  "existing_tests_pass": true,
+  "simulation_tested": true,
+  "agent_behavior_changed": false,
+  "exploration_results_pending": true
+}

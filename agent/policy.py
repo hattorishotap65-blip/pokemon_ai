@@ -37,7 +37,15 @@ _OT_SKILL        = 15
 
 _TOOL_CARD_IDS = {"1159", "1161"}  # Hero's Cape, Handheld Fan
 
-_ADV_WEIGHT = 0.4   # concept_weighted_advantage added to per-action score
+_ADV_WEIGHT = 0.4   # default; overridden by weights.json if present
+
+# Default weights (used when weights.json is missing or incomplete)
+_DEFAULT_WEIGHTS = {
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0,
+    "attack_suppress_penalty": -30.0,
+}
 
 
 class PolicyAgent:
@@ -48,6 +56,34 @@ class PolicyAgent:
         self.deck_profile = self._load_deck_profile()
         self.evaluator.set_deck_profile(self.deck_profile)
         self._attack_data, self._attack_full = self._load_attack_data()
+        self._weights = self._load_weights()
+
+    # ------------------------------------------------------------------
+    # Weights (loaded from data/weights.json, falls back to defaults)
+    # ------------------------------------------------------------------
+
+    def _load_weights(self) -> dict:
+        import json, os
+        w = dict(_DEFAULT_WEIGHTS)
+        try:
+            _agent_dir = os.path.dirname(os.path.abspath(__file__))
+            for path in (
+                os.path.join(_agent_dir, "..", "data", "weights.json"),
+                "/kaggle_simulations/agent/data/weights.json",
+            ):
+                if os.path.exists(path):
+                    with open(path, encoding="utf-8") as f:
+                        data = json.load(f)
+                    for k in _DEFAULT_WEIGHTS:
+                        if k in data:
+                            w[k] = float(data[k])
+                    return w
+        except Exception:
+            pass
+        return w
+
+    def w(self, key: str) -> float:
+        return self._weights.get(key, _DEFAULT_WEIGHTS.get(key, 0.0))
 
     # ------------------------------------------------------------------
     # Deck profile (loaded once from data/deck_profile.json)
@@ -264,7 +300,7 @@ class PolicyAgent:
             phase = detect_current_phase(state)
             return evaluate_total_advantage(
                 action, state, self.knowledge, phase, self.deck_profile
-            ) * _ADV_WEIGHT
+            ) * self.w("advantage_weight")
         except Exception:
             return 0.0
 
@@ -328,7 +364,7 @@ class PolicyAgent:
         scores = list(scores)
         for i, o in enumerate(opt_dicts):
             if isinstance(o, dict) and o.get("type") == _OT_ATTACK:
-                scores[i] -= 30.0
+                scores[i] += self.w("attack_suppress_penalty")
         return scores
 
     # ------------------------------------------------------------------
@@ -568,7 +604,7 @@ class PolicyAgent:
                     and in_play_index == plan.attacker_idx)
             )
             if attaching_to_planned:
-                score += 5.0 if plan.need_energy else 2.0
+                score += self.w("energy_to_plan_bonus") if plan.need_energy else self.w("energy_to_plan_bonus_no_need")
                 reason = "energy_for_plan"
 
         return score, reason

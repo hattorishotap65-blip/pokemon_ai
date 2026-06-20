@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6.5 retreat_to_better_attacker_bonus=1400 validation 50g",
+  "baseline": {"games": 50, "bonus": 1100, "anomalies_per_game": 5.76},
+  "candidate": {"games": 50, "bonus": 1400, "anomalies_per_game": 4.74},
+  "improvement": "-18%",
+  "consistency": {"30g": "-12%", "50g": "-18%", "trend": "improvement maintained and expanded"},
+  "safety": {
+    "attack_available_but_no_attack": "0 -> 0",
+    "end_when_attack_available": "0 -> 0",
+    "retreat_when_attack_available": "0 -> 0",
+    "ability_without_followup_attack": "0 -> 0"
+  },
+  "key_improvements": {
+    "kw_f0007_range_game_flow": {"baseline": 1.84, "candidate": 1.14, "delta": -0.70, "pct": "-38%"},
+    "bellibolt_attack_probably_correct": {"baseline": 2.84, "candidate": 2.22, "delta": -0.62}
+  },
+  "side_effects": {
+    "bb_f0007_range_no_retreat": {"baseline": 0.28, "candidate": 0.58, "delta": 0.30, "note": "safe: retreat unavailable cases increase but agent still attacks"}
+  },
+  "f0007_triggers": {"baseline": 2.22, "candidate": 2.18, "stable": true},
+  "decision": "200g_validation_recommended",
+  "weights_restored": true,
+  "agent_behavior_changed": false
+}

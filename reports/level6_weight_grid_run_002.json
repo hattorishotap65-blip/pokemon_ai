@@ -1,0 +1,19 @@
+{
+  "description": "Run 002: 1-axis near-default scan. Each pattern changes only one weight from default.",
+  "defaults": {
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0,
+    "attack_suppress_penalty": -30.0
+  },
+  "patterns": [
+    {"advantage_weight": 0.35},
+    {"advantage_weight": 0.45},
+    {"energy_to_plan_bonus": 4.0},
+    {"energy_to_plan_bonus": 6.0},
+    {"energy_to_plan_bonus_no_need": 1.0},
+    {"energy_to_plan_bonus_no_need": 3.0},
+    {"attack_suppress_penalty": -20.0},
+    {"attack_suppress_penalty": -40.0}
+  ]
+}

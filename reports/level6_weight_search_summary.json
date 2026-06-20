@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6 weight search summary",
+  "foundation": {
+    "weights_json": "data/weights.json",
+    "search_script": "experiments/weight_search.py",
+    "policy_integration": "agent/policy.py _load_weights() / w()",
+    "pr": "#21"
+  },
+  "explorations": [
+    {
+      "name": "Run 001",
+      "pr": "#22",
+      "type": "3x3 grid",
+      "games_per_pattern": 30,
+      "best_candidate": {"advantage_weight": 0.3, "energy_to_plan_bonus": 7.0},
+      "best_30g": "4.03/g (-17%)"
+    },
+    {
+      "name": "Run 001 50g validation",
+      "pr": "#23",
+      "candidate": {"advantage_weight": 0.3, "energy_to_plan_bonus": 7.0},
+      "result_50g": "5.54/g (+2%)",
+      "decision": "not_adopted"
+    },
+    {
+      "name": "Run 002",
+      "pr": "#24",
+      "type": "1-axis near-default scan",
+      "games_per_pattern": 30,
+      "best_candidate": {"energy_to_plan_bonus": 4.0},
+      "best_30g": "4.20/g (-14%)"
+    },
+    {
+      "name": "Run 002 50g validation",
+      "pr": "#25",
+      "candidate": {"energy_to_plan_bonus": 4.0},
+      "result_50g": "4.96/g (+11%)",
+      "decision": "not_adopted"
+    }
+  ],
+  "conclusion": {
+    "adopted_candidates": 0,
+    "default_weights_unchanged": true,
+    "30g_results_unreliable": true,
+    "current_defaults_near_optimal": true,
+    "level6_status": "complete"
+  },
+  "next_improvement_direction": {
+    "option_a": "Add new weight parameters (currently hardcoded scores)",
+    "option_b": "Rule structure improvements (phase-based scoring, conditional evaluation)"
+  }
+}

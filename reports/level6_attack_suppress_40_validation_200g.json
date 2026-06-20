@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "target": "attack_suppress_penalty=-40 validation 200g",
+  "baseline": {"games": 200, "value": -30, "anomalies_per_game": 4.97},
+  "candidate": {"games": 200, "value": -40, "anomalies_per_game": 4.50},
+  "improvement": "-9.5%",
+  "consistency": {"30g": "-11%", "50g": "-11%", "200g": "-9.5%"},
+  "safety": {"all_zero": true},
+  "decision": "adoption_pr_recommended",
+  "weights_restored": true
+}

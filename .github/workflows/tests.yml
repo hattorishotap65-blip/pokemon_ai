@@ -1,0 +1,32 @@
+name: Run Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Level 7 tools tests
+        run: python experiments/test_level7_tools.py
+
+      - name: Run effect engine tests
+        run: python experiments/test_effect_engine.py
+
+      - name: Run turn rule engine tests
+        run: python experiments/test_turn_rule_engine.py
+
+      - name: Run Voltorb attack tests
+        run: python experiments/test_voltorb_attack.py
+
+      - name: Run Kilowattrel ability tests
+        run: python experiments/test_kilowattrel_ability.py

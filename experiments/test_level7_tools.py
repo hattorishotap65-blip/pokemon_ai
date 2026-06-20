@@ -13,9 +13,11 @@ from tools.generate_pr_metadata import generate_metadata
 PASS = "[PASS]"
 FAIL = "[FAIL]"
 _failures = 0
+_total = 0
 
 def check(label, condition):
-    global _failures
+    global _failures, _total
+    _total += 1
     status = PASS if condition else FAIL
     print(f"  {status}  {label}")
     if not condition:
@@ -125,8 +127,7 @@ check("files in output", "data/weights.json" in r.get("suggested_changed_files",
 
 # ---------------------------------------------------------------------------
 print(f"\n{'='*50}")
-total = 18
-print(f"  Passed: {total - _failures}/{total}")
+print(f"  Passed: {_total - _failures}/{_total}")
 if _failures == 0:
     print("  All checks PASSED.")
 else:

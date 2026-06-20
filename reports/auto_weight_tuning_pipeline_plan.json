@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0",
+  "target": "Automated weight tuning pipeline design",
+  "current_stable_weights": {
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0,
+    "attack_suppress_penalty": -40.0,
+    "retreat_to_better_attacker_bonus": 1400.0
+  },
+  "excluded_from_current_search": [
+    {"parameter": "retreat_to_better_attacker_bonus", "value": 1400.0, "reason": "Fully validated, stable"},
+    {"parameter": "attack_suppress_penalty", "value": -40.0, "reason": "Fully validated, stable"}
+  ],
+  "tunable_existing_weights": [
+    {"parameter": "advantage_weight", "current": 0.4, "range": [0.2, 0.3, 0.4, 0.5, 0.6], "explored": "30g_only_stale"},
+    {"parameter": "energy_to_plan_bonus", "current": 5.0, "range": [3.0, 4.0, 5.0, 6.0, 7.0, 8.0], "explored": "30g_only_stale"},
+    {"parameter": "energy_to_plan_bonus_no_need", "current": 2.0, "range": [1.0, 2.0, 3.0, 4.0], "explored": "never"}
+  ],
+  "hardcoded_candidates_for_externalization": {
+    "tier1_high_impact": [
+      {"file": "ionos_rules.py", "line": 813, "value": 1000.0, "context": "voltorb_ko_attack_bonus"},
+      {"file": "ionos_rules.py", "line": 798, "value": 0.8, "context": "voltorb_damage_scaling"},
+      {"file": "ionos_rules.py", "line": 956, "value": 220.0, "context": "evolve_first_bellibolt"},
+      {"file": "ionos_rules.py", "line": 361, "value": 400.0, "context": "energy_ko_line_bonus"},
+      {"file": "ionos_rules.py", "line": 298, "value": 300.0, "context": "energy_attack_enablement"}
+    ],
+    "tier2_medium_impact": [
+      {"file": "policy.py", "lines": "439-450", "values": [20, 30, 5, 3, 6], "context": "attack_ko_bonuses"},
+      {"file": "policy.py", "line": 395, "value": 15.0, "context": "deck_out_penalty"},
+      {"file": "policy.py", "line": 498, "value": 8.0, "context": "urgent_bench_bonus"},
+      {"file": "planner.py", "lines": "40-44", "values": [0.7, 0.8], "context": "future_threat_weight"},
+      {"file": "planner.py", "lines": "247-248", "values": [0.25, 0.5], "context": "ko_risk_threshold"}
+    ],
+    "tier3_low_priority": [
+      {"file": "ionos_rules.py", "lines": "316-348", "count": 12, "context": "energy_card_priority"},
+      {"file": "ionos_rules.py", "lines": "418-500", "count": 15, "context": "poffin_bench_priority"},
+      {"file": "ionos_rules.py", "lines": "516-531", "count": 6, "context": "play_basic_priority"}
+    ]
+  },
+  "proposed_pipeline_stages": [
+    {"stage": 1, "name": "grid_search_30g", "games": 30, "purpose": "initial screening"},
+    {"stage": 2, "name": "validation_50g", "games": 50, "purpose": "noise filtering"},
+    {"stage": 3, "name": "confirmation_200g", "games": 200, "purpose": "final validation"}
+  ],
+  "promotion_criteria": {
+    "30g_to_50g": {
+      "anomalies_total": "< baseline",
+      "safety": "all 0",
+      "real_fix_candidate": 0
+    },
+    "50g_to_200g": {
+      "anomalies_total": "improvement sustained",
+      "safety": "all 0",
+      "no_new_anomaly_categories": true
+    }
+  },
+  "safety_criteria": {
+    "metrics": [
+      "attack_available_but_no_attack",
+      "end_when_attack_available",
+      "retreat_when_attack_available",
+      "ability_without_followup_attack"
+    ],
+    "required_value": 0,
+    "enforcement": "any > 0 at any stage -> immediate reject"
+  },
+  "decision_criteria": {
+    "accept": "200g improvement + safety all 0 + consistent across stages + no category regression >10%",
+    "hold": "improvement at 30g/50g not confirmed at 200g, or marginal (<2%), or one category worsened",
+    "reject": "200g worse, or safety > 0, or real_fix_candidate > 0"
+  },
+  "reusable_existing_tools": [
+    "experiments/weight_search.py",
+    "tools/analyze_battle_logs.py",
+    "tools/classify_anomalies.py",
+    "tools/evaluate_candidate.py",
+    "tools/prepare_pr_candidate.py",
+    "tools/generate_pr_metadata.py",
+    "scripts/run_all_tests.sh"
+  ],
+  "required_new_tools": [
+    {"name": "tools/auto_tune.py", "purpose": "Orchestrator: staged search pipeline", "priority": "required"},
+    {"name": "tools/promotion_gate.py", "purpose": "30g->50g / 50g->200g promotion logic", "priority": "required"},
+    {"name": "tools/search_history.py", "purpose": "Track explored candidates, prevent re-exploration", "priority": "recommended"},
+    {"name": "reports/search_history.json", "purpose": "Persistent log of all search results", "priority": "recommended"}
+  ],
+  "proposed_pr_sequence": [
+    {"id": "A", "scope": "tools/search_history.py + reports/search_history.json", "depends_on": []},
+    {"id": "B", "scope": "tools/promotion_gate.py", "depends_on": ["A"]},
+    {"id": "C", "scope": "tools/auto_tune.py", "depends_on": ["A", "B"]},
+    {"id": "D", "scope": "Update weight_search.py defaults", "depends_on": []},
+    {"id": "E", "scope": "First search: advantage_weight sweep", "depends_on": ["C", "D"]},
+    {"id": "F", "scope": "Second search: energy_to_plan_bonus sweep", "depends_on": ["E"]}
+  ],
+  "recommended_first_implementation_pr": {
+    "id": "A",
+    "scope": "tools/search_history.py + reports/search_history.json",
+    "reason": "Smallest scope, no dependencies, prevents duplicate exploration, can backfill existing results"
+  }
+}

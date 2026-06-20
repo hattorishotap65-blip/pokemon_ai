@@ -1,0 +1,8 @@
+{
+  "description": "energy_to_plan_bonus_no_need 30g search candidates",
+  "patterns": [
+    {"energy_to_plan_bonus_no_need": 1.0},
+    {"energy_to_plan_bonus_no_need": 3.0},
+    {"energy_to_plan_bonus_no_need": 4.0}
+  ]
+}

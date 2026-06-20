@@ -1,0 +1,17 @@
+{
+  "parameter": "energy_to_plan_bonus_no_need",
+  "value": 1.0,
+  "stage": "30g",
+  "baseline_anomalies_per_game": 8.37,
+  "candidate_anomalies_per_game": 4.97,
+  "delta": -3.4,
+  "improvement_percent": -40.62,
+  "safety_ok": true,
+  "safety": "all_0",
+  "category_regressions": [],
+  "date": "2026-06-20",
+  "decision": "promote",
+  "promote": true,
+  "reason": "Improved at 30g (delta=-3.4000, -40.6%). Safety OK.",
+  "next_action": "Promote to 50g validation."
+}

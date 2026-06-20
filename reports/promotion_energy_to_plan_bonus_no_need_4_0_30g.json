@@ -1,0 +1,17 @@
+{
+  "parameter": "energy_to_plan_bonus_no_need",
+  "value": 4.0,
+  "stage": "30g",
+  "baseline_anomalies_per_game": 8.37,
+  "candidate_anomalies_per_game": 6.8,
+  "delta": -1.57,
+  "improvement_percent": -18.76,
+  "safety_ok": true,
+  "safety": "all_0",
+  "category_regressions": [],
+  "date": "2026-06-20",
+  "decision": "hold",
+  "promote": false,
+  "reason": "Formal gate would promote, but held due to separate baseline game set and worst grid rank among candidates.",
+  "next_action": "Do not promote to 50g. Only 1.0 recommended."
+}

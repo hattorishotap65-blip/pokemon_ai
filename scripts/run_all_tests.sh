@@ -30,4 +30,8 @@ echo "=== Promotion gate ==="
 python experiments/test_promotion_gate.py
 
 echo ""
+echo "=== Auto tune ==="
+python experiments/test_auto_tune.py
+
+echo ""
 echo "All tests passed."

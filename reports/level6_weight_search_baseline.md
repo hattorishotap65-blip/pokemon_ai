@@ -53,9 +53,16 @@
 | `deck.csv` | 変更なし |
 | `submission.tar.gz` | 変更なし（accept まで更新しない） |
 
+## Design
+
+- **repo root 自動解決**: `os.path.dirname(__file__)` からの相対パス
+- **WSL はオプション**: `--use-wsl` フラグで切り替え、デフォルトはローカル Python
+- **weights.json 復元**: 実行前に退避、finally で元状態に復元（異常終了時も安全）
+- **個人PC固定パスなし**
+
 ## Next Steps
 
-1. `python experiments/weight_search.py --games 30 --patterns 3` で小規模探索実行
+1. `python experiments/weight_search.py --games 30 --patterns 3 --use-wsl` で小規模探索実行
 2. 安全指標 all 0 の候補を特定
 3. 有望候補を 50-200g で追加検証
 4. accept 判断後に submission.tar.gz を更新

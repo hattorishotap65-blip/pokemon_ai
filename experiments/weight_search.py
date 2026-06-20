@@ -7,6 +7,7 @@ compares anomaly metrics against a baseline.
 Usage:
   python experiments/weight_search.py --games 30 --output reports
   python experiments/weight_search.py --games 50 --output reports --patterns 3
+  python experiments/weight_search.py --games 30 --use-wsl
 """
 import argparse
 import json
@@ -17,11 +18,10 @@ import subprocess
 import itertools
 from datetime import datetime, timezone
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-_WEIGHTS_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "weights.json")
-_INBOX = os.path.join(os.path.dirname(__file__), "..", "battle_logs", "inbox")
-_LOGS = os.path.join(os.path.dirname(__file__), "..", "logs")
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_WEIGHTS_PATH = os.path.join(_REPO_ROOT, "data", "weights.json")
+_INBOX = os.path.join(_REPO_ROOT, "battle_logs", "inbox")
+_LOGS = os.path.join(_REPO_ROOT, "logs")
 
 # Default weights (must match data/weights.json initial values)
 _DEFAULTS = {
@@ -38,6 +38,14 @@ _SEARCH_GRID = {
 }
 
 
+def _read_weights() -> dict:
+    """Read current weights.json content for backup."""
+    if os.path.exists(_WEIGHTS_PATH):
+        with open(_WEIGHTS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
 def _write_weights(weights: dict):
     """Write weights to data/weights.json."""
     data = {"schema_version": "1.0"}
@@ -46,46 +54,55 @@ def _write_weights(weights: dict):
         json.dump(data, f, indent=2)
 
 
-def _restore_defaults():
-    _write_weights(_DEFAULTS)
+def _restore_weights(backup: dict):
+    """Restore weights.json from backup."""
+    if backup:
+        with open(_WEIGHTS_PATH, "w", encoding="utf-8") as f:
+            json.dump(backup, f, indent=2)
 
 
-def _run_simulation(games: int, start_game: int) -> bool:
-    """Run simulation via WSL. Returns True on success."""
-    cmd = (
-        f'wsl -d Ubuntu -e bash -c '
-        f'"cd /mnt/c/Users/shclo/projects/pokemon_card_ai && '
-        f'PYTHONPATH=/mnt/c/Users/shclo/projects/pokemon_card_ai/reference/extracted '
-        f'python3 experiments/run_matches_real.py --n {games} --start-game {start_game}"'
-    )
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600)
+def _run_simulation(games: int, start_game: int, use_wsl: bool) -> bool:
+    """Run simulation. Returns True on success."""
+    if use_wsl:
+        cmd = (
+            f'wsl -d Ubuntu -e bash -c '
+            f'"cd {_REPO_ROOT.replace(os.sep, "/")} && '
+            f'PYTHONPATH={_REPO_ROOT.replace(os.sep, "/")}/reference/extracted '
+            f'python3 experiments/run_matches_real.py --n {games} --start-game {start_game}"'
+        )
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600)
+    else:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.join(_REPO_ROOT, "reference", "extracted")
+        result = subprocess.run(
+            [sys.executable, "experiments/run_matches_real.py",
+             "--n", str(games), "--start-game", str(start_game)],
+            cwd=_REPO_ROOT,
+            capture_output=True, text=True, timeout=600, env=env,
+        )
     return result.returncode == 0
 
 
 def _run_anomaly_detection(log_prefix: str, output_dir: str) -> dict:
     """Run anomaly detection on logs matching prefix."""
     import glob
-    # Copy logs to inbox
     os.makedirs(_INBOX, exist_ok=True)
     for f in glob.glob(os.path.join(_LOGS, f"game_{log_prefix}*.jsonl")):
         shutil.copy(f, _INBOX)
 
-    # Run detection
-    cmd = [
-        sys.executable, "tools/analyze_battle_logs.py",
-        "--input", "battle_logs/inbox",
-        "--output", output_dir,
-        "--deck-profile", "data/deck_profile.json",
-        "--top", "20",
-    ]
-    subprocess.run(cmd, capture_output=True, text=True)
+    subprocess.run(
+        [sys.executable, "tools/analyze_battle_logs.py",
+         "--input", "battle_logs/inbox",
+         "--output", output_dir,
+         "--deck-profile", "data/deck_profile.json",
+         "--top", "20"],
+        cwd=_REPO_ROOT, capture_output=True, text=True,
+    )
 
-    # Clean inbox
     for f in glob.glob(os.path.join(_INBOX, "*.jsonl")):
         os.remove(f)
 
-    # Load report
-    rpt_path = os.path.join(output_dir, "latest_anomaly_report.json")
+    rpt_path = os.path.join(_REPO_ROOT, output_dir, "latest_anomaly_report.json")
     if os.path.exists(rpt_path):
         with open(rpt_path) as f:
             return json.load(f)
@@ -93,7 +110,6 @@ def _run_anomaly_detection(log_prefix: str, output_dir: str) -> dict:
 
 
 def _extract_metrics(report: dict) -> dict:
-    """Extract key metrics from anomaly report."""
     s = report.get("summary", {})
     return {
         "games": s.get("games", 0),
@@ -110,9 +126,10 @@ def main():
     parser.add_argument("--games", type=int, default=30, help="Games per pattern")
     parser.add_argument("--output", default="reports", help="Output directory")
     parser.add_argument("--patterns", type=int, default=0, help="Max patterns to test (0=all)")
+    parser.add_argument("--use-wsl", action="store_true", help="Run simulation via WSL")
+    parser.add_argument("--start-game", type=int, default=4000, help="Starting game ID")
     args = parser.parse_args()
 
-    # Generate patterns
     keys = sorted(_SEARCH_GRID.keys())
     values = [_SEARCH_GRID[k] for k in keys]
     all_patterns = []
@@ -125,53 +142,55 @@ def main():
     if args.patterns > 0:
         all_patterns = all_patterns[:args.patterns]
 
-    print(f"Weight search: {len(all_patterns)} patterns x {args.games} games\n")
+    print(f"Weight search: {len(all_patterns)} patterns x {args.games} games")
+    print(f"WSL: {'yes' if args.use_wsl else 'no'}\n")
+
+    # Backup current weights.json
+    weights_backup = _read_weights()
 
     results = []
-    start_game = 4000
+    start_game = args.start_game
 
-    for i, pattern in enumerate(all_patterns):
-        label = " | ".join(f"{k}={pattern[k]}" for k in keys)
-        print(f"[{i+1}/{len(all_patterns)}] {label}")
+    try:
+        for i, pattern in enumerate(all_patterns):
+            label = " | ".join(f"{k}={pattern[k]}" for k in keys)
+            print(f"[{i+1}/{len(all_patterns)}] {label}")
 
-        _write_weights(pattern)
+            _write_weights(pattern)
 
-        ok = _run_simulation(args.games, start_game)
-        if not ok:
-            print(f"  FAILED — skipping")
+            ok = _run_simulation(args.games, start_game, args.use_wsl)
+            if not ok:
+                print(f"  FAILED — skipping")
+                start_game += args.games
+                continue
+
+            prefix = f"g{start_game:04d}"
+            out_dir = os.path.join(args.output, f"weight_search_{i:02d}")
+            os.makedirs(os.path.join(_REPO_ROOT, out_dir), exist_ok=True)
+            report = _run_anomaly_detection(prefix, out_dir)
+            metrics = _extract_metrics(report)
+
+            result = {"pattern_id": i, "weights": {k: pattern[k] for k in keys}, "metrics": metrics}
+            results.append(result)
+            games = metrics.get("games", 0)
+            anomalies = metrics.get("anomalies_total", 0)
+            per_game = anomalies / games if games else 0
+            print(f"  {games}g | anomalies={anomalies} ({per_game:.2f}/g) | "
+                  f"safety: atk={metrics.get('attack_available_but_no_attack',0)} "
+                  f"end={metrics.get('end_when_attack_available',0)} "
+                  f"ret={metrics.get('retreat_when_attack_available',0)}")
+
             start_game += args.games
-            continue
 
-        prefix = f"g{start_game:04d}"
-        out_dir = os.path.join(args.output, f"weight_search_{i:02d}")
-        os.makedirs(out_dir, exist_ok=True)
-        report = _run_anomaly_detection(prefix, out_dir)
-        metrics = _extract_metrics(report)
-
-        result = {
-            "pattern_id": i,
-            "weights": {k: pattern[k] for k in keys},
-            "metrics": metrics,
-        }
-        results.append(result)
-        games = metrics.get("games", 0)
-        anomalies = metrics.get("anomalies_total", 0)
-        per_game = anomalies / games if games else 0
-        print(f"  {games}g | anomalies={anomalies} ({per_game:.2f}/g) | "
-              f"safety: atk={metrics.get('attack_available_but_no_attack',0)} "
-              f"end={metrics.get('end_when_attack_available',0)} "
-              f"ret={metrics.get('retreat_when_attack_available',0)}")
-
-        start_game += args.games
-
-    # Restore defaults
-    _restore_defaults()
-    print(f"\nDefaults restored.")
+    finally:
+        _restore_weights(weights_backup)
+        print(f"\nweights.json restored to pre-search state.")
 
     # Save results
-    os.makedirs(args.output, exist_ok=True)
+    out_base = os.path.join(_REPO_ROOT, args.output)
+    os.makedirs(out_base, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    out_path = os.path.join(args.output, f"level6_weight_search_{ts}.json")
+    out_path = os.path.join(out_base, f"level6_weight_search_{ts}.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump({
             "schema_version": "1.0",
@@ -181,8 +200,7 @@ def main():
             "results": results,
         }, f, indent=2)
 
-    # Also write baseline report
-    baseline_path = os.path.join(args.output, "level6_weight_search_baseline.json")
+    baseline_path = os.path.join(out_base, "level6_weight_search_baseline.json")
     with open(baseline_path, "w", encoding="utf-8") as f:
         json.dump({
             "schema_version": "1.0",
@@ -193,10 +211,8 @@ def main():
             "results": results,
         }, f, indent=2)
 
-    print(f"\nResults saved: {out_path}")
-    print(f"Baseline: {baseline_path}")
+    print(f"Results saved: {out_path}")
 
-    # Summary
     if results:
         print(f"\n{'='*70}")
         print(f"{'Pattern':<40s} {'Games':>5s} {'Anom':>5s} {'/g':>5s} {'Safe':>4s}")

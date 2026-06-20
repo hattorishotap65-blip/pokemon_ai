@@ -1,0 +1,8 @@
+{
+  "description": "Level 6.5: retreat_to_better_attacker_bonus comparison",
+  "patterns": [
+    {"retreat_to_better_attacker_bonus": 800.0},
+    {"retreat_to_better_attacker_bonus": 1100.0},
+    {"retreat_to_better_attacker_bonus": 1400.0}
+  ]
+}

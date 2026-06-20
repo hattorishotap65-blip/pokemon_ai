@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6.5 retreat_to_better_attacker_bonus A/B 30g",
+  "patterns": [
+    {"value": 800, "anomalies_per_game": 6.07, "f0007_triggers_per_game": 1.70, "safety_ok": true},
+    {"value": 1100, "anomalies_per_game": 5.77, "f0007_triggers_per_game": 2.43, "safety_ok": true},
+    {"value": 1400, "anomalies_per_game": 5.07, "f0007_triggers_per_game": 2.33, "safety_ok": true}
+  ],
+  "best_candidate": {"value": 1400, "improvement": "-12%"},
+  "candidate_for_50g": 1400,
+  "decision": "50g_validation_needed",
+  "weights_restored": true,
+  "agent_behavior_changed": false
+}

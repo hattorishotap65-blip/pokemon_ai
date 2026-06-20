@@ -159,22 +159,17 @@ def evaluate(
         return _build_result(candidate_name, "hold", improved, worsened, safe, missing, reasons,
                             "Run more games before deciding.", games_before, games_after)
 
-    # Check safety (per-game comparison to handle different game counts)
-    bg = max(games_before, 1)
-    cg = max(games_after, 1)
+    # Check safety: candidate must have all safety metrics at 0
     safety_broken = False
     for metric in _SAFETY_METRICS:
-        bv = before.get(metric, 0)
         cv = after.get(metric, 0)
-        b_rate = bv / bg
-        c_rate = cv / cg
-        if c_rate > b_rate + 0.001:
+        if cv > 0:
             safety_broken = True
-            reasons.append(f"Safety regression: {metric} {bv}({b_rate:.3f}/g) -> {cv}({c_rate:.3f}/g)")
+            reasons.append(f"Safety not zero: {metric} = {cv} in candidate")
 
     if safety_broken:
         return _build_result(candidate_name, "reject", improved, worsened, safe, missing, reasons,
-                            "Revert candidate. Safety metrics worsened.", games_before, games_after)
+                            "Revert candidate. Safety metrics are not zero.", games_before, games_after)
 
     # Check anomalies_total
     b_total = before.get("anomalies_total", 0) / max(games_before, 1)

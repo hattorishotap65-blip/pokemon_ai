@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "search": "advantage_weight 30g",
+  "baseline": {
+    "advantage_weight": 0.4,
+    "anomalies_per_game": 4.53
+  },
+  "candidates": [
+    {
+      "value": 0.2,
+      "anomalies_per_game": 4.73,
+      "delta": 0.2,
+      "improvement_pct": 4.42,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 0.3,
+      "anomalies_per_game": 4.67,
+      "delta": 0.14,
+      "improvement_pct": 3.09,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 0.5,
+      "anomalies_per_game": 4.97,
+      "delta": 0.44,
+      "improvement_pct": 9.71,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 0.6,
+      "anomalies_per_game": 5.3,
+      "delta": 0.77,
+      "improvement_pct": 17.0,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    }
+  ],
+  "promoted_to_50g": []
+}

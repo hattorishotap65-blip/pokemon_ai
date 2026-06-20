@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "target": "attack_suppress_penalty re-evaluation with retreat_bonus=1400",
+  "context": "retreat_to_better_attacker_bonus=1400 adopted",
+  "results": [
+    {"value": -20.0, "anomalies_per_game": 5.17, "safety_ok": true},
+    {"value": -30.0, "anomalies_per_game": 4.97, "safety_ok": true},
+    {"value": -40.0, "anomalies_per_game": 4.40, "safety_ok": true}
+  ],
+  "best_candidate": {"value": -40.0, "improvement": "-11%"},
+  "trend_reversal": "Run 002 (no retreat_bonus) showed -40 was +9% worse. With retreat_bonus=1400, -40 is now -11% better.",
+  "next_step": "50g validation of attack_suppress_penalty=-40",
+  "weights_restored": true
+}

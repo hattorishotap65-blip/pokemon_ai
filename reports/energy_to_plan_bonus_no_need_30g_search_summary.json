@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "search": "energy_to_plan_bonus_no_need 30g",
+  "baseline": {
+    "energy_to_plan_bonus_no_need": 2.0,
+    "anomalies_per_game": 8.37
+  },
+  "candidates": [
+    {
+      "value": 1.0,
+      "anomalies_per_game": 4.97,
+      "delta": -3.4,
+      "vs_baseline_pct": -40.62,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    },
+    {
+      "value": 3.0,
+      "anomalies_per_game": 6.1,
+      "delta": -2.27,
+      "vs_baseline_pct": -27.12,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    },
+    {
+      "value": 4.0,
+      "anomalies_per_game": 6.8,
+      "delta": -1.57,
+      "vs_baseline_pct": -18.76,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    }
+  ],
+  "promoted_to_50g": [1.0],
+  "not_promoted_reason": "3.0 and 4.0 formally promoted by gate but not convincing due to 30g variance and Run 002 history.",
+  "notes": [
+    "30g baseline=8.37/g from separate game set (high variance).",
+    "Direct baseline-candidate comparison unreliable due to different game sets.",
+    "Grid relative ranking (1.0 < 3.0 < 4.0) is meaningful.",
+    "Only 1.0 recommended for 50g. 50g will use matched game sets."
+  ]
+}

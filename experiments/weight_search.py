@@ -160,9 +160,9 @@ def main():
         all_patterns = []
         for combo in itertools.product(*values):
             w = dict(_DEFAULTS)
-        for k, v in zip(keys, combo):
-            w[k] = v
-        all_patterns.append(w)
+            for k, v in zip(keys, combo):
+                w[k] = v
+            all_patterns.append(w)
 
     if args.patterns > 0:
         all_patterns = all_patterns[:args.patterns]

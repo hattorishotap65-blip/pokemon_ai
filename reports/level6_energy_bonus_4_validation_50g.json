@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6 energy_to_plan_bonus=4.0 validation 50g",
+  "baseline": {"games": 50, "weights": {"energy_to_plan_bonus": 5.0}, "anomalies_per_game": 4.48},
+  "candidate": {"games": 50, "weights": {"energy_to_plan_bonus": 4.0}, "anomalies_per_game": 4.96},
+  "comparison": {
+    "anomalies_total": {"baseline": 4.48, "candidate": 4.96, "delta": 0.48},
+    "bellibolt_attack_probably_correct": {"baseline": 2.08, "candidate": 2.58, "delta": 0.50},
+    "kw_f0007_range_game_flow": {"baseline": 1.30, "candidate": 1.72, "delta": 0.42}
+  },
+  "safety": {
+    "attack_available_but_no_attack": "0 -> 0",
+    "end_when_attack_available": "0 -> 0",
+    "retreat_when_attack_available": "0 -> 0",
+    "ability_without_followup_attack": "0 -> 0"
+  },
+  "decision": "hold_not_adopted",
+  "reasons": [
+    "anomalies_total +0.48/g worsened (4.48 -> 4.96)",
+    "30g showed -14% but 50g shows +11% - same pattern as Run 001",
+    "bellibolt_attack_probably_correct +0.50/g (more BB correct attacks)",
+    "kw_f0007_range_game_flow +0.42/g (more KW game flow anomalies)",
+    "Safety all 0 but anomaly count increased"
+  ],
+  "weights_restored": true,
+  "agent_behavior_changed": false
+}

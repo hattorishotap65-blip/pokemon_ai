@@ -36,3 +36,6 @@ jobs:
 
       - name: Run promotion gate tests
         run: python experiments/test_promotion_gate.py
+
+      - name: Run auto tune tests
+        run: python experiments/test_auto_tune.py

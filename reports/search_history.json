@@ -1,0 +1,126 @@
+{
+  "schema_version": "1.0",
+  "entries": [
+    {
+      "parameter": "retreat_to_better_attacker_bonus",
+      "value": 1400.0,
+      "result": "accept",
+      "stage": "200g",
+      "date": "2026-06-20",
+      "anomalies_per_game": 4.97,
+      "safety": "all_0",
+      "reason": "Validated at 30g(-12%)/50g(-18%)/200g(-8.5%). Adopted as stable baseline.",
+      "source_report": "reports/level6_5_retreat_bonus_1400_validation_200g.json"
+    },
+    {
+      "parameter": "retreat_to_better_attacker_bonus",
+      "value": 1200.0,
+      "result": "reject",
+      "stage": "30g",
+      "date": "2026-06-18",
+      "anomalies_per_game": null,
+      "safety": "retreat_when_attack_available=1",
+      "reason": "F0003 threshold test caused retreat_when_attack_available +1. Reverted.",
+      "source_report": "reports/level5_f0003_retreat_threshold_test.json"
+    },
+    {
+      "parameter": "attack_suppress_penalty",
+      "value": -40.0,
+      "result": "accept",
+      "stage": "200g",
+      "date": "2026-06-20",
+      "anomalies_per_game": 4.50,
+      "safety": "all_0",
+      "reason": "Validated at 30g(-11%)/50g(-11%)/200g(-9.5%). Adopted as stable baseline.",
+      "source_report": "reports/level6_attack_suppress_40_validation_200g.json"
+    },
+    {
+      "parameter": "attack_suppress_penalty",
+      "value": -20.0,
+      "result": "reject",
+      "stage": "30g",
+      "date": "2026-06-20",
+      "anomalies_per_game": 5.17,
+      "safety": "all_0",
+      "reason": "+4% worse than baseline. Weakening suppression is counterproductive.",
+      "source_report": "reports/level6_attack_suppress_reeval_30g.json"
+    },
+    {
+      "parameter": "attack_suppress_penalty",
+      "value": -30.0,
+      "result": "baseline",
+      "stage": "200g",
+      "date": "2026-06-20",
+      "anomalies_per_game": 4.97,
+      "safety": "all_0",
+      "reason": "Previous baseline before -40 adoption.",
+      "source_report": "reports/level6_attack_suppress_40_validation_200g.json"
+    },
+    {
+      "parameter": "advantage_weight",
+      "value": 0.35,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-19",
+      "anomalies_per_game": 4.43,
+      "safety": "all_0",
+      "reason": "Run 002 30g only. Pre-retreat_bonus=1400 config. Needs re-evaluation.",
+      "source_report": "reports/level6_weight_search_run_002_near_default.json"
+    },
+    {
+      "parameter": "advantage_weight",
+      "value": 0.45,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-19",
+      "anomalies_per_game": 4.53,
+      "safety": "all_0",
+      "reason": "Run 002 30g only. Pre-retreat_bonus=1400 config. Needs re-evaluation.",
+      "source_report": "reports/level6_weight_search_run_002_near_default.json"
+    },
+    {
+      "parameter": "energy_to_plan_bonus",
+      "value": 4.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-19",
+      "anomalies_per_game": 4.20,
+      "safety": "all_0",
+      "reason": "Run 002 best 30g result but pre-retreat_bonus=1400. Needs re-evaluation.",
+      "source_report": "reports/level6_weight_search_run_002_near_default.json"
+    },
+    {
+      "parameter": "energy_to_plan_bonus",
+      "value": 6.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-19",
+      "anomalies_per_game": 5.97,
+      "safety": "all_0",
+      "reason": "Run 002 30g worse than baseline. Pre-retreat_bonus=1400 config.",
+      "source_report": "reports/level6_weight_search_run_002_near_default.json"
+    },
+    {
+      "parameter": "energy_to_plan_bonus_no_need",
+      "value": 3.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-19",
+      "anomalies_per_game": 5.83,
+      "safety": "all_0",
+      "reason": "Run 002 30g worse than baseline. Pre-retreat_bonus=1400 config.",
+      "source_report": "reports/level6_weight_search_run_002_near_default.json"
+    },
+    {
+      "parameter": "energy_to_plan_bonus_no_need",
+      "value": 1.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-19",
+      "anomalies_per_game": 6.03,
+      "safety": "all_0",
+      "reason": "Run 002 30g worst result. Pre-retreat_bonus=1400 config.",
+      "source_report": "reports/level6_weight_search_run_002_near_default.json"
+    }
+  ]
+}

@@ -21,8 +21,8 @@
       "delta": -2.27,
       "vs_baseline_pct": -27.12,
       "safety": "all_0",
-      "decision": "promote",
-      "promote": true
+      "decision": "hold",
+      "promote": false
     },
     {
       "value": 4.0,
@@ -30,8 +30,8 @@
       "delta": -1.57,
       "vs_baseline_pct": -18.76,
       "safety": "all_0",
-      "decision": "promote",
-      "promote": true
+      "decision": "hold",
+      "promote": false
     }
   ],
   "promoted_to_50g": [1.0],

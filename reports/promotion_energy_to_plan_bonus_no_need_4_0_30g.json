@@ -10,8 +10,8 @@
   "safety": "all_0",
   "category_regressions": [],
   "date": "2026-06-20",
-  "decision": "promote",
-  "promote": true,
-  "reason": "Improved at 30g (delta=-1.5700, -18.8%). Safety OK.",
-  "next_action": "Promote to 50g validation."
+  "decision": "hold",
+  "promote": false,
+  "reason": "Formal gate would promote, but held due to separate baseline game set and worst grid rank among candidates.",
+  "next_action": "Do not promote to 50g. Only 1.0 recommended."
 }

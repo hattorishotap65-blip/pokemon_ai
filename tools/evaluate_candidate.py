@@ -103,13 +103,9 @@ def evaluate(
         bv = before.get(metric)
         cv = after.get(metric)
 
-        if bv is None and cv is None:
+        if bv is None or cv is None:
             missing.append(metric)
             continue
-        if bv is None:
-            bv = 0
-        if cv is None:
-            cv = 0
 
         # Normalize per-game for count metrics
         bg = games_before if games_before > 0 else 1
@@ -163,14 +159,18 @@ def evaluate(
         return _build_result(candidate_name, "hold", improved, worsened, safe, missing, reasons,
                             "Run more games before deciding.", games_before, games_after)
 
-    # Check safety
+    # Check safety (per-game comparison to handle different game counts)
+    bg = max(games_before, 1)
+    cg = max(games_after, 1)
     safety_broken = False
     for metric in _SAFETY_METRICS:
         bv = before.get(metric, 0)
         cv = after.get(metric, 0)
-        if cv > bv:
+        b_rate = bv / bg
+        c_rate = cv / cg
+        if c_rate > b_rate + 0.001:
             safety_broken = True
-            reasons.append(f"Safety regression: {metric} {bv} -> {cv}")
+            reasons.append(f"Safety regression: {metric} {bv}({b_rate:.3f}/g) -> {cv}({c_rate:.3f}/g)")
 
     if safety_broken:
         return _build_result(candidate_name, "reject", improved, worsened, safe, missing, reasons,
@@ -191,14 +191,25 @@ def evaluate(
     non_safety_worsened = [w for w in worsened if w["metric"] not in _SAFETY_METRICS]
     has_worsening = len(non_safety_worsened) > 0
 
-    if has_improvement and not has_worsening:
+    # Accept requires anomalies_total to improve (or at least not worsen)
+    anomalies_improved = total_delta < -0.1
+
+    # Check win_rate and p95 are not worsened
+    wr_worsened = any(w["metric"] == "win_rate" for w in worsened)
+    p95_worsened = any(w["metric"] == "p95_decision_time_ms" and abs(w["delta"]) > 50 for w in worsened)
+
+    if has_improvement and not has_worsening and anomalies_improved:
+        if wr_worsened:
+            reasons.append("Improvement seen but win_rate worsened.")
+            return _build_result(candidate_name, "hold", improved, worsened, safe, missing, reasons,
+                                "Review win_rate regression.", games_before, games_after)
         reasons.append("Clear improvement with no worsening.")
         return _build_result(candidate_name, "accept", improved, worsened, safe, missing, reasons,
                             "Candidate is safe to adopt.", games_before, games_after)
 
     if has_improvement and has_worsening:
         all_minor = all(abs(w["delta"]) < 0.5 for w in non_safety_worsened)
-        if total_delta < -0.1 and all_minor:
+        if anomalies_improved and all_minor and not wr_worsened and not p95_worsened:
             reasons.append(f"Net improvement ({total_delta:.2f}/g) with minor side effects.")
             return _build_result(candidate_name, "accept", improved, worsened, safe, missing, reasons,
                                 "Candidate is safe to adopt. Monitor side effects.", games_before, games_after)

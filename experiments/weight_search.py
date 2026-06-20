@@ -19,6 +19,17 @@ import itertools
 from datetime import datetime, timezone
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+
+def _to_wsl_path(path: str) -> str:
+    """Convert a path to WSL-compatible format. Handles both Windows and Linux paths."""
+    if path.startswith("/"):
+        return path
+    if len(path) >= 2 and path[1] == ":":
+        drive = path[0].lower()
+        rest = path[2:].replace("\\", "/")
+        return f"/mnt/{drive}{rest}"
+    return path
 _WEIGHTS_PATH = os.path.join(_REPO_ROOT, "data", "weights.json")
 _INBOX = os.path.join(_REPO_ROOT, "battle_logs", "inbox")
 _LOGS = os.path.join(_REPO_ROOT, "logs")
@@ -64,8 +75,7 @@ def _restore_weights(backup: dict):
 def _run_simulation(games: int, start_game: int, use_wsl: bool) -> bool:
     """Run simulation. Returns True on success."""
     if use_wsl:
-        # Convert Windows path to WSL path: C:\Users\... -> /mnt/c/Users/...
-        wsl_root = "/mnt/" + _REPO_ROOT[0].lower() + _REPO_ROOT[2:].replace(os.sep, "/")
+        wsl_root = _to_wsl_path(_REPO_ROOT)
         cmd = (
             f'wsl -d Ubuntu -e bash -c '
             f'"cd {wsl_root} && '

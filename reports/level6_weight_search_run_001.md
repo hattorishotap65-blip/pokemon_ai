@@ -81,6 +81,10 @@ python experiments/weight_search.py --games 30 --patterns 0 --use-wsl --start-ga
 - **200g 検証はまだ不要**: まず 50g で傾向を確認してから
 - **探索範囲**: 現時点で十分。adv=0.3 方向が有望と分かったため、0.2-0.35 の細分化は次段階
 
+## WSL Path Conversion
+
+WSL path conversion fixed: `_to_wsl_path()` で Windows パスと既存 WSL/Linux パスの両方をサポート。
+
 ## Changed Files
 
 | File | Change |

@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6 weight validation 50g",
+  "baseline": {"games": 50, "weights": {"advantage_weight": 0.4, "energy_to_plan_bonus": 5.0}, "anomalies_per_game": 5.44},
+  "candidate": {"games": 50, "weights": {"advantage_weight": 0.3, "energy_to_plan_bonus": 7.0}, "anomalies_per_game": 5.54},
+  "comparison": {
+    "anomalies_total": {"baseline": 5.44, "candidate": 5.54, "delta": 0.10},
+    "bb_240_259_no_actionable_fix": {"baseline": 0.60, "candidate": 0.30, "delta": -0.30},
+    "kw_f0007_range_game_flow": {"baseline": 1.84, "candidate": 1.50, "delta": -0.34},
+    "bellibolt_attack_probably_correct": {"baseline": 2.40, "candidate": 2.84, "delta": 0.44},
+    "wt_game_flow_no_actionable_fix": {"baseline": 0.06, "candidate": 0.22, "delta": 0.16}
+  },
+  "safety": {
+    "attack_available_but_no_attack": "0 -> 0",
+    "end_when_attack_available": "0 -> 0",
+    "retreat_when_attack_available": "0 -> 0",
+    "ability_without_followup_attack": "0 -> 0"
+  },
+  "decision": "hold",
+  "reasons": [
+    "Safety all 0 (good)",
+    "anomalies_total +0.10/g (essentially flat, within variance)",
+    "30g showed -17% improvement but 50g shows +2% — 30g result was likely variance",
+    "bellibolt_attack_probably_correct +0.44/g (more BB correct attacks, not a problem)",
+    "wt_game_flow_no_actionable_fix +0.16/g (slight worsening in wattrel flow)",
+    "No clear improvement at 50g scale to justify adoption"
+  ],
+  "weights_restored": true,
+  "agent_behavior_changed": false
+}

@@ -5,6 +5,6 @@
   "energy_to_plan_bonus": 5.0,
   "energy_to_plan_bonus_no_need": 2.0,
   "attack_suppress_penalty": -30.0,
-  "retreat_to_better_attacker_bonus": 1100.0,
-  "notes": "Initial values match hardcoded defaults. weights.json is optional — agent falls back to defaults if missing."
+  "retreat_to_better_attacker_bonus": 1400.0,
+  "notes": "retreat_to_better_attacker_bonus adopted at 1400.0 based on 30g/50g/200g validation (PR #28/#29/#30)."
 }

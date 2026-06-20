@@ -34,18 +34,30 @@ _WEIGHTS_PATH = os.path.join(_REPO_ROOT, "data", "weights.json")
 _INBOX = os.path.join(_REPO_ROOT, "battle_logs", "inbox")
 _LOGS = os.path.join(_REPO_ROOT, "logs")
 
-# Default weights (must match data/weights.json initial values)
-_DEFAULTS = {
-    "advantage_weight": 0.4,
-    "energy_to_plan_bonus": 5.0,
-    "energy_to_plan_bonus_no_need": 2.0,
-    "attack_suppress_penalty": -30.0,
-}
+# Weight keys used for scoring (read from data/weights.json at runtime)
+_WEIGHT_KEYS = [
+    "advantage_weight",
+    "energy_to_plan_bonus",
+    "energy_to_plan_bonus_no_need",
+    "attack_suppress_penalty",
+    "retreat_to_better_attacker_bonus",
+]
 
-# Search grid (small — expand later)
+
+def _load_baseline() -> dict:
+    """Load current baseline from data/weights.json."""
+    if os.path.exists(_WEIGHTS_PATH):
+        with open(_WEIGHTS_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        return {k: data[k] for k in _WEIGHT_KEYS if k in data}
+    return {}
+
+
+# Fallback search grid (used when no --grid-file is given)
 _SEARCH_GRID = {
-    "advantage_weight": [0.3, 0.4, 0.5],
-    "energy_to_plan_bonus": [3.0, 5.0, 7.0],
+    "advantage_weight": [0.2, 0.3, 0.4, 0.5, 0.6],
+    "energy_to_plan_bonus": [3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+    "energy_to_plan_bonus_no_need": [1.0, 2.0, 3.0, 4.0],
 }
 
 
@@ -145,12 +157,14 @@ def main():
     parser.add_argument("--grid-file", default=None, help="JSON file with custom pattern list")
     args = parser.parse_args()
 
+    baseline = _load_baseline()
+
     if args.grid_file and os.path.exists(args.grid_file):
         with open(args.grid_file, encoding="utf-8") as f:
             grid_data = json.load(f)
         all_patterns = []
         for p in grid_data.get("patterns", []):
-            w = dict(_DEFAULTS)
+            w = dict(baseline)
             w.update(p)
             all_patterns.append(w)
         keys = sorted(set(k for p in grid_data.get("patterns", []) for k in p.keys()))
@@ -159,7 +173,7 @@ def main():
         values = [_SEARCH_GRID[k] for k in keys]
         all_patterns = []
         for combo in itertools.product(*values):
-            w = dict(_DEFAULTS)
+            w = dict(baseline)
             for k, v in zip(keys, combo):
                 w[k] = v
             all_patterns.append(w)
@@ -219,7 +233,7 @@ def main():
         json.dump({
             "schema_version": "1.0",
             "search_grid": _SEARCH_GRID,
-            "defaults": _DEFAULTS,
+            "baseline": baseline,
             "games_per_pattern": args.games,
             "results": results,
         }, f, indent=2)
@@ -229,7 +243,7 @@ def main():
         json.dump({
             "schema_version": "1.0",
             "search_grid": _SEARCH_GRID,
-            "defaults": _DEFAULTS,
+            "baseline": baseline,
             "games_per_pattern": args.games,
             "patterns_tested": len(results),
             "results": results,

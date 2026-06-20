@@ -39,3 +39,6 @@ jobs:
 
       - name: Run auto tune tests
         run: python experiments/test_auto_tune.py
+
+      - name: Run weight search defaults tests
+        run: python experiments/test_weight_search_defaults.py

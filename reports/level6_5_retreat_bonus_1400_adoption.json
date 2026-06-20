@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "target": "Adopt retreat_to_better_attacker_bonus=1400",
+  "adopted_value": 1400.0,
+  "previous_value": 1100.0,
+  "validation": {
+    "30g": {"pr": "#28", "delta": "-12%"},
+    "50g": {"pr": "#29", "delta": "-18%"},
+    "200g": {"pr": "#30", "delta": "-8.5%", "anomalies_per_game": {"baseline": 5.43, "candidate": 4.97}}
+  },
+  "safety_200g": {
+    "attack_available_but_no_attack": 0,
+    "end_when_attack_available": 0,
+    "retreat_when_attack_available": 0,
+    "ability_without_followup_attack": 0
+  },
+  "files_changed": ["data/weights.json", "submission.tar.gz"],
+  "files_unchanged": ["deck.csv", "agent/ionos_rules.py", "agent/policy.py", "agent/turn_rule_engine.py"],
+  "submission_rebuilt": true
+}

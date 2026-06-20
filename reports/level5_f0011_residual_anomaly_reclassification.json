@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "target": "F0011",
+  "games": 200,
+  "total_anomalies": 998,
+  "reclassification": {
+    "A_real_fix_candidate": 0,
+    "B_no_fix_needed": 551,
+    "C_no_actionable_fix_game_flow": 447,
+    "D_logging_insufficient": 0,
+    "E_classifier_false_positive": 0
+  },
+  "per_game": {
+    "A_real_fix_candidate": 0.0,
+    "B_no_fix_needed": 2.75,
+    "C_no_actionable_fix_game_flow": 2.23,
+    "D_logging_insufficient": 0.0,
+    "E_classifier_false_positive": 0.0
+  },
+  "c_breakdown": {
+    "kw_f0007_range_game_flow": 260,
+    "kw_120_179_proven_unreachable": 23,
+    "wt_game_flow": 31,
+    "bb_240_259_proven_unreachable": 96,
+    "bb_f0007_range_but_no_retreat": 37
+  },
+  "b_count_detail": {
+    "bellibolt_attack_probably_correct": 551
+  }
+}

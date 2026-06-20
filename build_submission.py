@@ -24,6 +24,7 @@ files = [
     ('data/deck_profile.json',     'data/deck_profile.json'),
     ('data/card_effects_iono_lightning_recommended_en_ja.json',
      'data/card_effects_iono_lightning_recommended_en_ja.json'),
+    ('data/weights.json',             'data/weights.json'),
 ]
 
 with tarfile.open('submission.tar.gz', 'w:gz') as tar:

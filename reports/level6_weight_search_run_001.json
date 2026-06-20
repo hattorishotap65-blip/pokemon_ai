@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6 weight search run 001",
+  "command": "python experiments/weight_search.py --games 30 --patterns 0 --use-wsl --start-game 4200",
+  "search_grid": {
+    "advantage_weight": [0.3, 0.4, 0.5],
+    "energy_to_plan_bonus": [3.0, 5.0, 7.0]
+  },
+  "baseline": {"advantage_weight": 0.4, "energy_to_plan_bonus": 5.0, "anomalies_per_game": 4.87},
+  "best_candidate": {"advantage_weight": 0.3, "energy_to_plan_bonus": 7.0, "anomalies_per_game": 4.03, "improvement": "-17%"},
+  "all_patterns_safety_ok": true,
+  "weights_restored": true,
+  "next_step": "50g validation of adv=0.3, energy=7.0",
+  "agent_behavior_changed": false
+}

@@ -39,11 +39,12 @@ def _generate_title(candidate: str) -> str:
 
 
 def _generate_branch(candidate: str) -> str:
-    """Generate a safe branch name."""
-    slug = _slugify(re.sub(r"[_=]", " ", candidate))
+    """Generate a safe branch name with timestamp to avoid collisions."""
+    slug = _slugify(re.sub(r"[_=]", " ", candidate), max_len=30)
     if not slug:
         slug = "accepted-candidate"
-    return f"feat/adopt-{slug}"
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
+    return f"feat/adopt-{slug}-{ts}"
 
 
 def _generate_body(pr_candidate: dict) -> str:

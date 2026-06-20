@@ -107,12 +107,11 @@ def prepare(evaluation: dict) -> dict:
 
     summary_parts.append("### Safety")
     summary_parts.append("")
-    safety_ok = all(
-        m["metric"] not in ("attack_available_but_no_attack", "end_when_attack_available",
-                            "retreat_when_attack_available", "ability_without_followup_attack")
-        or m.get("delta", 0) <= 0
-        for m in safe_m + improved + worsened
-    )
+    _SAFETY_NAMES = {"attack_available_but_no_attack", "end_when_attack_available",
+                     "retreat_when_attack_available", "ability_without_followup_attack"}
+    all_m = safe_m + improved + worsened
+    safety_entries = [m for m in all_m if m.get("metric") in _SAFETY_NAMES]
+    safety_ok = all(m.get("after", 0) == 0 for m in safety_entries) if safety_entries else False
     summary_parts.append(f"All safety metrics: **{'OK' if safety_ok else 'CHECK NEEDED'}**")
     summary_parts.append("")
 

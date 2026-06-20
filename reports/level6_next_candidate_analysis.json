@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "target": "Next candidate analysis",
+  "current_state": {
+    "tests": "141/141 pass",
+    "retreat_bonus": 1400,
+    "anomalies_per_game": 4.97,
+    "safety": "all 0"
+  },
+  "proposed_candidate": {
+    "parameter": "attack_suppress_penalty",
+    "current_value": -30.0,
+    "test_values": [-20.0, -30.0, -40.0],
+    "reason": "Already externalized, no code change, does not conflict with retreat_bonus=1400",
+    "risk": "low"
+  },
+  "alternative_candidates_rejected": [
+    "Bellibolt evolve priority (too risky)",
+    "Voltorb attack bonus externalization (complex)",
+    "Kilowattrel ability threshold (no_fix_needed)",
+    "New weight parameter (premature)"
+  ]
+}

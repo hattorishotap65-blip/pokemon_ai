@@ -1,0 +1,8 @@
+{
+  "description": "attack_suppress_penalty re-evaluation with retreat_bonus=1400 adopted",
+  "patterns": [
+    {"attack_suppress_penalty": -20.0},
+    {"attack_suppress_penalty": -30.0},
+    {"attack_suppress_penalty": -40.0}
+  ]
+}

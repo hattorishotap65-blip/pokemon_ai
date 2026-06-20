@@ -45,6 +45,7 @@ _DEFAULT_WEIGHTS = {
     "energy_to_plan_bonus": 5.0,
     "energy_to_plan_bonus_no_need": 2.0,
     "attack_suppress_penalty": -30.0,
+    "retreat_to_better_attacker_bonus": 1100.0,
 }
 
 

@@ -13,6 +13,28 @@ Single energy type (Lightning only) — no color mismatch.
 score_bonus(action, state, knowledge) returns (bonus: float, reason: str).
 Negative bonus discourages an action.
 """
+import json as _json
+import os as _os
+
+# -- Weights (loaded once from data/weights.json) ------------------------------
+_RETREAT_BONUS_DEFAULT = 1100.0
+_retreat_to_better_attacker_bonus: float = _RETREAT_BONUS_DEFAULT
+
+def _load_ionos_weights():
+    global _retreat_to_better_attacker_bonus
+    for p in (
+        _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "data", "weights.json"),
+        "/kaggle_simulations/agent/data/weights.json",
+    ):
+        try:
+            with open(p, encoding="utf-8") as f:
+                data = _json.load(f)
+            _retreat_to_better_attacker_bonus = float(data.get("retreat_to_better_attacker_bonus", _RETREAT_BONUS_DEFAULT))
+            return
+        except Exception:
+            continue
+
+_load_ionos_weights()
 
 # -- Card IDs ------------------------------------------------------------------
 _VOLTORB      = "265"
@@ -1102,7 +1124,7 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
                 est_dmg_bb = _estimate_voltorb_damage(state)
                 # F0007: strong pivot when Voltorb clearly exceeds BB 230
                 if est_dmg_bb >= 260:
-                    return 1100.0, "ionos:pivot_bellibolt_to_voltorb_f0007"
+                    return _retreat_to_better_attacker_bonus, "ionos:pivot_bellibolt_to_voltorb_f0007"
                 # F0003: mild retreat bonus for 240-259 range
                 if est_dmg_bb >= 240:
                     return 80.0, "ionos:retreat_bellibolt_to_voltorb_higher_damage"
@@ -1115,7 +1137,7 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
                 est_dmg_kw = _estimate_voltorb_damage(state)
                 # F0007: strong pivot when Voltorb greatly exceeds KW 70
                 if est_dmg_kw >= 180:
-                    return 1100.0, "ionos:pivot_kilowattrel_to_voltorb_f0007"
+                    return _retreat_to_better_attacker_bonus, "ionos:pivot_kilowattrel_to_voltorb_f0007"
                 # F0002: mild retreat bonus for 120-179 range
                 if est_dmg_kw >= 120:
                     return 100.0, "ionos:retreat_kilowattrel_to_voltorb_high_damage"

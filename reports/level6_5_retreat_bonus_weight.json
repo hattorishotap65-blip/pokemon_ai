@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "target": "Level 6.5 externalize retreat_to_better_attacker_bonus",
+  "weight_added": "retreat_to_better_attacker_bonus",
+  "default_value": 1100.0,
+  "hardcoded_locations_replaced": [
+    "agent/ionos_rules.py Rule 17b BB >=260",
+    "agent/ionos_rules.py Rule 17b KW >=180"
+  ],
+  "behavior_changed": false,
+  "tests_passed": 77,
+  "smoke_test": {"games": 30, "errors": 0, "timeouts": 0},
+  "next_ab_candidates": [800, 1100, 1400]
+}

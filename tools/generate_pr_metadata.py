@@ -175,11 +175,13 @@ def generate_metadata(pr_candidate: dict) -> dict:
                    + pr_candidate.get("worsened_metrics", [])
                    + pr_candidate.get("safe_metrics", []))
     safety_found = [m for m in all_metrics if m.get("metric") in _SAFETY_NAMES]
-    if not safety_found:
+    found_names = {m.get("metric") for m in safety_found}
+    missing_safety = _SAFETY_NAMES - found_names
+    if missing_safety:
         return {
             "ready_to_create_pr": False,
             "candidate": candidate,
-            "reason": "Safety metrics not found in evaluation data. Cannot confirm safety.",
+            "reason": f"Required safety metrics missing: {sorted(missing_safety)}. Cannot confirm safety.",
         }
 
     title = _generate_title(candidate)

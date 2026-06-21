@@ -254,6 +254,46 @@
       "safety": "all_0",
       "reason": "Externalized current hardcoded value without behavior change.",
       "source_report": "reports/energy_attack_enablement_bonus_externalization.json"
+    },
+    {
+      "parameter": "energy_attack_enablement_bonus",
+      "value": 150.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.43,
+      "safety": "all_0",
+      "reason": "30g: +3.0% vs baseline."
+    },
+    {
+      "parameter": "energy_attack_enablement_bonus",
+      "value": 200.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.73,
+      "safety": "all_0",
+      "reason": "30g: -10.2% vs baseline."
+    },
+    {
+      "parameter": "energy_attack_enablement_bonus",
+      "value": 400.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.73,
+      "safety": "all_0",
+      "reason": "30g: -10.2% vs baseline."
+    },
+    {
+      "parameter": "energy_attack_enablement_bonus",
+      "value": 500.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.53,
+      "safety": "all_0",
+      "reason": "30g: +4.9% vs baseline."
     }
   ]
 }

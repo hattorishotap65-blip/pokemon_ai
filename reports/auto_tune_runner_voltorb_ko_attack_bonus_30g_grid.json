@@ -1,0 +1,20 @@
+{
+  "description": "Auto-tune runner: voltorb_ko_attack_bonus search (pattern 0 = baseline)",
+  "patterns": [
+    {
+      "voltorb_ko_attack_bonus": 1000.0
+    },
+    {
+      "voltorb_ko_attack_bonus": 500.0
+    },
+    {
+      "voltorb_ko_attack_bonus": 750.0
+    },
+    {
+      "voltorb_ko_attack_bonus": 1250.0
+    },
+    {
+      "voltorb_ko_attack_bonus": 1500.0
+    }
+  ]
+}

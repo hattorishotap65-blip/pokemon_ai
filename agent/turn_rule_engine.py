@@ -383,7 +383,8 @@ def rule_score_option(
     # --- C. Winning attack guard ---
     # If attacking the opponent's active wins the game, prioritize attack
     # above all else (including final-prize retreat boost).
-    if _attack_wins_game(state):
+    # Only fires when select actually contains an attack option.
+    if ctx.has_attack and _attack_wins_game(state):
         if is_attack_option(opt):
             return 2000.0, "turn_rule:winning_attack"
         if is_retreat_option(opt):

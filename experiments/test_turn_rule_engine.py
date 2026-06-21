@@ -317,6 +317,14 @@ ret_w2, _ = rule_score_option({"type": 12}, STATE_WIN_2EX, SELECT_ATK_END_RETREA
 check("Win by KO ex (2 prizes): attack > retreat", atk_w2 > ret_w2)
 check("Win by KO ex (2 prizes): attack very high", atk_w2 >= 2000)
 
+# KO possible on state but NO attack option in select
+SELECT_NO_ATK = {"option": [{"type": 14}, {"type": 12}]}
+ret_no_atk, ret_no_atk_r = rule_score_option({"type": 12}, STATE_WIN_1, SELECT_NO_ATK)
+end_no_atk, _ = rule_score_option(END_OPT, STATE_WIN_1, SELECT_NO_ATK)
+check("No attack option: retreat NOT penalized by guard", ret_no_atk > -800)
+check("No attack option: end NOT penalized by guard", end_no_atk > -800)
+check("No attack option: reason is NOT winning_attack", "winning_attack" not in ret_no_atk_r)
+
 # Cannot win: my 3 prizes, opp active non-ex
 STATE_NO_WIN = {
     "players": [

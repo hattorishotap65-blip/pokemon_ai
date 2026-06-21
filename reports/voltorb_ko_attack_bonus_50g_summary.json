@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "search": "voltorb_ko_attack_bonus 50g validation",
+  "baseline": {
+    "voltorb_ko_attack_bonus": 1000.0,
+    "anomalies_per_game": 4.06,
+    "games": 50
+  },
+  "candidates": [
+    {
+      "value": 1250.0,
+      "anomalies_per_game": 5.92,
+      "delta": 1.86,
+      "vs_baseline_pct": 45.81,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 1500.0,
+      "anomalies_per_game": 4.76,
+      "delta": 0.7,
+      "vs_baseline_pct": 17.24,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    }
+  ],
+  "promoted_to_200g": [],
+  "consistency": {
+    "30g": "1250=4.53(-54%), 1500=5.13(-48%) vs baseline 9.77",
+    "50g": "1250=5.92(+46%), 1500=4.76(+17%) vs baseline 4.06"
+  },
+  "conclusion": "30g improvement not confirmed at 50g. Both candidates worse than baseline. voltorb_ko_attack_bonus=1000.0 confirmed."
+}

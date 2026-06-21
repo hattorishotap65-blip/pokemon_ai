@@ -1,0 +1,11 @@
+{
+  "description": "energy_attack_enablement_bonus 200g validation (pattern 0 = baseline)",
+  "patterns": [
+    {
+      "energy_attack_enablement_bonus": 300.0
+    },
+    {
+      "energy_attack_enablement_bonus": 200.0
+    }
+  ]
+}

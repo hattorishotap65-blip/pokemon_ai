@@ -29,7 +29,7 @@
       "result": "accept",
       "stage": "200g",
       "date": "2026-06-20",
-      "anomalies_per_game": 4.50,
+      "anomalies_per_game": 4.5,
       "safety": "all_0",
       "reason": "Validated at 30g(-11%)/50g(-11%)/200g(-9.5%). Adopted as stable baseline.",
       "source_report": "reports/level6_attack_suppress_40_validation_200g.json"
@@ -84,7 +84,7 @@
       "result": "hold",
       "stage": "30g",
       "date": "2026-06-19",
-      "anomalies_per_game": 4.20,
+      "anomalies_per_game": 4.2,
       "safety": "all_0",
       "reason": "Run 002 best 30g result but pre-retreat_bonus=1400. Needs re-evaluation.",
       "source_report": "reports/level6_weight_search_run_002_near_default.json"
@@ -132,6 +132,46 @@
       "safety": "all_0",
       "reason": "Externalized current hardcoded value without behavior change.",
       "source_report": "reports/voltorb_ko_attack_bonus_externalization.json"
+    },
+    {
+      "parameter": "voltorb_ko_attack_bonus",
+      "value": 500.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 8.23,
+      "safety": "all_0",
+      "reason": "30g improved vs baseline but opposite trend direction. Held."
+    },
+    {
+      "parameter": "voltorb_ko_attack_bonus",
+      "value": 750.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 9.03,
+      "safety": "all_0",
+      "reason": "30g improved vs baseline but opposite trend direction. Held."
+    },
+    {
+      "parameter": "voltorb_ko_attack_bonus",
+      "value": 1250.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.53,
+      "safety": "all_0",
+      "reason": "30g best candidate (-54%). Promoted to 50g."
+    },
+    {
+      "parameter": "voltorb_ko_attack_bonus",
+      "value": 1500.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.13,
+      "safety": "all_0",
+      "reason": "30g second best (-48%). Promoted to 50g."
     }
   ]
 }

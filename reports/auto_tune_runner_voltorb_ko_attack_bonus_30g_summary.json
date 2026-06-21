@@ -13,8 +13,8 @@
       "delta": -1.54,
       "vs_baseline_pct": -15.76,
       "safety": "all_0",
-      "decision": "promote",
-      "promote": true
+      "decision": "hold",
+      "promote": false
     },
     {
       "value": 750.0,
@@ -22,8 +22,8 @@
       "delta": -0.74,
       "vs_baseline_pct": -7.57,
       "safety": "all_0",
-      "decision": "promote",
-      "promote": true
+      "decision": "hold",
+      "promote": false
     },
     {
       "value": 1250.0,
@@ -44,16 +44,11 @@
       "promote": true
     }
   ],
-  "promoted_to_50g": [
-    500.0,
-    750.0,
-    1250.0,
-    1500.0
-  ],
+  "promoted_to_50g": [1250.0, 1500.0],
   "notes": [
     "Baseline ran as pattern 0 in same grid (matched game sets).",
     "1250 and 1500 show strong improvement over 1000 baseline.",
-    "500 and 750 also improved but less dramatically.",
+    "500 and 750 formally improved but held due to weaker effect and opposite trend (higher=better).",
     "1250 is the clear winner at 30g.",
     "30g variance is high, so 50g validation needed."
   ]

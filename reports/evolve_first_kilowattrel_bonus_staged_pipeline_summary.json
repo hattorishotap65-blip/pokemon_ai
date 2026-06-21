@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "parameter": "evolve_first_kilowattrel_bonus",
+  "baseline": 7.0,
+  "initial_candidates": [
+    3.5,
+    5.0,
+    10.0,
+    14.0
+  ],
+  "date": "2026-06-21",
+  "stages": {
+    "30g": {
+      "baseline_apg": 4.17,
+      "candidates": [
+        {
+          "value": 3.5,
+          "apg": 4.5,
+          "pct": 7.91,
+          "decision": "no_promote"
+        },
+        {
+          "value": 5.0,
+          "apg": 5.57,
+          "pct": 33.57,
+          "decision": "no_promote"
+        },
+        {
+          "value": 10.0,
+          "apg": 6.4,
+          "pct": 53.48,
+          "decision": "no_promote"
+        },
+        {
+          "value": 14.0,
+          "apg": 4.97,
+          "pct": 19.18,
+          "decision": "no_promote"
+        }
+      ],
+      "promoted": []
+    }
+  },
+  "accepted": [],
+  "final_decision": "no_candidate_accepted",
+  "weights_restored": true,
+  "next_action": "No candidates passed all stages. evolve_first_kilowattrel_bonus=7.0 confirmed."
+}

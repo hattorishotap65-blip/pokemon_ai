@@ -27,9 +27,11 @@ _ENERGY_ATTACK_ENABLEMENT_BONUS_DEFAULT = 300.0
 _energy_attack_enablement_bonus: float = _ENERGY_ATTACK_ENABLEMENT_BONUS_DEFAULT
 _EVOLVE_FIRST_BELLIBOLT_BONUS_DEFAULT = 220.0
 _evolve_first_bellibolt_bonus: float = _EVOLVE_FIRST_BELLIBOLT_BONUS_DEFAULT
+_EVOLVE_FIRST_KILOWATTREL_BONUS_DEFAULT = 7.0
+_evolve_first_kilowattrel_bonus: float = _EVOLVE_FIRST_KILOWATTREL_BONUS_DEFAULT
 
 def _load_ionos_weights():
-    global _retreat_to_better_attacker_bonus, _voltorb_ko_attack_bonus, _voltorb_damage_scaling, _energy_attack_enablement_bonus, _evolve_first_bellibolt_bonus
+    global _retreat_to_better_attacker_bonus, _voltorb_ko_attack_bonus, _voltorb_damage_scaling, _energy_attack_enablement_bonus, _evolve_first_bellibolt_bonus, _evolve_first_kilowattrel_bonus
     for p in (
         _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "data", "weights.json"),
         "/kaggle_simulations/agent/data/weights.json",
@@ -42,6 +44,7 @@ def _load_ionos_weights():
             _voltorb_damage_scaling = float(data.get("voltorb_damage_scaling", _VOLTORB_DAMAGE_SCALING_DEFAULT))
             _energy_attack_enablement_bonus = float(data.get("energy_attack_enablement_bonus", _ENERGY_ATTACK_ENABLEMENT_BONUS_DEFAULT))
             _evolve_first_bellibolt_bonus = float(data.get("evolve_first_bellibolt_bonus", _EVOLVE_FIRST_BELLIBOLT_BONUS_DEFAULT))
+            _evolve_first_kilowattrel_bonus = float(data.get("evolve_first_kilowattrel_bonus", _EVOLVE_FIRST_KILOWATTREL_BONUS_DEFAULT))
             return
         except Exception:
             continue
@@ -973,7 +976,7 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
 
     # -- 2. Evolve Wattrel -> Kilowattrel -------------------------------------
     if opt_type == 9 and cid == _KILOWATTREL:
-        return 7.0, "ionos:evolve_kilowattrel"
+        return _evolve_first_kilowattrel_bonus, "ionos:evolve_kilowattrel"
 
     # -- 3. Attack with Voltorb -----------------------------------------------
     if _is_attack(action) and _active_cid(state) == _VOLTORB:

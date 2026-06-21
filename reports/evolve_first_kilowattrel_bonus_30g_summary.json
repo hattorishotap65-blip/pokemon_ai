@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "parameter": "evolve_first_kilowattrel_bonus",
+  "stage": "30g",
+  "games": 30,
+  "start_game": 23000,
+  "date": "2026-06-21",
+  "baseline_value": 7.0,
+  "baseline_anomalies_per_game": 4.17,
+  "candidates": [
+    {
+      "value": 3.5,
+      "anomalies_per_game": 4.5,
+      "delta": 0.33,
+      "vs_baseline_pct": 7.91,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 5.0,
+      "anomalies_per_game": 5.57,
+      "delta": 1.4,
+      "vs_baseline_pct": 33.57,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 10.0,
+      "anomalies_per_game": 6.4,
+      "delta": 2.23,
+      "vs_baseline_pct": 53.48,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 14.0,
+      "anomalies_per_game": 4.97,
+      "delta": 0.8,
+      "vs_baseline_pct": 19.18,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    }
+  ],
+  "promoted": [],
+  "weights_restored": true,
+  "next_action": "No candidates promoted. evolve_first_kilowattrel_bonus=7.0 confirmed."
+}

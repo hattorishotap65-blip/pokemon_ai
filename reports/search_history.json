@@ -345,6 +345,46 @@
       "safety": "all_0",
       "reason": "Externalized current hardcoded value without behavior change.",
       "source_report": "reports/evolve_first_bellibolt_bonus_externalization.json"
+    },
+    {
+      "parameter": "evolve_first_bellibolt_bonus",
+      "value": 110.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.57,
+      "safety": "all_0",
+      "reason": "30g: -8.1% vs baseline."
+    },
+    {
+      "parameter": "evolve_first_bellibolt_bonus",
+      "value": 165.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.0,
+      "safety": "all_0",
+      "reason": "30g: +0.6% vs baseline."
+    },
+    {
+      "parameter": "evolve_first_bellibolt_bonus",
+      "value": 275.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.57,
+      "safety": "all_0",
+      "reason": "30g: -8.1% vs baseline."
+    },
+    {
+      "parameter": "evolve_first_bellibolt_bonus",
+      "value": 330.0,
+      "result": "hold",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.0,
+      "safety": "all_0",
+      "reason": "30g: -19.5% vs baseline."
     }
   ]
 }

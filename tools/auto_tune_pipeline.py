@@ -198,7 +198,7 @@ def run_pipeline(
         h = load_history(_HISTORY_PATH)
         for d in decisions:
             if d.get("anomalies_per_game") is not None:
-                result = d["decision"] if d["decision"] in ("promote", "reject") else "hold"
+                result = d["decision"] if d["decision"] in ("promote", "reject", "accept") else ("reject" if d.get("vs_baseline_pct", 0) > 0 else "hold")
                 add_entry(h, parameter, d["value"], result, stage,
                           d["anomalies_per_game"], d["safety"],
                           f"{stage}: {d['vs_baseline_pct']:+.1f}% vs baseline.")

@@ -11,6 +11,6 @@
   "energy_attack_enablement_bonus": 200.0,
   "evolve_first_bellibolt_bonus": 220.0,
   "evolve_first_kilowattrel_bonus": 7.0,
-  "legal_attack_score": 150.0,
-  "notes": "energy_attack_enablement_bonus adopted at 200.0 (30g=-10%/50g=-15%/200g=-21%, PR #60/#61/#62). voltorb_damage_scaling=0.8 (A2). voltorb_ko_attack_bonus=1000.0 (A1). attack_suppress_penalty=-40.0 (PR #38). retreat_to_better_attacker_bonus=1400.0 (PR #28/#29/#30)."
+  "legal_attack_score": 250.0,
+  "notes": "legal_attack_score=250.0 accepted at 200g (30g=-9.4%, 50g=-16.6%, 200g=-7.4%, safety all_0, PR #72/#73/#74). energy_attack_enablement_bonus adopted at 200.0 (30g=-10%/50g=-15%/200g=-21%, PR #60/#61/#62). voltorb_damage_scaling=0.8 (A2). voltorb_ko_attack_bonus=1000.0 (A1). attack_suppress_penalty=-40.0 (PR #38). retreat_to_better_attacker_bonus=1400.0 (PR #28/#29/#30)."
 }

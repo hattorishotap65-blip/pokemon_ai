@@ -49,15 +49,15 @@
       "candidates": [
         {
           "value": 100.0,
-          "apg": 4.72,
-          "pct": -18.34,
+          "apg": 4.14,
+          "pct": -28.37,
           "decision": "promote"
         },
         {
           "value": 200.0,
           "apg": 5.6,
           "pct": -3.11,
-          "decision": "promote"
+          "decision": "hold"
         },
         {
           "value": 250.0,
@@ -66,18 +66,11 @@
           "decision": "promote"
         }
       ],
-      "promoted": [
-        100.0,
-        200.0,
-        250.0
-      ]
-    },
-    "200g": {
-      "error": "weight_search failed with exit code 4294967295"
+      "promoted": [100.0, 250.0]
     }
   },
   "accepted": [],
-  "final_decision": "no_candidate_accepted",
+  "final_decision": "incomplete",
   "weights_restored": true,
-  "next_action": "No candidates passed all stages. legal_attack_score=150.0 confirmed."
+  "next_action": "Run 200g for legal_attack_score=100.0 and/or 250.0."
 }

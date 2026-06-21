@@ -1,5 +1,6 @@
 {
   "schema_version": "1.0",
+  "description": "Scoring weights for policy.py and ionos_rules.py. Edit to tune behavior without code changes.",
   "advantage_weight": 0.4,
   "energy_to_plan_bonus": 5.0,
   "energy_to_plan_bonus_no_need": 2.0,

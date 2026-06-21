@@ -285,15 +285,22 @@ def build_turn_rule_context(
     )
 
 
+def _has_play_basic_option(select: Optional[Dict[str, Any]]) -> bool:
+    """True when a PLAY (type=7) option exists.
+
+    In cabt, PLAY (type=7) is exclusively for placing a Basic Pokemon
+    from hand onto the bench. Trainers/Supporters/Energy use type 3/4/5/8.
+    """
+    return any(option_type(o) == 7 for o in get_options(select))
+
+
 def _empty_bench_loss_risk(state: Optional[Dict[str, Any]], select: Optional[Dict[str, Any]]) -> bool:
-    """True when bench is empty and hand has a basic Pokemon that could be played."""
+    """True when bench is empty and a PLAY Basic option is available."""
     if not isinstance(state, dict):
         return False
-    bench = get_own_bench(state)
-    if bench:
+    if get_own_bench(state):
         return False
-    opts = get_options(select)
-    return any(option_type(o) == 7 for o in opts)
+    return _has_play_basic_option(select)
 
 
 def _opp_final_prize_active_is_ex(state: Optional[Dict[str, Any]]) -> bool:
@@ -308,14 +315,6 @@ def _opp_final_prize_active_is_ex(state: Optional[Dict[str, Any]]) -> bool:
         return False
     name = get_card_name(active).lower()
     return " ex" in name or name.endswith(" ex")
-
-
-def _opp_one_prize_any_ko_loses(state: Optional[Dict[str, Any]]) -> bool:
-    """True when opponent has exactly 1 prize — any KO on us means we lose."""
-    if not isinstance(state, dict):
-        return False
-    opp_prizes = int(state.get("opponent", {}).get("prizes_remaining", 6) or 6)
-    return opp_prizes == 1
 
 
 def rule_score_option(

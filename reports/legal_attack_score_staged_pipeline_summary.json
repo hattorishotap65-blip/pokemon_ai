@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "parameter": "legal_attack_score",
+  "baseline": 150.0,
+  "initial_candidates": [
+    75.0,
+    100.0,
+    200.0,
+    250.0
+  ],
+  "date": "2026-06-21",
+  "stages": {
+    "30g": {
+      "baseline_apg": 5.77,
+      "candidates": [
+        {
+          "value": 75.0,
+          "apg": 5.9,
+          "pct": 2.25,
+          "decision": "no_promote"
+        },
+        {
+          "value": 100.0,
+          "apg": 5.27,
+          "pct": -8.67,
+          "decision": "promote"
+        },
+        {
+          "value": 200.0,
+          "apg": 5.37,
+          "pct": -6.93,
+          "decision": "promote"
+        },
+        {
+          "value": 250.0,
+          "apg": 5.23,
+          "pct": -9.36,
+          "decision": "promote"
+        }
+      ],
+      "promoted": [
+        100.0,
+        200.0,
+        250.0
+      ]
+    },
+    "50g": {
+      "baseline_apg": 5.78,
+      "candidates": [
+        {
+          "value": 100.0,
+          "apg": 4.72,
+          "pct": -18.34,
+          "decision": "promote"
+        },
+        {
+          "value": 200.0,
+          "apg": 5.6,
+          "pct": -3.11,
+          "decision": "promote"
+        },
+        {
+          "value": 250.0,
+          "apg": 4.82,
+          "pct": -16.61,
+          "decision": "promote"
+        }
+      ],
+      "promoted": [
+        100.0,
+        200.0,
+        250.0
+      ]
+    },
+    "200g": {
+      "error": "weight_search failed with exit code 4294967295"
+    }
+  },
+  "accepted": [],
+  "final_decision": "no_candidate_accepted",
+  "weights_restored": true,
+  "next_action": "No candidates passed all stages. legal_attack_score=150.0 confirmed."
+}

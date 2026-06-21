@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "parameter": "legal_attack_score",
+  "stage": "50g",
+  "baseline": {
+    "legal_attack_score": 150.0,
+    "anomalies_per_game": 5.78,
+    "games": 50
+  },
+  "candidates": [
+    {
+      "value": 100.0,
+      "anomalies_per_game": 4.14,
+      "delta": -1.64,
+      "vs_baseline_pct": -28.37,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    },
+    {
+      "value": 200.0,
+      "anomalies_per_game": 5.6,
+      "delta": -0.18,
+      "vs_baseline_pct": -3.11,
+      "safety": "all_0",
+      "decision": "hold",
+      "promote": false
+    },
+    {
+      "value": 250.0,
+      "anomalies_per_game": 4.82,
+      "delta": -0.96,
+      "vs_baseline_pct": -16.61,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    }
+  ],
+  "promoted": [100.0, 250.0],
+  "next_action": "Run 200g for 100.0"
+}

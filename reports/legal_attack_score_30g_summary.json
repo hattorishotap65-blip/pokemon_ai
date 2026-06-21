@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "parameter": "legal_attack_score",
+  "stage": "30g",
+  "games": 30,
+  "start_game": 24000,
+  "date": "2026-06-21",
+  "baseline_value": 150.0,
+  "baseline_anomalies_per_game": 5.77,
+  "candidates": [
+    {
+      "value": 75.0,
+      "anomalies_per_game": 5.9,
+      "delta": 0.13,
+      "vs_baseline_pct": 2.25,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 100.0,
+      "anomalies_per_game": 5.27,
+      "delta": -0.5,
+      "vs_baseline_pct": -8.67,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    },
+    {
+      "value": 200.0,
+      "anomalies_per_game": 5.37,
+      "delta": -0.4,
+      "vs_baseline_pct": -6.93,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    },
+    {
+      "value": 250.0,
+      "anomalies_per_game": 5.23,
+      "delta": -0.54,
+      "vs_baseline_pct": -9.36,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    }
+  ],
+  "promoted": [
+    100.0,
+    200.0,
+    250.0
+  ],
+  "weights_restored": true,
+  "next_action": "Run 50g for 100.0"
+}

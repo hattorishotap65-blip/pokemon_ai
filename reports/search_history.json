@@ -445,6 +445,86 @@
       "anomalies_per_game": 4.97,
       "safety": "all_0",
       "reason": "30g: +19.2% vs baseline. Worse than baseline."
+    },
+    {
+      "parameter": "legal_attack_score",
+      "value": 150.0,
+      "result": "baseline",
+      "stage": "baseline",
+      "date": "2026-06-21",
+      "anomalies_per_game": null,
+      "safety": "all_0",
+      "reason": "Externalized current hardcoded value without behavior change."
+    },
+    {
+      "parameter": "legal_attack_score",
+      "value": 75.0,
+      "result": "reject",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.9,
+      "safety": "all_0",
+      "reason": "30g: +2.2% vs baseline."
+    },
+    {
+      "parameter": "legal_attack_score",
+      "value": 100.0,
+      "result": "promote",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.27,
+      "safety": "all_0",
+      "reason": "30g: -8.7% vs baseline."
+    },
+    {
+      "parameter": "legal_attack_score",
+      "value": 200.0,
+      "result": "promote",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.37,
+      "safety": "all_0",
+      "reason": "30g: -6.9% vs baseline."
+    },
+    {
+      "parameter": "legal_attack_score",
+      "value": 250.0,
+      "result": "promote",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.23,
+      "safety": "all_0",
+      "reason": "30g: -9.4% vs baseline."
+    },
+    {
+      "parameter": "legal_attack_score",
+      "value": 100.0,
+      "result": "promote",
+      "stage": "50g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.14,
+      "safety": "all_0",
+      "reason": "50g: -28.4% vs baseline. Promoted to 200g."
+    },
+    {
+      "parameter": "legal_attack_score",
+      "value": 200.0,
+      "result": "hold",
+      "stage": "50g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.6,
+      "safety": "all_0",
+      "reason": "50g: -3.1% vs baseline. Marginal, held."
+    },
+    {
+      "parameter": "legal_attack_score",
+      "value": 250.0,
+      "result": "promote",
+      "stage": "50g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.82,
+      "safety": "all_0",
+      "reason": "50g: -16.6% vs baseline. Promoted to 200g."
     }
   ]
 }

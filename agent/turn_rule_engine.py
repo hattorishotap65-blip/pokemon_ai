@@ -21,9 +21,30 @@ Important:
 
 from __future__ import annotations
 
+import json as _json
+import os as _os
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+# -- Weights (loaded once from data/weights.json) ----------------------------
+_LEGAL_ATTACK_SCORE_DEFAULT = 150.0
+_legal_attack_score: float = _LEGAL_ATTACK_SCORE_DEFAULT
+
+def _load_turn_rule_weights():
+    global _legal_attack_score
+    for p in (
+        _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "data", "weights.json"),
+        "/kaggle_simulations/agent/data/weights.json",
+    ):
+        try:
+            with open(p, encoding="utf-8") as f:
+                data = _json.load(f)
+            _legal_attack_score = float(data.get("legal_attack_score", _LEGAL_ATTACK_SCORE_DEFAULT))
+            return
+        except Exception:
+            continue
+
+_load_turn_rule_weights()
 
 # ---------------------------------------------------------------------------
 # Option type constants observed in the simulator logs
@@ -278,7 +299,7 @@ def rule_score_option(
     ctx = build_turn_rule_context(state, select)
 
     if is_attack_option(opt):
-        return 150.0, "turn_rule:legal_attack_is_turn_finisher"
+        return _legal_attack_score, "turn_rule:legal_attack_is_turn_finisher"
 
     if is_end_option(opt):
         if ctx.has_attack:

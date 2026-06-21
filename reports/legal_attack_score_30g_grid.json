@@ -1,0 +1,20 @@
+{
+  "description": "auto_tune_pipeline: legal_attack_score (pattern 0 = baseline)",
+  "patterns": [
+    {
+      "legal_attack_score": 150.0
+    },
+    {
+      "legal_attack_score": 75.0
+    },
+    {
+      "legal_attack_score": 100.0
+    },
+    {
+      "legal_attack_score": 200.0
+    },
+    {
+      "legal_attack_score": 250.0
+    }
+  ]
+}

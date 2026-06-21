@@ -298,7 +298,7 @@
     {
       "parameter": "energy_attack_enablement_bonus",
       "value": 200.0,
-      "result": "hold",
+      "result": "promote",
       "stage": "50g",
       "date": "2026-06-21",
       "anomalies_per_game": 4.3,

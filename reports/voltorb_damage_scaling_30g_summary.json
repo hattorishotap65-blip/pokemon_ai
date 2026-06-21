@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "search": "voltorb_damage_scaling 30g",
+  "baseline": {
+    "voltorb_damage_scaling": 0.8,
+    "anomalies_per_game": 4.9,
+    "games": 30
+  },
+  "candidates": [
+    {
+      "value": 0.4,
+      "anomalies_per_game": 5.5,
+      "delta": 0.6,
+      "vs_baseline_pct": 12.24,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 0.6,
+      "anomalies_per_game": 5.03,
+      "delta": 0.13,
+      "vs_baseline_pct": 2.65,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 1.0,
+      "anomalies_per_game": 4.83,
+      "delta": -0.07,
+      "vs_baseline_pct": -1.43,
+      "safety": "all_0",
+      "decision": "hold",
+      "promote": false
+    },
+    {
+      "value": 1.2,
+      "anomalies_per_game": 4.93,
+      "delta": 0.03,
+      "vs_baseline_pct": 0.61,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    }
+  ],
+  "promoted_to_50g": [],
+  "notes": [
+    "Baseline ran as pattern 0 in same grid (matched game sets).",
+    "1.0 slightly better than baseline (-1.4%) but within 30g noise.",
+    "0.4 and 0.6 worse than baseline.",
+    "1.2 essentially same as baseline.",
+    "No clear improvement warrants 50g validation."
+  ]
+}

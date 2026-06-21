@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "search": "energy_attack_enablement_bonus 200g validation",
+  "baseline": {
+    "energy_attack_enablement_bonus": 300.0,
+    "anomalies_per_game": 6.61,
+    "games": 200
+  },
+  "candidate": {
+    "energy_attack_enablement_bonus": 200.0,
+    "anomalies_per_game": 5.22,
+    "games": 200
+  },
+  "delta": -1.39,
+  "vs_baseline_pct": -21.03,
+  "safety": "all_0",
+  "consistency": {
+    "30g": "-10.2%",
+    "50g": "-15.0%",
+    "200g": "-21.0%"
+  },
+  "decision": "accept",
+  "next_action": "Create adoption PR.",
+  "conclusion": "Consistent improvement across all scales. Adoption PR recommended."
+}

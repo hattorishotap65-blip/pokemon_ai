@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "target": "energy_attack_enablement_bonus adoption",
+  "previous_value": 300.0,
+  "adopted_value": 200.0,
+  "validation": {
+    "30g": {"improvement": "-10.2%", "safety": "all_0", "pr": "#60"},
+    "50g": {"improvement": "-15.0%", "safety": "all_0", "pr": "#61"},
+    "200g": {"improvement": "-21.0%", "safety": "all_0", "pr": "#62"}
+  },
+  "decision": "accept",
+  "next_step": "smoke check + submission.tar.gz update"
+}

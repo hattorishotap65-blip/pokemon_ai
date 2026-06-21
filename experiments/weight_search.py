@@ -45,6 +45,7 @@ _WEIGHT_KEYS = [
     "voltorb_damage_scaling",
     "energy_attack_enablement_bonus",
     "evolve_first_bellibolt_bonus",
+    "evolve_first_kilowattrel_bonus",
 ]
 
 
@@ -66,6 +67,7 @@ _SEARCH_GRID = {
     "voltorb_damage_scaling": [0.4, 0.6, 0.8, 1.0, 1.2],
     "energy_attack_enablement_bonus": [150.0, 200.0, 300.0, 400.0, 500.0],
     "evolve_first_bellibolt_bonus": [110.0, 165.0, 220.0, 275.0, 330.0],
+    "evolve_first_kilowattrel_bonus": [3.5, 5.0, 7.0, 10.0, 14.0],
 }
 
 

@@ -395,6 +395,56 @@
       "anomalies_per_game": 5.18,
       "safety": "all_0",
       "reason": "50g: +3.2% vs baseline. 30g improvement not confirmed."
+    },
+    {
+      "parameter": "evolve_first_kilowattrel_bonus",
+      "value": 7.0,
+      "result": "baseline",
+      "stage": "baseline",
+      "date": "2026-06-21",
+      "anomalies_per_game": null,
+      "safety": "all_0",
+      "reason": "Externalized current hardcoded value without behavior change."
+    },
+    {
+      "parameter": "evolve_first_kilowattrel_bonus",
+      "value": 3.5,
+      "result": "reject",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.5,
+      "safety": "all_0",
+      "reason": "30g: +7.9% vs baseline. Worse than baseline."
+    },
+    {
+      "parameter": "evolve_first_kilowattrel_bonus",
+      "value": 5.0,
+      "result": "reject",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.57,
+      "safety": "all_0",
+      "reason": "30g: +33.6% vs baseline. Worse than baseline."
+    },
+    {
+      "parameter": "evolve_first_kilowattrel_bonus",
+      "value": 10.0,
+      "result": "reject",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 6.4,
+      "safety": "all_0",
+      "reason": "30g: +53.5% vs baseline. Worse than baseline."
+    },
+    {
+      "parameter": "evolve_first_kilowattrel_bonus",
+      "value": 14.0,
+      "result": "reject",
+      "stage": "30g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.97,
+      "safety": "all_0",
+      "reason": "30g: +19.2% vs baseline. Worse than baseline."
     }
   ]
 }

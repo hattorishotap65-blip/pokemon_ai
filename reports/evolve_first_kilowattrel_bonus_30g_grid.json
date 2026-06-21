@@ -1,0 +1,20 @@
+{
+  "description": "auto_tune_pipeline: evolve_first_kilowattrel_bonus (pattern 0 = baseline)",
+  "patterns": [
+    {
+      "evolve_first_kilowattrel_bonus": 7.0
+    },
+    {
+      "evolve_first_kilowattrel_bonus": 3.5
+    },
+    {
+      "evolve_first_kilowattrel_bonus": 5.0
+    },
+    {
+      "evolve_first_kilowattrel_bonus": 10.0
+    },
+    {
+      "evolve_first_kilowattrel_bonus": 14.0
+    }
+  ]
+}

@@ -42,8 +42,9 @@ Candidate was better in batch 2 only. Inconsistent across batches.
 
 ## Decision
 
-**REJECT.** 50g improvement not confirmed at 200g.
-legal_attack_score=150.0 confirmed as optimal.
+**REJECT.** legal_attack_score=100.0 rejected at 200g.
+legal_attack_score=150.0 remains the baseline.
+250.0 remains an optional 200g candidate if we want to fully close this parameter.
 
 ## weights.json
 

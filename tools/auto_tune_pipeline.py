@@ -266,6 +266,17 @@ def run_staged(
         stages_results[stage] = s
         game_cursor += (1 + len(current_candidates)) * games
 
+        if stage == "200g":
+            accepted_here = [
+                c["value"] for c in s.get("candidates", [])
+                if c.get("decision") == "accept"
+            ]
+            if accepted_here:
+                print(f"[{stage}] Accepted: {accepted_here}")
+            else:
+                print(f"[{stage}] No candidates accepted.")
+            break
+
         promoted = s.get("promoted", [])
         if not promoted:
             print(f"[{stage}] No candidates promoted. Pipeline complete.")
@@ -278,8 +289,11 @@ def run_staged(
     final = stages_results.get(final_stage, {})
 
     accepted = []
-    if final_stage == "200g" and final.get("promoted"):
-        accepted = final["promoted"]
+    if final_stage == "200g":
+        accepted = [
+            c["value"] for c in final.get("candidates", [])
+            if c.get("decision") == "accept"
+        ]
 
     staged_summary = {
         "schema_version": "1.0",

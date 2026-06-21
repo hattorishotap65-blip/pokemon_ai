@@ -8,5 +8,6 @@
   "retreat_to_better_attacker_bonus": 1400.0,
   "voltorb_ko_attack_bonus": 1000.0,
   "voltorb_damage_scaling": 0.8,
-  "notes": "voltorb_damage_scaling externalized at 0.8 (PR #53 candidate A2). voltorb_ko_attack_bonus externalized at 1000.0 (A1). attack_suppress_penalty adopted at -40.0 (PR #38). retreat_to_better_attacker_bonus adopted at 1400.0 (PR #28/#29/#30)."
+  "energy_attack_enablement_bonus": 300.0,
+  "notes": "energy_attack_enablement_bonus externalized at 300.0 (A3). voltorb_damage_scaling externalized at 0.8 (A2). voltorb_ko_attack_bonus externalized at 1000.0 (A1). attack_suppress_penalty adopted at -40.0 (PR #38). retreat_to_better_attacker_bonus adopted at 1400.0 (PR #28/#29/#30)."
 }

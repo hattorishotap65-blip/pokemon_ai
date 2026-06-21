@@ -25,9 +25,11 @@ _VOLTORB_DAMAGE_SCALING_DEFAULT = 0.8
 _voltorb_damage_scaling: float = _VOLTORB_DAMAGE_SCALING_DEFAULT
 _ENERGY_ATTACK_ENABLEMENT_BONUS_DEFAULT = 300.0
 _energy_attack_enablement_bonus: float = _ENERGY_ATTACK_ENABLEMENT_BONUS_DEFAULT
+_EVOLVE_FIRST_BELLIBOLT_BONUS_DEFAULT = 220.0
+_evolve_first_bellibolt_bonus: float = _EVOLVE_FIRST_BELLIBOLT_BONUS_DEFAULT
 
 def _load_ionos_weights():
-    global _retreat_to_better_attacker_bonus, _voltorb_ko_attack_bonus, _voltorb_damage_scaling, _energy_attack_enablement_bonus
+    global _retreat_to_better_attacker_bonus, _voltorb_ko_attack_bonus, _voltorb_damage_scaling, _energy_attack_enablement_bonus, _evolve_first_bellibolt_bonus
     for p in (
         _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "data", "weights.json"),
         "/kaggle_simulations/agent/data/weights.json",
@@ -39,6 +41,7 @@ def _load_ionos_weights():
             _voltorb_ko_attack_bonus = float(data.get("voltorb_ko_attack_bonus", _VOLTORB_KO_BONUS_DEFAULT))
             _voltorb_damage_scaling = float(data.get("voltorb_damage_scaling", _VOLTORB_DAMAGE_SCALING_DEFAULT))
             _energy_attack_enablement_bonus = float(data.get("energy_attack_enablement_bonus", _ENERGY_ATTACK_ENABLEMENT_BONUS_DEFAULT))
+            _evolve_first_bellibolt_bonus = float(data.get("evolve_first_bellibolt_bonus", _EVOLVE_FIRST_BELLIBOLT_BONUS_DEFAULT))
             return
         except Exception:
             continue
@@ -962,7 +965,7 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
     if opt_type == 9 and cid == _BELLIBOLT_EX:
         s = _get_iono_board_status(state)
         if s["bellibolt_in_play"] == 0:
-            return 220.0, "ionos:evolve_first_bellibolt_engine"
+            return _evolve_first_bellibolt_bonus, "ionos:evolve_first_bellibolt_engine"
         score_e = -60.0
         if _should_prepare_second_bellibolt(state):
             score_e += 80.0

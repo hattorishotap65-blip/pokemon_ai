@@ -334,6 +334,17 @@
       "anomalies_per_game": 5.22,
       "safety": "all_0",
       "reason": "Adopted. 30g=-10%/50g=-15%/200g=-21%. Consistent improvement."
+    },
+    {
+      "parameter": "evolve_first_bellibolt_bonus",
+      "value": 220.0,
+      "result": "baseline",
+      "stage": "baseline",
+      "date": "2026-06-21",
+      "anomalies_per_game": null,
+      "safety": "all_0",
+      "reason": "Externalized current hardcoded value without behavior change.",
+      "source_report": "reports/evolve_first_bellibolt_bonus_externalization.json"
     }
   ]
 }

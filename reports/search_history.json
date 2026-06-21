@@ -324,6 +324,16 @@
       "anomalies_per_game": 5.22,
       "safety": "all_0",
       "reason": "200g: -21.0% vs baseline. Consistent across 30g/50g/200g."
+    },
+    {
+      "parameter": "energy_attack_enablement_bonus",
+      "value": 200.0,
+      "result": "accept",
+      "stage": "adoption",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.22,
+      "safety": "all_0",
+      "reason": "Adopted. 30g=-10%/50g=-15%/200g=-21%. Consistent improvement."
     }
   ]
 }

@@ -172,6 +172,26 @@
       "anomalies_per_game": 5.13,
       "safety": "all_0",
       "reason": "30g second best (-48%). Promoted to 50g."
+    },
+    {
+      "parameter": "voltorb_ko_attack_bonus",
+      "value": 1250.0,
+      "result": "reject",
+      "stage": "50g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.92,
+      "safety": "all_0",
+      "reason": "50g worse than baseline (+46%). 30g improvement not confirmed."
+    },
+    {
+      "parameter": "voltorb_ko_attack_bonus",
+      "value": 1500.0,
+      "result": "reject",
+      "stage": "50g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.76,
+      "safety": "all_0",
+      "reason": "50g worse than baseline (+17%). 30g improvement not confirmed."
     }
   ]
 }

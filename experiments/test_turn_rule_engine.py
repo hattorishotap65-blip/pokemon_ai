@@ -250,9 +250,14 @@ end_fp, end_fp_r = rule_score_option(END_OPT, STATE_EX_ACTIVE_OPP2, SELECT_ATK_E
 check("Ex active + opp 2 prizes: end penalized", end_fp < 0)
 check("Ex active + opp 2 prizes: reason mentions ex", "ex_active" in end_fp_r)
 
+atk_fp, atk_fp_r = rule_score_option(ATK_OPT, STATE_EX_ACTIVE_OPP2, SELECT_ATK_END_RETREAT)
+check("Ex active + opp 2 prizes: attack penalized", atk_fp < 0)
+check("Ex active + opp 2 prizes: attack reason", "ex_active" in atk_fp_r)
+
 ret_fp, ret_fp_r = rule_score_option({"type": 12}, STATE_EX_ACTIVE_OPP2, SELECT_ATK_END_RETREAT)
 check("Ex active + opp 2 prizes: retreat to non-ex boosted", ret_fp > 0)
 check("Ex active + opp 2 prizes: retreat reason", "survive" in ret_fp_r.lower() or "retreat_ex" in ret_fp_r)
+check("Ex active + opp 2 prizes: retreat > attack", ret_fp > atk_fp)
 
 # Opponent has 1 prize - any KO loses
 STATE_OPP1 = {

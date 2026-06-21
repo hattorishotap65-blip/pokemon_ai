@@ -336,17 +336,20 @@ def rule_score_option(
             return -500.0, "turn_rule:empty_bench_play_basic_first"
 
     # --- B. Opponent final prize survival ---
-    if is_end_option(opt) or is_attack_option(opt):
-        if _opp_final_prize_active_is_ex(state):
-            opp_prizes = int(state.get("opponent", {}).get("prizes_remaining", 6) or 6)
-            if opp_prizes <= 2:
-                bench = get_own_bench(state)
-                has_non_ex_bench = any(
-                    " ex" not in get_card_name(c).lower() and not get_card_name(c).lower().endswith(" ex")
-                    for c in bench
-                )
-                if has_non_ex_bench and is_end_option(opt):
-                    return -400.0, "turn_rule:ex_active_opp_final_prizes_retreat_first"
+    _final_prize_ex_risk = _opp_final_prize_active_is_ex(state)
+    if _final_prize_ex_risk:
+        bench = get_own_bench(state)
+        _has_non_ex_bench = any(
+            " ex" not in get_card_name(c).lower() and not get_card_name(c).lower().endswith(" ex")
+            for c in bench
+        )
+        if _has_non_ex_bench:
+            if is_attack_option(opt):
+                return -300.0, "turn_rule:ex_active_opp_final_prizes_retreat_first"
+            if is_end_option(opt):
+                return -400.0, "turn_rule:ex_active_opp_final_prizes_retreat_first"
+            if is_retreat_option(opt):
+                return 500.0, "turn_rule:retreat_ex_to_survive_final_prizes"
 
     if is_attack_option(opt):
         return _legal_attack_score, "turn_rule:legal_attack_is_turn_finisher"
@@ -360,14 +363,6 @@ def rule_score_option(
 
     if is_retreat_option(opt):
         if ctx.has_attack:
-            if _opp_final_prize_active_is_ex(state):
-                bench = get_own_bench(state)
-                has_non_ex_bench = any(
-                    " ex" not in get_card_name(c).lower() and not get_card_name(c).lower().endswith(" ex")
-                    for c in bench
-                )
-                if has_non_ex_bench:
-                    return 200.0, "turn_rule:retreat_ex_to_survive_final_prizes"
             return -1000.0, "turn_rule:avoid_retreat_when_attack_available"
         if ctx.active_energy_count > 0:
             return -250.0, "turn_rule:avoid_retreat_losing_energy"

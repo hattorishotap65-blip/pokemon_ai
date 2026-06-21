@@ -19,9 +19,11 @@ import os as _os
 # -- Weights (loaded once from data/weights.json) ------------------------------
 _RETREAT_BONUS_DEFAULT = 1100.0
 _retreat_to_better_attacker_bonus: float = _RETREAT_BONUS_DEFAULT
+_VOLTORB_KO_BONUS_DEFAULT = 1000.0
+_voltorb_ko_attack_bonus: float = _VOLTORB_KO_BONUS_DEFAULT
 
 def _load_ionos_weights():
-    global _retreat_to_better_attacker_bonus
+    global _retreat_to_better_attacker_bonus, _voltorb_ko_attack_bonus
     for p in (
         _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "data", "weights.json"),
         "/kaggle_simulations/agent/data/weights.json",
@@ -30,6 +32,7 @@ def _load_ionos_weights():
             with open(p, encoding="utf-8") as f:
                 data = _json.load(f)
             _retreat_to_better_attacker_bonus = float(data.get("retreat_to_better_attacker_bonus", _RETREAT_BONUS_DEFAULT))
+            _voltorb_ko_attack_bonus = float(data.get("voltorb_ko_attack_bonus", _VOLTORB_KO_BONUS_DEFAULT))
             return
         except Exception:
             continue
@@ -810,7 +813,7 @@ def score_voltorb_attack(opt: dict, state: dict, select=None) -> tuple:
 
     opp_hp = state.get("opponent", {}).get("active_pokemon", {}).get("hp_remaining", 9999)
     if damage >= opp_hp > 0:
-        score += 1000.0
+        score += _voltorb_ko_attack_bonus
         parts.append("voltorb_can_ko")
 
     return score, "|".join(parts)

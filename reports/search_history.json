@@ -121,6 +121,17 @@
       "safety": "all_0",
       "reason": "Run 002 30g worst result. Pre-retreat_bonus=1400 config.",
       "source_report": "reports/level6_weight_search_run_002_near_default.json"
+    },
+    {
+      "parameter": "voltorb_ko_attack_bonus",
+      "value": 1000.0,
+      "result": "baseline",
+      "stage": "baseline",
+      "date": "2026-06-21",
+      "anomalies_per_game": null,
+      "safety": "all_0",
+      "reason": "Externalized current hardcoded value without behavior change.",
+      "source_report": "reports/voltorb_ko_attack_bonus_externalization.json"
     }
   ]
 }

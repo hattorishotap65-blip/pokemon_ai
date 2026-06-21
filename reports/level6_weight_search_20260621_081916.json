@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "search_grid": {
+    "advantage_weight": [
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6
+    ],
+    "energy_to_plan_bonus": [
+      3.0,
+      4.0,
+      5.0,
+      6.0,
+      7.0,
+      8.0
+    ],
+    "energy_to_plan_bonus_no_need": [
+      1.0,
+      2.0,
+      3.0,
+      4.0
+    ],
+    "voltorb_ko_attack_bonus": [
+      500.0,
+      750.0,
+      1000.0,
+      1250.0,
+      1500.0
+    ],
+    "voltorb_damage_scaling": [
+      0.4,
+      0.6,
+      0.8,
+      1.0,
+      1.2
+    ],
+    "energy_attack_enablement_bonus": [
+      150.0,
+      200.0,
+      300.0,
+      400.0,
+      500.0
+    ],
+    "evolve_first_bellibolt_bonus": [
+      110.0,
+      165.0,
+      220.0,
+      275.0,
+      330.0
+    ]
+  },
+  "baseline": {
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0,
+    "attack_suppress_penalty": -40.0,
+    "retreat_to_better_attacker_bonus": 1400.0,
+    "voltorb_ko_attack_bonus": 1000.0,
+    "voltorb_damage_scaling": 0.8,
+    "energy_attack_enablement_bonus": 200.0,
+    "evolve_first_bellibolt_bonus": 220.0
+  },
+  "games_per_pattern": 50,
+  "results": [
+    {
+      "pattern_id": 0,
+      "weights": {
+        "evolve_first_bellibolt_bonus": 220.0
+      },
+      "metrics": {
+        "games": 50,
+        "anomalies_total": 251,
+        "attack_available_but_no_attack": 0,
+        "end_when_attack_available": 0,
+        "retreat_when_attack_available": 0,
+        "best_damage_attacker_not_selected": 251
+      }
+    },
+    {
+      "pattern_id": 1,
+      "weights": {
+        "evolve_first_bellibolt_bonus": 330.0
+      },
+      "metrics": {
+        "games": 50,
+        "anomalies_total": 259,
+        "attack_available_but_no_attack": 0,
+        "end_when_attack_available": 0,
+        "retreat_when_attack_available": 0,
+        "best_damage_attacker_not_selected": 259
+      }
+    }
+  ]
+}

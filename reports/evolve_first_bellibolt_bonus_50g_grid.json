@@ -1,0 +1,11 @@
+{
+  "description": "evolve_first_bellibolt_bonus 50g validation (pattern 0 = baseline)",
+  "patterns": [
+    {
+      "evolve_first_bellibolt_bonus": 220.0
+    },
+    {
+      "evolve_first_bellibolt_bonus": 330.0
+    }
+  ]
+}

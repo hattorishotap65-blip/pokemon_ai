@@ -278,6 +278,80 @@ STATE_OPP1 = {
 ret_1p, _ = rule_score_option({"type": 12}, STATE_OPP1, SELECT_ATK_END_RETREAT)
 check("Opp 1 prize non-ex: retreat not boosted", ret_1p <= 0)
 
+print("\n--- winning attack guard ---")
+
+# My 1 prize, opp active non-ex with low HP, Voltorb (id=265) active
+# Voltorb damage = 20 + 20*lightning. With 0 lightning on field = 20 damage.
+# opp HP = 10 → can KO → wins game
+STATE_WIN_1 = {
+    "players": [
+        {"active": [{"id": 265, "name": "Iono's Voltorb"}], "bench": [{"id": 2, "name": "Tadbulb"}]},
+        {"active": [{"id": 999, "name": "Opponent Mon"}], "bench": []},
+    ],
+    "yourIndex": 0,
+    "prizes_remaining": 1,
+    "opponent": {"prizes_remaining": 3, "active_pokemon": {"name": "Opponent Mon", "hp_remaining": 10}},
+}
+atk_w1, atk_w1_r = rule_score_option(ATK_OPT, STATE_WIN_1, SELECT_ATK_END_RETREAT)
+ret_w1, _ = rule_score_option({"type": 12}, STATE_WIN_1, SELECT_ATK_END_RETREAT)
+end_w1, _ = rule_score_option(END_OPT, STATE_WIN_1, SELECT_ATK_END_RETREAT)
+check("Winning attack: attack score very high", atk_w1 >= 2000)
+check("Winning attack: reason", "winning_attack" in atk_w1_r)
+check("Winning attack: attack > retreat", atk_w1 > ret_w1)
+check("Winning attack: attack > end", atk_w1 > end_w1)
+check("Winning attack: retreat penalized", ret_w1 < 0)
+check("Winning attack: end penalized", end_w1 < 0)
+
+# My 2 prizes, opp active is ex with low HP, Bellibolt ex active (id=269, 230 dmg)
+STATE_WIN_2EX = {
+    "players": [
+        {"active": [{"id": 269, "name": "Iono's Bellibolt ex"}], "bench": [{"id": 2, "name": "Voltorb"}]},
+        {"active": [{"id": 888, "name": "Some ex"}], "bench": []},
+    ],
+    "yourIndex": 0,
+    "prizes_remaining": 2,
+    "opponent": {"prizes_remaining": 2, "active_pokemon": {"name": "Some ex", "hp_remaining": 200}},
+}
+atk_w2, _ = rule_score_option(ATK_OPT, STATE_WIN_2EX, SELECT_ATK_END_RETREAT)
+ret_w2, _ = rule_score_option({"type": 12}, STATE_WIN_2EX, SELECT_ATK_END_RETREAT)
+check("Win by KO ex (2 prizes): attack > retreat", atk_w2 > ret_w2)
+check("Win by KO ex (2 prizes): attack very high", atk_w2 >= 2000)
+
+# KO possible on state but NO attack option in select
+SELECT_NO_ATK = {"option": [{"type": 14}, {"type": 12}]}
+ret_no_atk, ret_no_atk_r = rule_score_option({"type": 12}, STATE_WIN_1, SELECT_NO_ATK)
+end_no_atk, _ = rule_score_option(END_OPT, STATE_WIN_1, SELECT_NO_ATK)
+check("No attack option: retreat NOT penalized by guard", ret_no_atk > -800)
+check("No attack option: end NOT penalized by guard", end_no_atk > -800)
+check("No attack option: reason is NOT winning_attack", "winning_attack" not in ret_no_atk_r)
+
+# Cannot win: my 3 prizes, opp active non-ex
+STATE_NO_WIN = {
+    "players": [
+        {"active": [{"id": 265, "name": "Iono's Voltorb"}], "bench": [{"id": 2, "name": "Tadbulb"}]},
+        {"active": [{"id": 999, "name": "Opponent Mon"}], "bench": []},
+    ],
+    "yourIndex": 0,
+    "prizes_remaining": 3,
+    "opponent": {"prizes_remaining": 3, "active_pokemon": {"name": "Opponent Mon", "hp_remaining": 10}},
+}
+atk_nw, atk_nw_r = rule_score_option(ATK_OPT, STATE_NO_WIN, SELECT_ATK_END_RETREAT)
+check("Cannot win: attack at normal score", atk_nw == _expected_attack_score)
+check("Cannot win: reason is normal", "winning_attack" not in atk_nw_r)
+
+# Cannot KO: damage too low
+STATE_NO_KO = {
+    "players": [
+        {"active": [{"id": 265, "name": "Iono's Voltorb"}], "bench": [{"id": 2, "name": "Tadbulb"}]},
+        {"active": [{"id": 999, "name": "Opponent Mon"}], "bench": []},
+    ],
+    "yourIndex": 0,
+    "prizes_remaining": 1,
+    "opponent": {"prizes_remaining": 3, "active_pokemon": {"name": "Opponent Mon", "hp_remaining": 500}},
+}
+atk_nk, _ = rule_score_option(ATK_OPT, STATE_NO_KO, SELECT_ATK_END_RETREAT)
+check("Cannot KO: attack at normal score", atk_nk == _expected_attack_score)
+
 # Existing attack logic still works
 print("\n--- existing logic preserved ---")
 atk_normal, _ = rule_score_option(ATK_OPT, STATE_WITH_BENCH, SELECT_WITH_ATTACK)

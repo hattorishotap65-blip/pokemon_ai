@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "target": "voltorb_ko_attack_bonus externalization",
+  "previous": {"location": "ionos_rules.py:813", "value": 1000.0, "type": "hardcoded"},
+  "after": {"location": "data/weights.json", "value": 1000.0, "fallback": 1000.0},
+  "behavior_change": false,
+  "search_grid": [500.0, 750.0, 1000.0, 1250.0, 1500.0],
+  "added_to": ["auto_tune.py", "auto_tune_runner.py", "weight_search.py"],
+  "next_step": "30g search via auto_tune_runner.py"
+}

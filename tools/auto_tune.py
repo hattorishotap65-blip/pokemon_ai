@@ -26,6 +26,7 @@ _SEARCH_GRID = {
     "advantage_weight": [0.2, 0.3, 0.4, 0.5, 0.6],
     "energy_to_plan_bonus": [3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
     "energy_to_plan_bonus_no_need": [1.0, 2.0, 3.0, 4.0],
+    "voltorb_ko_attack_bonus": [500.0, 750.0, 1000.0, 1250.0, 1500.0],
 }
 
 _EXCLUDED_PARAMETERS = {

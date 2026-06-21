@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "tag": "post-legal_attack_score-250-adoption",
+  "date": "2026-06-22",
+  "status": "stable_submitted",
+  "changes": "legal_attack_score=250.0 adopted (was 150.0). Validated 30g=-9.4%/50g=-16.6%/200g=-7.4%.",
+  "weights": {
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0,
+    "attack_suppress_penalty": -40.0,
+    "retreat_to_better_attacker_bonus": 1400.0,
+    "voltorb_ko_attack_bonus": 1000.0,
+    "voltorb_damage_scaling": 0.8,
+    "energy_attack_enablement_bonus": 200.0,
+    "evolve_first_bellibolt_bonus": 220.0,
+    "evolve_first_kilowattrel_bonus": 7.0,
+    "legal_attack_score": 250.0
+  },
+  "smoke_check": {
+    "games": 30,
+    "anomalies_per_game": 4.87,
+    "errors": 0,
+    "timeouts": 0,
+    "safety": "all_0"
+  },
+  "submission_tar_gz": {
+    "updated": true,
+    "size_kb": 556
+  },
+  "runtime_check": "submitted environment startup confirmed",
+  "prs": {
+    "adoption": "#75",
+    "smoke_check": "#76",
+    "submission_update": "#77",
+    "adoption_flow_tools": "#78"
+  }
+}

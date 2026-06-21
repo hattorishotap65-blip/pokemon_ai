@@ -38,4 +38,8 @@ echo "=== Weight search defaults ==="
 python experiments/test_weight_search_defaults.py
 
 echo ""
+echo "=== Auto tune runner ==="
+python experiments/test_auto_tune_runner.py
+
+echo ""
 echo "All tests passed."

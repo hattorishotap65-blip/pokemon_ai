@@ -230,28 +230,244 @@ def _format_md(s: dict) -> str:
     return "\n".join(lines)
 
 
+_STAGE_GAMES = {"30g": 30, "50g": 50, "200g": 200}
+
+
+def run_staged(
+    parameter: str, baseline: float, candidates: list[float],
+    start_game: int, output: str, use_wsl: bool,
+    update_history: bool = True,
+) -> dict:
+    """Run 30g -> 50g -> 200g staged pipeline for one parameter."""
+    stages_results = {}
+    current_candidates = list(candidates)
+    game_cursor = start_game
+
+    for stage in ["30g", "50g", "200g"]:
+        if not current_candidates:
+            print(f"\n[{stage}] No candidates to test. Pipeline complete.")
+            break
+
+        games = _STAGE_GAMES[stage]
+        print(f"\n{'='*60}")
+        print(f"[{stage}] Running {len(current_candidates)} candidate(s): {current_candidates}")
+        print(f"{'='*60}")
+
+        s = run_pipeline(
+            parameter, stage, baseline, current_candidates,
+            games, game_cursor, output, use_wsl, update_history,
+        )
+
+        if "error" in s:
+            stages_results[stage] = s
+            print(f"[{stage}] Error: {s['error']}")
+            break
+
+        stages_results[stage] = s
+        game_cursor += (1 + len(current_candidates)) * games
+
+        if stage == "200g":
+            accepted_here = [
+                c["value"] for c in s.get("candidates", [])
+                if c.get("decision") == "accept"
+            ]
+            if accepted_here:
+                print(f"[{stage}] Accepted: {accepted_here}")
+            else:
+                print(f"[{stage}] No candidates accepted.")
+            break
+
+        promoted = s.get("promoted", [])
+        if not promoted:
+            print(f"[{stage}] No candidates promoted. Pipeline complete.")
+            break
+
+        current_candidates = promoted
+        print(f"[{stage}] Promoted: {promoted}")
+
+    final_stage = max(stages_results.keys(), key=lambda k: ["30g","50g","200g"].index(k)) if stages_results else "none"
+    final = stages_results.get(final_stage, {})
+
+    accepted = []
+    if final_stage == "200g":
+        accepted = [
+            c["value"] for c in final.get("candidates", [])
+            if c.get("decision") == "accept"
+        ]
+
+    staged_summary = {
+        "schema_version": "1.0",
+        "parameter": parameter,
+        "baseline": baseline,
+        "initial_candidates": candidates,
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "stages": {k: _stage_digest(v) for k, v in stages_results.items()},
+        "accepted": accepted,
+        "final_decision": "accept" if accepted else "no_candidate_accepted",
+        "weights_restored": final.get("weights_restored", True),
+        "next_action": (
+            f"Create adoption PR for {parameter}={accepted[0]}"
+            if accepted else
+            f"No candidates passed all stages. {parameter}={baseline} confirmed."
+        ),
+    }
+
+    prefix = f"{parameter}_staged_pipeline"
+    base = os.path.join(_REPO_ROOT, output)
+    os.makedirs(base, exist_ok=True)
+
+    with open(os.path.join(base, f"{prefix}_summary.json"), "w", encoding="utf-8") as f:
+        json.dump(staged_summary, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    with open(os.path.join(base, f"{prefix}_summary.md"), "w", encoding="utf-8") as f:
+        f.write(_format_staged_md(staged_summary, stages_results))
+
+    if accepted:
+        plan = _build_adoption_plan(parameter, baseline, accepted[0], stages_results)
+        with open(os.path.join(base, f"{parameter}_adoption_plan.json"), "w", encoding="utf-8") as f:
+            json.dump(plan, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        with open(os.path.join(base, f"{parameter}_adoption_plan.md"), "w", encoding="utf-8") as f:
+            f.write(_format_adoption_md(plan))
+        print(f"\nAdoption plan generated for {parameter}={accepted[0]}")
+
+    print(f"\nStaged pipeline complete: {staged_summary['final_decision']}")
+    return staged_summary
+
+
+def _stage_digest(s: dict) -> dict:
+    if "error" in s:
+        return {"error": s["error"]}
+    return {
+        "baseline_apg": s.get("baseline_anomalies_per_game"),
+        "candidates": [
+            {"value": c["value"], "apg": c.get("anomalies_per_game"),
+             "pct": c.get("vs_baseline_pct"), "decision": c["decision"]}
+            for c in s.get("candidates", [])
+        ],
+        "promoted": s.get("promoted", []),
+    }
+
+
+def _build_adoption_plan(parameter: str, baseline: float, adopted: float,
+                         stages: dict) -> dict:
+    consistency = {}
+    for stage_name, s in stages.items():
+        for c in s.get("candidates", []):
+            if c.get("value") == adopted:
+                consistency[stage_name] = f"{c.get('vs_baseline_pct', 0):+.1f}%"
+    return {
+        "schema_version": "1.0",
+        "parameter": parameter,
+        "baseline_value": baseline,
+        "adopted_value": adopted,
+        "consistency": consistency,
+        "safety": "all_0",
+        "files_to_change": ["data/weights.json"],
+        "post_adoption": [
+            "Smoke check (30g)",
+            "submission.tar.gz update",
+            "v-tag backup",
+        ],
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+    }
+
+
+def _format_staged_md(summary: dict, stages: dict) -> str:
+    lines = [f"# {summary['parameter']} Staged Pipeline Summary", ""]
+    lines.append(f"- Parameter: **{summary['parameter']}**")
+    lines.append(f"- Baseline: **{summary['baseline']}**")
+    lines.append(f"- Initial candidates: {summary['initial_candidates']}")
+    lines.append("")
+
+    for stage_name in ["30g", "50g", "200g"]:
+        if stage_name not in stages:
+            continue
+        s = stages[stage_name]
+        if "error" in s:
+            lines.append(f"## {stage_name}: ERROR")
+            lines.append(f"{s['error']}")
+            continue
+        lines.append(f"## {stage_name}")
+        lines.append("")
+        lines.append(f"Baseline: {s.get('baseline_anomalies_per_game', '-')}/g")
+        lines.append("")
+        lines.append("| Value | /game | vs Baseline | Safety | Decision |")
+        lines.append("|-------|-------|-------------|--------|----------|")
+        for c in s.get("candidates", []):
+            apg = c.get("anomalies_per_game", "-")
+            pct = f"{c['vs_baseline_pct']:+.1f}%" if c.get("vs_baseline_pct") is not None else "-"
+            lines.append(f"| {c['value']} | {apg} | {pct} | {c.get('safety','-')} | {c['decision']} |")
+        promoted = s.get("promoted", [])
+        lines.append(f"\nPromoted: {promoted if promoted else 'none'}")
+        lines.append("")
+
+    lines.append("## Final Decision")
+    lines.append("")
+    lines.append(f"**{summary['final_decision']}**")
+    lines.append("")
+    lines.append(f"Next: {summary['next_action']}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _format_adoption_md(plan: dict) -> str:
+    lines = [f"# Adoption Plan: {plan['parameter']}={plan['adopted_value']}", ""]
+    lines.append(f"- Previous: {plan['baseline_value']}")
+    lines.append(f"- Adopted: **{plan['adopted_value']}**")
+    lines.append("")
+    lines.append("## Consistency")
+    lines.append("")
+    for stage, pct in plan["consistency"].items():
+        lines.append(f"- {stage}: {pct}")
+    lines.append("")
+    lines.append(f"Safety: {plan['safety']}")
+    lines.append("")
+    lines.append("## Post-Adoption Steps")
+    lines.append("")
+    for step in plan["post_adoption"]:
+        lines.append(f"1. {step}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Auto-tune pipeline MVP")
+    parser = argparse.ArgumentParser(description="Auto-tune pipeline")
     parser.add_argument("--parameter", required=True)
-    parser.add_argument("--stage", required=True, choices=sorted(_VALID_STAGES))
     parser.add_argument("--baseline", type=float, required=True)
     parser.add_argument("--candidates", required=True,
                         help="Comma-separated candidate values")
-    parser.add_argument("--games", type=int, required=True)
-    parser.add_argument("--start-game", type=int, required=True)
     parser.add_argument("--output", default="reports")
     parser.add_argument("--use-wsl", action="store_true")
-    parser.add_argument("--no-history", action="store_true",
-                        help="Do not update search_history.json")
+    parser.add_argument("--no-history", action="store_true")
+
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--stage", choices=sorted(_VALID_STAGES),
+                      help="Run a single stage")
+    mode.add_argument("--staged", action="store_true",
+                      help="Run full 30g->50g->200g pipeline")
+
+    parser.add_argument("--games", type=int, default=0,
+                        help="Games per pattern (required for --stage)")
+    parser.add_argument("--start-game", type=int, required=True)
 
     args = parser.parse_args()
     candidates = [float(v.strip()) for v in args.candidates.split(",")]
 
-    summary = run_pipeline(
-        args.parameter, args.stage, args.baseline, candidates,
-        args.games, args.start_game, args.output, args.use_wsl,
-        update_history=not args.no_history,
-    )
+    if args.staged:
+        summary = run_staged(
+            args.parameter, args.baseline, candidates,
+            args.start_game, args.output, args.use_wsl,
+            update_history=not args.no_history,
+        )
+    else:
+        if args.games <= 0:
+            parser.error("--games is required for --stage mode")
+        summary = run_pipeline(
+            args.parameter, args.stage, args.baseline, candidates,
+            args.games, args.start_game, args.output, args.use_wsl,
+            update_history=not args.no_history,
+        )
 
     if "error" in summary:
         print(f"Error: {summary['error']}")

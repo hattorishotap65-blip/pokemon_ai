@@ -51,15 +51,10 @@ h_file = tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w")
 json.dump(_history, h_file)
 h_file.close()
 
-# Monkey-patch _WEIGHTS_PATH for testing
-import tools.auto_tune_runner as runner
-_orig_weights_path = runner._WEIGHTS_PATH
-runner._WEIGHTS_PATH = w_file.name
-
 # ===================================================================
 print("\n--- valid parameter ---")
 
-p = plan("advantage_weight", "30g", h_file.name)
+p = plan("advantage_weight", "30g", h_file.name, w_file.name)
 check("no error", "error" not in p)
 check("parameter correct", p["parameter"] == "advantage_weight")
 check("stage correct", p["stage"] == "30g")
@@ -67,21 +62,21 @@ check("baseline_value=0.4", p["baseline_value"] == 0.4)
 
 print("\n--- invalid parameter ---")
 
-p = plan("nonexistent_param", "30g", h_file.name)
+p = plan("nonexistent_param", "30g", h_file.name, w_file.name)
 check("error for unknown param", "error" in p)
 
 print("\n--- excluded parameters ---")
 
-p = plan("retreat_to_better_attacker_bonus", "30g", h_file.name)
+p = plan("retreat_to_better_attacker_bonus", "30g", h_file.name, w_file.name)
 check("retreat_bonus excluded", "error" in p)
 
-p = plan("attack_suppress_penalty", "30g", h_file.name)
+p = plan("attack_suppress_penalty", "30g", h_file.name, w_file.name)
 check("attack_suppress excluded", "error" in p)
 
 # ===================================================================
 print("\n--- baseline excluded from candidates ---")
 
-p = plan("advantage_weight", "30g", h_file.name)
+p = plan("advantage_weight", "30g", h_file.name, w_file.name)
 check("0.4 not in runnable", 0.4 not in p["runnable"])
 check("0.4 in skipped", any(s["value"] == 0.4 for s in p["skipped"]))
 
@@ -98,7 +93,7 @@ check("0.2 not in runnable", 0.2 not in p["runnable"])
 
 print("\n--- hold candidates remain runnable ---")
 
-p2 = plan("energy_to_plan_bonus", "30g", h_file.name)
+p2 = plan("energy_to_plan_bonus", "30g", h_file.name, w_file.name)
 check("4.0 held -> runnable", 4.0 in p2["runnable"])
 
 print("\n--- unexplored candidates remain runnable ---")
@@ -109,10 +104,12 @@ check("0.5 unexplored -> runnable", 0.5 in p["runnable"])
 # ===================================================================
 print("\n--- build_grid ---")
 
-grid = build_grid("advantage_weight", [0.3, 0.5])
+grid = build_grid("advantage_weight", 0.4, [0.3, 0.5])
 check("grid has patterns", "patterns" in grid)
-check("grid 2 patterns", len(grid["patterns"]) == 2)
-check("grid pattern keys", "advantage_weight" in grid["patterns"][0])
+check("grid 3 patterns (baseline + 2 candidates)", len(grid["patterns"]) == 3)
+check("grid pattern 0 is baseline", grid["patterns"][0]["advantage_weight"] == 0.4)
+check("grid pattern 1 is candidate 0.3", grid["patterns"][1]["advantage_weight"] == 0.3)
+check("grid pattern 2 is candidate 0.5", grid["patterns"][2]["advantage_weight"] == 0.5)
 
 # ===================================================================
 print("\n--- build_command ---")
@@ -208,7 +205,7 @@ check("md has Next Action", "Next Action" in md)
 # ===================================================================
 print("\n--- dry-run does not execute ---")
 # (We verify this by checking that plan() does not run games)
-p_dry = plan("advantage_weight", "30g", h_file.name)
+p_dry = plan("advantage_weight", "30g", h_file.name, w_file.name)
 check("plan returns runnable without executing", isinstance(p_dry["runnable"], list))
 
 # ===================================================================
@@ -224,7 +221,6 @@ s4 = build_summary("advantage_weight", "30g", 30, 11000, 0.4, 4.53,
 check("history updated when flagged", s4["search_history_updated"])
 
 # --- Cleanup ---
-runner._WEIGHTS_PATH = _orig_weights_path
 os.unlink(w_file.name)
 os.unlink(h_file.name)
 

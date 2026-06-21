@@ -55,8 +55,8 @@ _WEIGHTS_PATH = os.path.join(_REPO_ROOT, "data", "weights.json")
 _HISTORY_PATH = os.path.join(_REPO_ROOT, "reports", "search_history.json")
 
 
-def _load_weights() -> dict:
-    with open(_WEIGHTS_PATH, encoding="utf-8") as f:
+def _load_weights(path: str = _WEIGHTS_PATH) -> dict:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -67,7 +67,8 @@ def _check_safety(metrics: dict) -> str:
     return "all_0"
 
 
-def plan(parameter: str, stage: str, history_path: str = _HISTORY_PATH) -> dict:
+def plan(parameter: str, stage: str, history_path: str = _HISTORY_PATH,
+         weights_path: str = _WEIGHTS_PATH) -> dict:
     """Generate a plan for the given parameter.
 
     Returns dict with keys: parameter, stage, baseline_value, candidates,
@@ -80,7 +81,7 @@ def plan(parameter: str, stage: str, history_path: str = _HISTORY_PATH) -> dict:
     if stage not in _VALID_STAGES:
         return {"error": f"Invalid stage '{stage}'. Valid: {sorted(_VALID_STAGES)}"}
 
-    weights = _load_weights()
+    weights = _load_weights(weights_path)
     baseline_value = weights.get(parameter)
     history = load_history(history_path)
     values = _SEARCH_GRID[parameter]
@@ -107,10 +108,13 @@ def plan(parameter: str, stage: str, history_path: str = _HISTORY_PATH) -> dict:
     }
 
 
-def build_grid(parameter: str, values: list) -> dict:
+def build_grid(parameter: str, baseline_value, values: list) -> dict:
+    """Build grid with baseline as first pattern, then candidates."""
+    patterns = [{parameter: baseline_value}]
+    patterns.extend({parameter: v} for v in values)
     return {
-        "description": f"Auto-tune runner: {parameter} search",
-        "patterns": [{parameter: v} for v in values],
+        "description": f"Auto-tune runner: {parameter} search (pattern 0 = baseline)",
+        "patterns": patterns,
     }
 
 
@@ -285,7 +289,7 @@ def main():
 
     args = parser.parse_args()
 
-    p = plan(args.parameter, args.stage, args.history)
+    p = plan(args.parameter, args.stage, args.history, args.weights)
     if "error" in p:
         print(f"Error: {p['error']}")
         sys.exit(1)
@@ -307,13 +311,15 @@ def main():
         _save_outputs(args.output, prefix, summary)
         return
 
-    grid = build_grid(args.parameter, p["runnable"])
+    grid = build_grid(args.parameter, p["baseline_value"], p["runnable"])
     grid_path = os.path.join(_REPO_ROOT, args.output, f"{prefix}_grid.json")
     os.makedirs(os.path.dirname(grid_path), exist_ok=True)
     with open(grid_path, "w", encoding="utf-8") as f:
         json.dump(grid, f, indent=2)
         f.write("\n")
     print(f"\nGrid file: {grid_path}")
+    print(f"  Pattern 0 = baseline ({p['baseline_value']})")
+    print(f"  Patterns 1-{len(p['runnable'])} = candidates")
 
     cmd = build_command(
         os.path.relpath(grid_path, _REPO_ROOT),
@@ -327,30 +333,29 @@ def main():
         return
 
     print(f"\nRunning weight search...")
+    # Grid has baseline + N candidates = N+1 total patterns
     result = subprocess.run(cmd, cwd=_REPO_ROOT, timeout=1200)
     if result.returncode != 0:
         print("Weight search failed.")
         sys.exit(1)
 
-    weights_after = _load_weights()
+    weights_after = _load_weights(args.weights)
     weights_restored = weights_after.get(args.parameter) == p["baseline_value"]
     print(f"\nweights.json {args.parameter}={weights_after.get(args.parameter)} "
           f"(restored={weights_restored})")
 
-    metrics_list = parse_results(args.output, args.parameter, len(p["runnable"]))
+    # Pattern 0 = baseline, patterns 1..N = candidates
+    total_patterns = 1 + len(p["runnable"])
+    all_metrics = parse_results(args.output, args.parameter, total_patterns)
 
-    baseline_apg = 0.0
-    for m in metrics_list:
-        if m:
-            baseline_apg = m["anomalies_per_game"]
-            break
-    # Use the average of all runs as a rough baseline reference
-    # In matched mode the first pattern is the baseline
-    # For single-param search, we use the current stable baseline from recent runs
-    # The caller should interpret results relative to each other
+    baseline_metrics = all_metrics[0]
+    candidate_metrics = all_metrics[1:]
+
+    baseline_apg = baseline_metrics["anomalies_per_game"] if baseline_metrics else 0.0
+    print(f"Baseline result: {baseline_apg}/g")
 
     decisions = evaluate_results(
-        args.parameter, args.stage, baseline_apg, p["runnable"], metrics_list,
+        args.parameter, args.stage, baseline_apg, p["runnable"], candidate_metrics,
     )
 
     history_updated = False

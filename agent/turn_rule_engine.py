@@ -336,20 +336,22 @@ def rule_score_option(
             return -500.0, "turn_rule:empty_bench_play_basic_first"
 
     # --- B. Opponent final prize survival ---
+    # Boost retreat to non-ex when our ex active risks giving up the game.
+    # Do NOT penalize attack — attack may win the game or take a crucial KO.
     _final_prize_ex_risk = _opp_final_prize_active_is_ex(state)
     if _final_prize_ex_risk:
-        bench = get_own_bench(state)
-        _has_non_ex_bench = any(
-            " ex" not in get_card_name(c).lower() and not get_card_name(c).lower().endswith(" ex")
-            for c in bench
-        )
-        if _has_non_ex_bench:
-            if is_attack_option(opt):
-                return -300.0, "turn_rule:ex_active_opp_final_prizes_retreat_first"
-            if is_end_option(opt):
-                return -400.0, "turn_rule:ex_active_opp_final_prizes_retreat_first"
-            if is_retreat_option(opt):
-                return 500.0, "turn_rule:retreat_ex_to_survive_final_prizes"
+        my_prizes = int(state.get("prizes_remaining", 6) or 6)
+        if my_prizes > 1:
+            bench = get_own_bench(state)
+            _has_non_ex_bench = any(
+                " ex" not in get_card_name(c).lower() and not get_card_name(c).lower().endswith(" ex")
+                for c in bench
+            )
+            if _has_non_ex_bench:
+                if is_end_option(opt):
+                    return -400.0, "turn_rule:ex_active_opp_final_prizes_retreat_first"
+                if is_retreat_option(opt):
+                    return 500.0, "turn_rule:retreat_ex_to_survive_final_prizes"
 
     if is_attack_option(opt):
         return _legal_attack_score, "turn_rule:legal_attack_is_turn_finisher"

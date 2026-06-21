@@ -250,14 +250,24 @@ end_fp, end_fp_r = rule_score_option(END_OPT, STATE_EX_ACTIVE_OPP2, SELECT_ATK_E
 check("Ex active + opp 2 prizes: end penalized", end_fp < 0)
 check("Ex active + opp 2 prizes: reason mentions ex", "ex_active" in end_fp_r)
 
-atk_fp, atk_fp_r = rule_score_option(ATK_OPT, STATE_EX_ACTIVE_OPP2, SELECT_ATK_END_RETREAT)
-check("Ex active + opp 2 prizes: attack penalized", atk_fp < 0)
-check("Ex active + opp 2 prizes: attack reason", "ex_active" in atk_fp_r)
+atk_fp, _ = rule_score_option(ATK_OPT, STATE_EX_ACTIVE_OPP2, SELECT_ATK_END_RETREAT)
+check("Ex active + opp 2 prizes: attack NOT penalized (may win/KO)", atk_fp > 0)
 
 ret_fp, ret_fp_r = rule_score_option({"type": 12}, STATE_EX_ACTIVE_OPP2, SELECT_ATK_END_RETREAT)
 check("Ex active + opp 2 prizes: retreat to non-ex boosted", ret_fp > 0)
 check("Ex active + opp 2 prizes: retreat reason", "survive" in ret_fp_r.lower() or "retreat_ex" in ret_fp_r)
 check("Ex active + opp 2 prizes: retreat > attack", ret_fp > atk_fp)
+
+# When we have 1 prize left, attack could win — retreat boost should NOT apply
+STATE_EX_ACTIVE_OPP2_ME1 = {
+    "players": [{"active": [{"id": 10, "name": "Bellibolt ex"}], "bench": [{"id": 2, "name": "Voltorb"}]}],
+    "yourIndex": 0,
+    "prizes_remaining": 1,
+    "opponent": {"prizes_remaining": 2},
+}
+atk_win, _ = rule_score_option(ATK_OPT, STATE_EX_ACTIVE_OPP2_ME1, SELECT_ATK_END_RETREAT)
+ret_win, _ = rule_score_option({"type": 12}, STATE_EX_ACTIVE_OPP2_ME1, SELECT_ATK_END_RETREAT)
+check("My 1 prize + opp 2: attack > retreat (may win)", atk_win > ret_win)
 
 # Opponent has 1 prize - any KO loses
 STATE_OPP1 = {
@@ -265,8 +275,6 @@ STATE_OPP1 = {
     "yourIndex": 0,
     "opponent": {"prizes_remaining": 1},
 }
-# Normal retreat should NOT be overvalued when opponent has 1 prize
-# (non-ex active, retreating to non-ex doesn't help since any KO = loss)
 ret_1p, _ = rule_score_option({"type": 12}, STATE_OPP1, SELECT_ATK_END_RETREAT)
 check("Opp 1 prize non-ex: retreat not boosted", ret_1p <= 0)
 

@@ -1,0 +1,161 @@
+{
+  "schema_version": "1.0",
+  "stable_baseline": {
+    "retreat_to_better_attacker_bonus": 1400.0,
+    "attack_suppress_penalty": -40.0,
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0
+  },
+  "candidates": [
+    {
+      "name": "voltorb_ko_attack_bonus",
+      "priority": "A",
+      "file": "ionos_rules.py",
+      "line": 813,
+      "current_value": 1000.0,
+      "current_behavior": "Massive bonus when Voltorb attack can KO opponent active Pokemon",
+      "expected_effect": "Tuning could balance between KO aggression and setup completion",
+      "risk": "high",
+      "recommended_first_grid": [500, 750, 1000, 1250, 1500],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "voltorb_damage_scaling",
+      "priority": "A",
+      "file": "ionos_rules.py",
+      "line": 798,
+      "current_value": 0.8,
+      "current_behavior": "Multiplier converting Voltorb estimated damage to attack score",
+      "expected_effect": "Higher = more aggressive attack, lower = more conservative",
+      "risk": "medium",
+      "recommended_first_grid": [0.5, 0.6, 0.8, 1.0, 1.2],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "energy_attack_enablement_bonus",
+      "priority": "A",
+      "file": "ionos_rules.py",
+      "line": 298,
+      "current_value": 300.0,
+      "current_behavior": "Bonus when energy attachment enables an immediate attack",
+      "expected_effect": "Higher = prioritize attack-enabling attachments more strongly",
+      "risk": "low",
+      "recommended_first_grid": [150, 200, 300, 400, 500],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "evolve_first_bellibolt_bonus",
+      "priority": "A",
+      "file": "ionos_rules.py",
+      "line": 956,
+      "current_value": 220.0,
+      "current_behavior": "Priority bonus for evolving the first Bellibolt ex (engine setup)",
+      "expected_effect": "Higher = evolve earlier, lower = delay for other actions",
+      "risk": "medium",
+      "recommended_first_grid": [150, 180, 220, 260, 300],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "voltorb_energy_ko_line_bonus",
+      "priority": "A",
+      "file": "ionos_rules.py",
+      "line": 361,
+      "current_value": 400.0,
+      "current_behavior": "Bonus when energy attachment reaches opponent KO threshold for Voltorb",
+      "expected_effect": "Tuning could sharpen KO targeting via energy placement",
+      "risk": "medium",
+      "recommended_first_grid": [200, 300, 400, 500, 600],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "turn_rule_legal_attack_score",
+      "priority": "B",
+      "file": "turn_rule_engine.py",
+      "line": 281,
+      "current_value": 150.0,
+      "current_behavior": "Baseline bonus for any legal attack action in turn rule scoring",
+      "expected_effect": "Adjusts general attack priority vs other actions",
+      "risk": "low",
+      "recommended_first_grid": [100, 125, 150, 175, 200],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "ko_risk_critical_penalty",
+      "priority": "B",
+      "file": "planner.py",
+      "line": 247,
+      "current_value": 8.0,
+      "current_behavior": "Penalty when active Pokemon HP ratio <= 0.25",
+      "expected_effect": "Higher = more conservative when near KO",
+      "risk": "low",
+      "recommended_first_grid": [4.0, 6.0, 8.0, 10.0, 12.0],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "retreat_losing_energy_penalty",
+      "priority": "B",
+      "file": "turn_rule_engine.py",
+      "line": 294,
+      "current_value": 250.0,
+      "current_behavior": "Penalty for retreating when it costs energy",
+      "expected_effect": "Tuning balances retreat willingness vs energy loss",
+      "risk": "medium",
+      "recommended_first_grid": [150, 200, 250, 300, 350],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "voltorb_avoid_attach_when_attack_available",
+      "priority": "B",
+      "file": "ionos_rules.py",
+      "line": 852,
+      "current_value": 500.0,
+      "current_behavior": "Penalty for attaching energy when Voltorb can already attack",
+      "expected_effect": "Lower = allow pre-attack energy for future, higher = attack first",
+      "risk": "medium",
+      "recommended_first_grid": [300, 400, 500, 600, 700],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "kilowattrel_ability_large_hand_penalty",
+      "priority": "B",
+      "file": "ionos_rules.py",
+      "line": 905,
+      "current_value": 120.0,
+      "current_behavior": "Penalty for using Kilowattrel ability when hand >= 5 cards",
+      "expected_effect": "Tuning controls ability usage based on hand size",
+      "risk": "low",
+      "recommended_first_grid": [60, 90, 120, 150, 180],
+      "requires_agent_change": true,
+      "runner_ready": false
+    },
+    {
+      "name": "win_condition_weight",
+      "priority": "B",
+      "file": "evaluator.py",
+      "line": 8,
+      "current_value": 0.6,
+      "current_behavior": "Scale factor for plan progress in board evaluation",
+      "expected_effect": "Higher = weight plan progress more, lower = weight board state more",
+      "risk": "medium",
+      "recommended_first_grid": [0.3, 0.4, 0.6, 0.8, 1.0],
+      "requires_agent_change": true,
+      "runner_ready": false
+    }
+  ],
+  "recommended_next_pr": {
+    "type": "externalize_weight",
+    "candidate": "voltorb_ko_attack_bonus",
+    "reason": "Single clear value (1000.0), directly impacts KO decisions, easy to externalize, safety metrics catch regressions",
+    "second_candidate": "voltorb_damage_scaling"
+  }
+}

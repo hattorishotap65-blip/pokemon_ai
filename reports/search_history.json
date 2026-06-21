@@ -385,6 +385,16 @@
       "anomalies_per_game": 4.0,
       "safety": "all_0",
       "reason": "30g: -19.5% vs baseline. Promoted to 50g."
+    },
+    {
+      "parameter": "evolve_first_bellibolt_bonus",
+      "value": 330.0,
+      "result": "reject",
+      "stage": "50g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 5.18,
+      "safety": "all_0",
+      "reason": "50g: +3.2% vs baseline. 30g improvement not confirmed."
     }
   ]
 }

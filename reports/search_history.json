@@ -243,6 +243,17 @@
       "anomalies_per_game": 4.93,
       "safety": "all_0",
       "reason": "30g: +0.6% vs baseline. Marginal."
+    },
+    {
+      "parameter": "energy_attack_enablement_bonus",
+      "value": 300.0,
+      "result": "baseline",
+      "stage": "baseline",
+      "date": "2026-06-21",
+      "anomalies_per_game": null,
+      "safety": "all_0",
+      "reason": "Externalized current hardcoded value without behavior change.",
+      "source_report": "reports/energy_attack_enablement_bonus_externalization.json"
     }
   ]
 }

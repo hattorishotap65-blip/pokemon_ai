@@ -23,9 +23,11 @@ _VOLTORB_KO_BONUS_DEFAULT = 1000.0
 _voltorb_ko_attack_bonus: float = _VOLTORB_KO_BONUS_DEFAULT
 _VOLTORB_DAMAGE_SCALING_DEFAULT = 0.8
 _voltorb_damage_scaling: float = _VOLTORB_DAMAGE_SCALING_DEFAULT
+_ENERGY_ATTACK_ENABLEMENT_BONUS_DEFAULT = 300.0
+_energy_attack_enablement_bonus: float = _ENERGY_ATTACK_ENABLEMENT_BONUS_DEFAULT
 
 def _load_ionos_weights():
-    global _retreat_to_better_attacker_bonus, _voltorb_ko_attack_bonus, _voltorb_damage_scaling
+    global _retreat_to_better_attacker_bonus, _voltorb_ko_attack_bonus, _voltorb_damage_scaling, _energy_attack_enablement_bonus
     for p in (
         _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "data", "weights.json"),
         "/kaggle_simulations/agent/data/weights.json",
@@ -36,6 +38,7 @@ def _load_ionos_weights():
             _retreat_to_better_attacker_bonus = float(data.get("retreat_to_better_attacker_bonus", _RETREAT_BONUS_DEFAULT))
             _voltorb_ko_attack_bonus = float(data.get("voltorb_ko_attack_bonus", _VOLTORB_KO_BONUS_DEFAULT))
             _voltorb_damage_scaling = float(data.get("voltorb_damage_scaling", _VOLTORB_DAMAGE_SCALING_DEFAULT))
+            _energy_attack_enablement_bonus = float(data.get("energy_attack_enablement_bonus", _ENERGY_ATTACK_ENABLEMENT_BONUS_DEFAULT))
             return
         except Exception:
             continue
@@ -301,7 +304,7 @@ def _score_attach_core(
 
     # --- Axis 1: attack enablement ---
     if _would_enable_attack(target_cid, target_energy):
-        score += 300.0
+        score += _energy_attack_enablement_bonus
         parts.append(f"{prefix}:attach_enables_attack")
         if target_cid == _VOLTORB:
             score += 100.0; parts.append(f"{prefix}:enables_voltorb_attack")

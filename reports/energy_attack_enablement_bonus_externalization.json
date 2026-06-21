@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "target": "energy_attack_enablement_bonus externalization",
+  "previous": {"location": "ionos_rules.py:304", "value": 300.0, "type": "hardcoded"},
+  "after": {"location": "data/weights.json", "value": 300.0, "fallback": 300.0},
+  "behavior_change": false,
+  "search_grid": [150.0, 200.0, 300.0, 400.0, 500.0],
+  "added_to": ["auto_tune.py", "auto_tune_runner.py", "weight_search.py"],
+  "next_step": "30g search via auto_tune_runner.py"
+}

@@ -317,6 +317,51 @@ def _opp_final_prize_active_is_ex(state: Optional[Dict[str, Any]]) -> bool:
     return " ex" in name or name.endswith(" ex")
 
 
+def _is_name_ex(name: str) -> bool:
+    n = name.lower()
+    return " ex" in n or n.endswith(" ex")
+
+
+def _attack_wins_game(state: Optional[Dict[str, Any]]) -> bool:
+    """True when attacking the opponent's active can win the game.
+
+    Checks: our estimated damage >= opponent active HP, and KO prize count
+    would bring our remaining prizes to 0.
+    """
+    if not isinstance(state, dict):
+        return False
+    my_prizes = int(state.get("prizes_remaining", 6) or 6)
+    if my_prizes < 1 or my_prizes > 6:
+        return False
+
+    opp = state.get("opponent", {})
+    opp_active = opp.get("active_pokemon", {})
+    opp_hp = int(opp_active.get("hp_remaining", 9999) or 9999)
+    if opp_hp <= 0 or opp_hp >= 9999:
+        return False
+
+    opp_name = str(opp_active.get("name") or opp_active.get("card_name") or "")
+    prizes_on_ko = 2 if _is_name_ex(opp_name) else 1
+
+    if my_prizes > prizes_on_ko:
+        return False
+
+    active = get_own_active(state)
+    if not active:
+        return False
+    active_id = get_card_id(active)
+    if active_id is None:
+        return False
+
+    try:
+        from agent.effect_engine import estimate_attack_damage
+        dmg, _ = estimate_attack_damage(active_id, state)
+    except Exception:
+        return False
+
+    return dmg >= opp_hp
+
+
 def rule_score_option(
     opt: Dict[str, Any],
     state: Optional[Dict[str, Any]],
@@ -335,19 +380,27 @@ def rule_score_option(
         if is_attack_option(opt) or is_end_option(opt):
             return -500.0, "turn_rule:empty_bench_play_basic_first"
 
+    # --- C. Winning attack guard ---
+    # If attacking the opponent's active wins the game, prioritize attack
+    # above all else (including final-prize retreat boost).
+    if _attack_wins_game(state):
+        if is_attack_option(opt):
+            return 2000.0, "turn_rule:winning_attack"
+        if is_retreat_option(opt):
+            return -800.0, "turn_rule:do_not_retreat_when_winning_attack"
+        if is_end_option(opt):
+            return -800.0, "turn_rule:do_not_end_when_winning_attack"
+
     # --- B. Opponent final prize survival ---
     # Boost retreat to non-ex when our ex active risks giving up the game.
-    # Do NOT penalize attack — attack may win the game or take a crucial KO.
-    # Known limitation: when own prizes=2 and attack can KO opponent's ex
-    # to win, retreat (+500) may still outweigh attack (+250). A future
-    # winning_attack_guard should detect KO-to-win and suppress retreat.
+    # Only applies when winning attack guard (C) did not fire.
     _final_prize_ex_risk = _opp_final_prize_active_is_ex(state)
     if _final_prize_ex_risk:
         my_prizes = int(state.get("prizes_remaining", 6) or 6)
         if my_prizes > 1:
             bench = get_own_bench(state)
             _has_non_ex_bench = any(
-                " ex" not in get_card_name(c).lower() and not get_card_name(c).lower().endswith(" ex")
+                not _is_name_ex(get_card_name(c))
                 for c in bench
             )
             if _has_non_ex_bench:

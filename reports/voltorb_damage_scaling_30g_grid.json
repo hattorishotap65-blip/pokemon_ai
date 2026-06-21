@@ -1,0 +1,20 @@
+{
+  "description": "voltorb_damage_scaling 30g search (pattern 0 = baseline)",
+  "patterns": [
+    {
+      "voltorb_damage_scaling": 0.8
+    },
+    {
+      "voltorb_damage_scaling": 0.4
+    },
+    {
+      "voltorb_damage_scaling": 0.6
+    },
+    {
+      "voltorb_damage_scaling": 1.0
+    },
+    {
+      "voltorb_damage_scaling": 1.2
+    }
+  ]
+}

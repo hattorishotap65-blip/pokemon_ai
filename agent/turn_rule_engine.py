@@ -338,6 +338,9 @@ def rule_score_option(
     # --- B. Opponent final prize survival ---
     # Boost retreat to non-ex when our ex active risks giving up the game.
     # Do NOT penalize attack — attack may win the game or take a crucial KO.
+    # Known limitation: when own prizes=2 and attack can KO opponent's ex
+    # to win, retreat (+500) may still outweigh attack (+250). A future
+    # winning_attack_guard should detect KO-to-win and suppress retreat.
     _final_prize_ex_risk = _opp_final_prize_active_is_ex(state)
     if _final_prize_ex_risk:
         my_prizes = int(state.get("prizes_remaining", 6) or 6)

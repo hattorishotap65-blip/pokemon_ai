@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "parameter": "legal_attack_score",
+  "stage": "200g",
+  "baseline": {
+    "legal_attack_score": 150.0,
+    "anomalies_per_game": 5.3,
+    "anomalies_total": 1060,
+    "games": 200
+  },
+  "candidate": {
+    "legal_attack_score": 250.0,
+    "anomalies_per_game": 4.91,
+    "anomalies_total": 982,
+    "games": 200
+  },
+  "delta": -0.39,
+  "vs_baseline_pct": -7.36,
+  "safety": "all_0",
+  "consistency": {
+    "30g": "-9.4%",
+    "50g": "-16.6%",
+    "200g": "-7.4%"
+  },
+  "decision": "accept",
+  "batch_details": [
+    {
+      "batch": 1,
+      "baseline": 290,
+      "candidate": 244
+    },
+    {
+      "batch": 2,
+      "baseline": 291,
+      "candidate": 212
+    },
+    {
+      "batch": 3,
+      "baseline": 249,
+      "candidate": 247
+    },
+    {
+      "batch": 4,
+      "baseline": 230,
+      "candidate": 279
+    }
+  ]
+}

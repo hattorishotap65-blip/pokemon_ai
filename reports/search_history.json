@@ -535,6 +535,16 @@
       "anomalies_per_game": 5.11,
       "safety": "all_0",
       "reason": "200g: +13.6% vs baseline. Consistency: 30g=-9%/50g=-28%/200g=+13.6%."
+    },
+    {
+      "parameter": "legal_attack_score",
+      "value": 250.0,
+      "result": "accept",
+      "stage": "200g",
+      "date": "2026-06-21",
+      "anomalies_per_game": 4.91,
+      "safety": "all_0",
+      "reason": "200g: -7.4% vs baseline. Consistency: 30g=-9%/50g=-17%/200g=-7.4%."
     }
   ]
 }

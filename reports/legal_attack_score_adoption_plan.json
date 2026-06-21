@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "parameter": "legal_attack_score",
+  "baseline_value": 150.0,
+  "adopted_value": 250.0,
+  "consistency": {
+    "30g": "-9.4%",
+    "50g": "-16.6%",
+    "200g": "-7.4%"
+  },
+  "safety": "all_0",
+  "files_to_change": ["data/weights.json"],
+  "post_adoption": [
+    "Smoke check (30g)",
+    "submission.tar.gz update",
+    "v-tag backup"
+  ],
+  "date": "2026-06-21"
+}

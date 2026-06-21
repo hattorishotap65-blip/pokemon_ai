@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "target": "Post-adoption smoke check energy_attack_enablement_bonus=200",
+  "weights": {
+    "retreat_to_better_attacker_bonus": 1400.0,
+    "attack_suppress_penalty": -40.0,
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0,
+    "voltorb_ko_attack_bonus": 1000.0,
+    "voltorb_damage_scaling": 0.8,
+    "energy_attack_enablement_bonus": 200.0
+  },
+  "tests": "352/352 pass",
+  "smoke_test": {
+    "games": 30,
+    "errors": 0,
+    "timeouts": 0,
+    "anomalies_per_game": 5.50,
+    "attack_available_but_no_attack": 0,
+    "end_when_attack_available": 0,
+    "retreat_when_attack_available": 0,
+    "ability_without_followup_attack": 0
+  },
+  "conclusion": "submission_tar_gz_update_ready"
+}

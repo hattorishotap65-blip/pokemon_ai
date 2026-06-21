@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "search": "evolve_first_bellibolt_bonus 30g",
+  "baseline": {
+    "evolve_first_bellibolt_bonus": 220.0,
+    "anomalies_per_game": 4.97,
+    "games": 30
+  },
+  "candidates": [
+    {
+      "value": 110.0,
+      "anomalies_per_game": 4.57,
+      "delta": -0.4,
+      "vs_baseline_pct": -8.05,
+      "safety": "all_0",
+      "decision": "hold",
+      "promote": false
+    },
+    {
+      "value": 165.0,
+      "anomalies_per_game": 5.0,
+      "delta": 0.03,
+      "vs_baseline_pct": 0.6,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 275.0,
+      "anomalies_per_game": 4.57,
+      "delta": -0.4,
+      "vs_baseline_pct": -8.05,
+      "safety": "all_0",
+      "decision": "hold",
+      "promote": false
+    },
+    {
+      "value": 330.0,
+      "anomalies_per_game": 4.0,
+      "delta": -0.97,
+      "vs_baseline_pct": -19.52,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    }
+  ],
+  "promoted_to_50g": [330.0],
+  "notes": [
+    "Baseline ran as pattern 0 in same grid (matched game sets).",
+    "330 shows strongest improvement (-20% vs baseline).",
+    "110 and 275 tied at -8%, marginal at 30g.",
+    "165 essentially same as baseline.",
+    "Higher bonus = better: trend suggests stronger evolve priority helps."
+  ]
+}

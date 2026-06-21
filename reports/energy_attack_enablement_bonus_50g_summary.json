@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "search": "energy_attack_enablement_bonus 50g validation",
+  "baseline": {
+    "energy_attack_enablement_bonus": 300.0,
+    "anomalies_per_game": 5.06,
+    "games": 50
+  },
+  "candidates": [
+    {
+      "value": 200.0,
+      "anomalies_per_game": 4.3,
+      "delta": -0.76,
+      "vs_baseline_pct": -15.02,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    },
+    {
+      "value": 400.0,
+      "anomalies_per_game": 4.9,
+      "delta": -0.16,
+      "vs_baseline_pct": -3.16,
+      "safety": "all_0",
+      "decision": "hold",
+      "promote": false
+    }
+  ],
+  "promoted_to_200g": [
+    200.0
+  ],
+  "consistency": {
+    "30g": "200=4.73(-10%), 400=4.73(-10%) vs baseline 5.27",
+    "50g": "200=4.3(-15.0%), 400=4.9(-3.2%) vs baseline 5.06"
+  },
+  "notes": [
+    "200 improved at both 30g (-10%) and 50g (-15%). Consistent.",
+    "400 improved at 30g (-10%) but marginal at 50g (-3.2%). Held.",
+    "200 is the clear 200g candidate."
+  ]
+}

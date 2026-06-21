@@ -21,9 +21,11 @@ _RETREAT_BONUS_DEFAULT = 1100.0
 _retreat_to_better_attacker_bonus: float = _RETREAT_BONUS_DEFAULT
 _VOLTORB_KO_BONUS_DEFAULT = 1000.0
 _voltorb_ko_attack_bonus: float = _VOLTORB_KO_BONUS_DEFAULT
+_VOLTORB_DAMAGE_SCALING_DEFAULT = 0.8
+_voltorb_damage_scaling: float = _VOLTORB_DAMAGE_SCALING_DEFAULT
 
 def _load_ionos_weights():
-    global _retreat_to_better_attacker_bonus, _voltorb_ko_attack_bonus
+    global _retreat_to_better_attacker_bonus, _voltorb_ko_attack_bonus, _voltorb_damage_scaling
     for p in (
         _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "data", "weights.json"),
         "/kaggle_simulations/agent/data/weights.json",
@@ -33,6 +35,7 @@ def _load_ionos_weights():
                 data = _json.load(f)
             _retreat_to_better_attacker_bonus = float(data.get("retreat_to_better_attacker_bonus", _RETREAT_BONUS_DEFAULT))
             _voltorb_ko_attack_bonus = float(data.get("voltorb_ko_attack_bonus", _VOLTORB_KO_BONUS_DEFAULT))
+            _voltorb_damage_scaling = float(data.get("voltorb_damage_scaling", _VOLTORB_DAMAGE_SCALING_DEFAULT))
             return
         except Exception:
             continue
@@ -798,7 +801,7 @@ def score_voltorb_attack(opt: dict, state: dict, select=None) -> tuple:
     score = 180.0
     parts: list = ["voltorb_legal_attack"]
 
-    score += damage * 0.8
+    score += damage * _voltorb_damage_scaling
     parts.append("voltorb_scaling_damage")
 
     if lightning >= 3:

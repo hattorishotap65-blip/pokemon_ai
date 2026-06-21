@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "target": "voltorb_damage_scaling externalization",
+  "previous": {"location": "ionos_rules.py:801", "value": 0.8, "type": "hardcoded"},
+  "after": {"location": "data/weights.json", "value": 0.8, "fallback": 0.8},
+  "behavior_change": false,
+  "search_grid": [0.4, 0.6, 0.8, 1.0, 1.2],
+  "added_to": ["auto_tune.py", "auto_tune_runner.py", "weight_search.py"],
+  "next_step": "30g search via auto_tune_runner.py"
+}

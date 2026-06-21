@@ -192,6 +192,17 @@
       "anomalies_per_game": 4.76,
       "safety": "all_0",
       "reason": "50g worse than baseline (+17%). 30g improvement not confirmed."
+    },
+    {
+      "parameter": "voltorb_damage_scaling",
+      "value": 0.8,
+      "result": "baseline",
+      "stage": "baseline",
+      "date": "2026-06-21",
+      "anomalies_per_game": null,
+      "safety": "all_0",
+      "reason": "Externalized current hardcoded value without behavior change.",
+      "source_report": "reports/voltorb_damage_scaling_externalization.json"
     }
   ]
 }

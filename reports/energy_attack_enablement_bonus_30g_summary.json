@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "search": "energy_attack_enablement_bonus 30g",
+  "baseline": {
+    "energy_attack_enablement_bonus": 300.0,
+    "anomalies_per_game": 5.27,
+    "games": 30
+  },
+  "candidates": [
+    {
+      "value": 150.0,
+      "anomalies_per_game": 5.43,
+      "delta": 0.16,
+      "vs_baseline_pct": 3.04,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    },
+    {
+      "value": 200.0,
+      "anomalies_per_game": 4.73,
+      "delta": -0.54,
+      "vs_baseline_pct": -10.25,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    },
+    {
+      "value": 400.0,
+      "anomalies_per_game": 4.73,
+      "delta": -0.54,
+      "vs_baseline_pct": -10.25,
+      "safety": "all_0",
+      "decision": "promote",
+      "promote": true
+    },
+    {
+      "value": 500.0,
+      "anomalies_per_game": 5.53,
+      "delta": 0.26,
+      "vs_baseline_pct": 4.93,
+      "safety": "all_0",
+      "decision": "no_promote",
+      "promote": false
+    }
+  ],
+  "promoted_to_50g": [
+    200.0,
+    400.0
+  ],
+  "notes": [
+    "Baseline ran as pattern 0 in same grid (matched game sets).",
+    "200 and 400 tied at 4.73/g (-10.2% vs baseline).",
+    "150 and 500 worse than baseline.",
+    "200 and 400 show improvement but -10% at 30g is borderline.",
+    "Both 200 and 400 promoted for 50g validation."
+  ]
+}

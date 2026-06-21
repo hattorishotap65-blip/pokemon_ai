@@ -1,0 +1,20 @@
+{
+  "description": "energy_attack_enablement_bonus 30g search (pattern 0 = baseline)",
+  "patterns": [
+    {
+      "energy_attack_enablement_bonus": 300.0
+    },
+    {
+      "energy_attack_enablement_bonus": 150.0
+    },
+    {
+      "energy_attack_enablement_bonus": 200.0
+    },
+    {
+      "energy_attack_enablement_bonus": 400.0
+    },
+    {
+      "energy_attack_enablement_bonus": 500.0
+    }
+  ]
+}

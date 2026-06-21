@@ -95,7 +95,9 @@ check("Empty select              -> False", not has_legal_attack_option({}))
 print("\n--- rule_score: attack ---")
 
 atk_score, atk_reason = rule_score_option(ATK_OPT, STATE_EMPTY, SELECT_WITH_ATTACK)
-check("Attack scores +150",                    atk_score == 150.0)
+import json as _json
+_expected_attack_score = _json.load(open("data/weights.json")).get("legal_attack_score", 150.0)
+check(f"Attack scores +{_expected_attack_score}",  atk_score == _expected_attack_score)
 check("Attack reason is legal_attack_*",       "legal_attack" in atk_reason)
 
 

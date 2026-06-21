@@ -285,6 +285,39 @@ def build_turn_rule_context(
     )
 
 
+def _empty_bench_loss_risk(state: Optional[Dict[str, Any]], select: Optional[Dict[str, Any]]) -> bool:
+    """True when bench is empty and hand has a basic Pokemon that could be played."""
+    if not isinstance(state, dict):
+        return False
+    bench = get_own_bench(state)
+    if bench:
+        return False
+    opts = get_options(select)
+    return any(option_type(o) == 7 for o in opts)
+
+
+def _opp_final_prize_active_is_ex(state: Optional[Dict[str, Any]]) -> bool:
+    """True when opponent has <=2 prizes left and our active is an ex."""
+    if not isinstance(state, dict):
+        return False
+    opp_prizes = int(state.get("opponent", {}).get("prizes_remaining", 6) or 6)
+    if opp_prizes > 2:
+        return False
+    active = get_own_active(state)
+    if not active:
+        return False
+    name = get_card_name(active).lower()
+    return " ex" in name or name.endswith(" ex")
+
+
+def _opp_one_prize_any_ko_loses(state: Optional[Dict[str, Any]]) -> bool:
+    """True when opponent has exactly 1 prize — any KO on us means we lose."""
+    if not isinstance(state, dict):
+        return False
+    opp_prizes = int(state.get("opponent", {}).get("prizes_remaining", 6) or 6)
+    return opp_prizes == 1
+
+
 def rule_score_option(
     opt: Dict[str, Any],
     state: Optional[Dict[str, Any]],
@@ -298,6 +331,24 @@ def rule_score_option(
     """
     ctx = build_turn_rule_context(state, select)
 
+    # --- A. Empty bench loss prevention ---
+    if _empty_bench_loss_risk(state, select):
+        if is_attack_option(opt) or is_end_option(opt):
+            return -500.0, "turn_rule:empty_bench_play_basic_first"
+
+    # --- B. Opponent final prize survival ---
+    if is_end_option(opt) or is_attack_option(opt):
+        if _opp_final_prize_active_is_ex(state):
+            opp_prizes = int(state.get("opponent", {}).get("prizes_remaining", 6) or 6)
+            if opp_prizes <= 2:
+                bench = get_own_bench(state)
+                has_non_ex_bench = any(
+                    " ex" not in get_card_name(c).lower() and not get_card_name(c).lower().endswith(" ex")
+                    for c in bench
+                )
+                if has_non_ex_bench and is_end_option(opt):
+                    return -400.0, "turn_rule:ex_active_opp_final_prizes_retreat_first"
+
     if is_attack_option(opt):
         return _legal_attack_score, "turn_rule:legal_attack_is_turn_finisher"
 
@@ -310,6 +361,14 @@ def rule_score_option(
 
     if is_retreat_option(opt):
         if ctx.has_attack:
+            if _opp_final_prize_active_is_ex(state):
+                bench = get_own_bench(state)
+                has_non_ex_bench = any(
+                    " ex" not in get_card_name(c).lower() and not get_card_name(c).lower().endswith(" ex")
+                    for c in bench
+                )
+                if has_non_ex_bench:
+                    return 200.0, "turn_rule:retreat_ex_to_survive_final_prizes"
             return -1000.0, "turn_rule:avoid_retreat_when_attack_available"
         if ctx.active_energy_count > 0:
             return -250.0, "turn_rule:avoid_retreat_losing_energy"

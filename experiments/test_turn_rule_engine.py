@@ -26,9 +26,11 @@ from agent.turn_rule_engine import (
 PASS = "[PASS]"
 FAIL = "[FAIL]"
 _failures = 0
+_total = 0
 
 def check(label: str, condition: bool):
-    global _failures
+    global _failures, _total
+    _total += 1
     status = PASS if condition else FAIL
     print(f"  {status}  {label}")
     if not condition:
@@ -193,9 +195,84 @@ check("ATK debug: has_legal_attack_option", dbg["has_legal_attack_option"] is Tr
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
+# Immediate loss prevention tests
+# ---------------------------------------------------------------------------
+print("\n--- empty bench loss prevention ---")
+
+# State with empty bench and PLAY option in select
+STATE_EMPTY_BENCH = {
+    "players": [{"active": [{"id": 1, "name": "Voltorb"}], "bench": []}],
+    "yourIndex": 0,
+    "opponent": {"prizes_remaining": 4},
+}
+SELECT_WITH_PLAY_AND_ATTACK = {
+    "option": [
+        {"type": 13, "attackId": "a1"},
+        {"type": 7, "index": 0},
+        {"type": 14},
+    ]
+}
+
+atk_eb, atk_eb_r = rule_score_option(ATK_OPT, STATE_EMPTY_BENCH, SELECT_WITH_PLAY_AND_ATTACK)
+check("Empty bench: attack penalized", atk_eb < 0)
+check("Empty bench: attack reason", "empty_bench" in atk_eb_r)
+
+end_eb, end_eb_r = rule_score_option(END_OPT, STATE_EMPTY_BENCH, SELECT_WITH_PLAY_AND_ATTACK)
+check("Empty bench: end penalized", end_eb < 0)
+check("Empty bench: end reason", "empty_bench" in end_eb_r)
+
+# With bench present, attack should NOT be penalized for empty bench
+STATE_WITH_BENCH = {
+    "players": [{"active": [{"id": 1, "name": "Voltorb"}], "bench": [{"id": 2, "name": "Tadbulb"}]}],
+    "yourIndex": 0,
+    "opponent": {"prizes_remaining": 4},
+}
+atk_wb, _ = rule_score_option(ATK_OPT, STATE_WITH_BENCH, SELECT_WITH_PLAY_AND_ATTACK)
+check("With bench: attack NOT penalized for empty bench", atk_wb > 0)
+
+print("\n--- opponent final prize survival ---")
+
+# Opponent has 2 prizes, our active is ex, we have non-ex on bench
+STATE_EX_ACTIVE_OPP2 = {
+    "players": [{"active": [{"id": 10, "name": "Bellibolt ex"}], "bench": [{"id": 2, "name": "Voltorb"}]}],
+    "yourIndex": 0,
+    "opponent": {"prizes_remaining": 2},
+}
+SELECT_ATK_END_RETREAT = {
+    "option": [
+        {"type": 13, "attackId": "a1"},
+        {"type": 14},
+        {"type": 12},
+    ]
+}
+
+end_fp, end_fp_r = rule_score_option(END_OPT, STATE_EX_ACTIVE_OPP2, SELECT_ATK_END_RETREAT)
+check("Ex active + opp 2 prizes: end penalized", end_fp < 0)
+check("Ex active + opp 2 prizes: reason mentions ex", "ex_active" in end_fp_r)
+
+ret_fp, ret_fp_r = rule_score_option({"type": 12}, STATE_EX_ACTIVE_OPP2, SELECT_ATK_END_RETREAT)
+check("Ex active + opp 2 prizes: retreat to non-ex boosted", ret_fp > 0)
+check("Ex active + opp 2 prizes: retreat reason", "survive" in ret_fp_r.lower() or "retreat_ex" in ret_fp_r)
+
+# Opponent has 1 prize - any KO loses
+STATE_OPP1 = {
+    "players": [{"active": [{"id": 1, "name": "Voltorb"}], "bench": [{"id": 2, "name": "Tadbulb"}]}],
+    "yourIndex": 0,
+    "opponent": {"prizes_remaining": 1},
+}
+# Normal retreat should NOT be overvalued when opponent has 1 prize
+# (non-ex active, retreating to non-ex doesn't help since any KO = loss)
+ret_1p, _ = rule_score_option({"type": 12}, STATE_OPP1, SELECT_ATK_END_RETREAT)
+check("Opp 1 prize non-ex: retreat not boosted", ret_1p <= 0)
+
+# Existing attack logic still works
+print("\n--- existing logic preserved ---")
+atk_normal, _ = rule_score_option(ATK_OPT, STATE_WITH_BENCH, SELECT_WITH_ATTACK)
+check(f"Normal attack still scores +{_expected_attack_score}", atk_normal == _expected_attack_score)
+
+# ---------------------------------------------------------------------------
 print(f"\n{'='*50}")
-total = 47
-print(f"  Passed: {total - _failures}/{total}")
+print(f"  Passed: {_total - _failures}/{_total}")
 if _failures == 0:
     print("  All checks PASSED.")
 else:

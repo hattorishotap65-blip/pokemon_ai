@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "target": "Post-adoption smoke check legal_attack_score=250",
+  "legal_attack_score": 250.0,
+  "games": 30,
+  "errors": 0,
+  "timeouts": 0,
+  "anomalies_per_game": 4.87,
+  "attack_available_but_no_attack": 0,
+  "end_when_attack_available": 0,
+  "retreat_when_attack_available": 0,
+  "ability_without_followup_attack": 0,
+  "conclusion": "submission_tar_gz_update_ready"
+}

@@ -285,6 +285,38 @@ def build_turn_rule_context(
     )
 
 
+def _has_play_basic_option(select: Optional[Dict[str, Any]]) -> bool:
+    """True when a PLAY (type=7) option exists.
+
+    In cabt, PLAY (type=7) is exclusively for placing a Basic Pokemon
+    from hand onto the bench. Trainers/Supporters/Energy use type 3/4/5/8.
+    """
+    return any(option_type(o) == 7 for o in get_options(select))
+
+
+def _empty_bench_loss_risk(state: Optional[Dict[str, Any]], select: Optional[Dict[str, Any]]) -> bool:
+    """True when bench is empty and a PLAY Basic option is available."""
+    if not isinstance(state, dict):
+        return False
+    if get_own_bench(state):
+        return False
+    return _has_play_basic_option(select)
+
+
+def _opp_final_prize_active_is_ex(state: Optional[Dict[str, Any]]) -> bool:
+    """True when opponent has <=2 prizes left and our active is an ex."""
+    if not isinstance(state, dict):
+        return False
+    opp_prizes = int(state.get("opponent", {}).get("prizes_remaining", 6) or 6)
+    if opp_prizes > 2:
+        return False
+    active = get_own_active(state)
+    if not active:
+        return False
+    name = get_card_name(active).lower()
+    return " ex" in name or name.endswith(" ex")
+
+
 def rule_score_option(
     opt: Dict[str, Any],
     state: Optional[Dict[str, Any]],
@@ -297,6 +329,32 @@ def rule_score_option(
     by effect_engine.py / ionos_rules.py / policy.py after this.
     """
     ctx = build_turn_rule_context(state, select)
+
+    # --- A. Empty bench loss prevention ---
+    if _empty_bench_loss_risk(state, select):
+        if is_attack_option(opt) or is_end_option(opt):
+            return -500.0, "turn_rule:empty_bench_play_basic_first"
+
+    # --- B. Opponent final prize survival ---
+    # Boost retreat to non-ex when our ex active risks giving up the game.
+    # Do NOT penalize attack — attack may win the game or take a crucial KO.
+    # Known limitation: when own prizes=2 and attack can KO opponent's ex
+    # to win, retreat (+500) may still outweigh attack (+250). A future
+    # winning_attack_guard should detect KO-to-win and suppress retreat.
+    _final_prize_ex_risk = _opp_final_prize_active_is_ex(state)
+    if _final_prize_ex_risk:
+        my_prizes = int(state.get("prizes_remaining", 6) or 6)
+        if my_prizes > 1:
+            bench = get_own_bench(state)
+            _has_non_ex_bench = any(
+                " ex" not in get_card_name(c).lower() and not get_card_name(c).lower().endswith(" ex")
+                for c in bench
+            )
+            if _has_non_ex_bench:
+                if is_end_option(opt):
+                    return -400.0, "turn_rule:ex_active_opp_final_prizes_retreat_first"
+                if is_retreat_option(opt):
+                    return 500.0, "turn_rule:retreat_ex_to_survive_final_prizes"
 
     if is_attack_option(opt):
         return _legal_attack_score, "turn_rule:legal_attack_is_turn_finisher"

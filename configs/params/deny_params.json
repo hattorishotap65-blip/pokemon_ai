@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "description": "Parameters that must NOT be auto-tuned. Safety constraints and sentinel values.",
+  "params": [
+    {"name": "empty_bench_loss_penalty", "value": 500.0, "reason": "Safety: prevents instant loss from empty bench"},
+    {"name": "winning_attack_boost", "value": 2000.0, "reason": "Safety: ensures winning attacks are always taken"},
+    {"name": "avoid_retreat_when_winning", "value": 800.0, "reason": "Safety: prevents retreating when attack wins"},
+    {"name": "avoid_end_when_winning", "value": 800.0, "reason": "Safety: prevents ending when attack wins"},
+    {"name": "avoid_end_with_attack", "value": 1000.0, "reason": "Core rule: never end turn when attack available"},
+    {"name": "avoid_retreat_with_attack", "value": 1000.0, "reason": "Core rule: never retreat when attack available (except final prize)"},
+    {"name": "deck_out_loss", "value": 50.0, "reason": "Safety: deck-out detection must remain strong"},
+    {"name": "resistance_value", "value": 30, "reason": "TCG rule: resistance always reduces by 30"},
+    {"name": "sentinel_return_neg1", "value": -1, "reason": "Sentinel: indicates unknown/not-found"},
+    {"name": "sentinel_return_0", "value": 0.0, "reason": "Sentinel: no-op return in many functions"},
+    {"name": "voltorb_damage_formula_base", "value": 20, "reason": "Card text: fixed damage formula component"},
+    {"name": "voltorb_damage_formula_scale", "value": 20, "reason": "Card text: fixed damage formula component"},
+    {"name": "bellibolt_fixed_damage", "value": 230, "reason": "Card text: official attack damage"},
+    {"name": "kilowattrel_fixed_damage", "value": 70, "reason": "Card text: official attack damage"}
+  ]
+}

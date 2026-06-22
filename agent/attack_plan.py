@@ -216,6 +216,50 @@ def select_top_plans(state: dict, limit: int = 3) -> List[AttackPlan]:
     return plans[:limit]
 
 
+# ---------------------------------------------------------------------------
+# Lightweight cache: reuse plans within the same state object's action loop
+# ---------------------------------------------------------------------------
+
+_cache_key = None
+_cache_plans: List[AttackPlan] = []
+
+
+def _make_cache_key(state: dict):
+    """Fast cache key from state identity + core fields."""
+    if not isinstance(state, dict):
+        return None
+    ap = state.get("active_pokemon") or {}
+    opp = (state.get("opponent") or {}).get("active_pokemon") or {}
+    return (
+        id(state),
+        str(ap.get("card_id", "")),
+        ap.get("hp_remaining", 0),
+        ap.get("energy_count", 0),
+        str(opp.get("card_id", "")),
+        opp.get("hp_remaining", 0),
+        state.get("prizes_remaining", 6),
+    )
+
+
+def get_cached_top_plans(state: dict, limit: int = 3) -> List[AttackPlan]:
+    """Return cached top plans if state hasn't changed, else regenerate."""
+    global _cache_key, _cache_plans
+    key = _make_cache_key(state)
+    if key is not None and key == _cache_key:
+        return _cache_plans[:limit]
+    plans = generate_attack_plans(state)
+    _cache_key = key
+    _cache_plans = plans
+    return plans[:limit]
+
+
+def clear_attack_plan_cache():
+    """Clear the plan cache (e.g. between turns)."""
+    global _cache_key, _cache_plans
+    _cache_key = None
+    _cache_plans = []
+
+
 def _attack_wins(pred: dict, my_prizes: int, opp: dict) -> bool:
     if not pred["can_ko"]:
         return False

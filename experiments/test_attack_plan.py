@@ -6,7 +6,11 @@ Run: python experiments/test_attack_plan.py
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from agent.attack_plan import generate_attack_plans, select_best_plan, select_top_plans, plan_matches_action, AttackPlan
+from agent.attack_plan import (
+    generate_attack_plans, select_best_plan, select_top_plans,
+    get_cached_top_plans, clear_attack_plan_cache,
+    plan_matches_action, AttackPlan,
+)
 
 PASS = "[PASS]"
 FAIL = "[FAIL]"
@@ -249,6 +253,30 @@ b2 = plan_matches_action(plan_atk, atk_act, st)
 check("Boss plan no match for attack", b1 == 0)
 check("Active plan matches attack", b2 > 0)
 check("Top plans would give bonus from 2nd plan", max(b1, b2) > 0)
+
+# ===================================================================
+print("\n--- cache ---")
+
+clear_attack_plan_cache()
+cached1 = get_cached_top_plans(STATE_KO, limit=3)
+check("Cache returns list", isinstance(cached1, list))
+check("Cache has plans", len(cached1) > 0)
+
+cached2 = get_cached_top_plans(STATE_KO, limit=3)
+check("Same state: same plans", [p.plan_type for p in cached1] == [p.plan_type for p in cached2])
+
+clear_attack_plan_cache()
+cached3 = get_cached_top_plans(STATE_KO, limit=3)
+check("After clear: same result", [p.plan_type for p in cached1] == [p.plan_type for p in cached3])
+
+direct = select_top_plans(STATE_KO, limit=3)
+check("Cache matches direct", [p.plan_type for p in cached1] == [p.plan_type for p in direct])
+
+cached_none = get_cached_top_plans(None, limit=3)
+check("Cache None state: no crash", isinstance(cached_none, list))
+
+cached_empty = get_cached_top_plans({}, limit=3)
+check("Cache empty state: no crash", isinstance(cached_empty, list))
 
 # ===================================================================
 print("\n--- empty state safety ---")

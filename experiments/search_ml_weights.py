@@ -132,13 +132,16 @@ def evaluate_candidate(
 
 
 def rank_candidates(candidates: List[dict]) -> List[dict]:
-    """Rank candidates: prefer no errors/timeouts, then best available metric."""
+    """Rank candidates: prefer safe, then best score_per_game_delta."""
     def sort_key(c):
+        unsafe = 1 if c.get("verdict") in (
+            "candidate_unsafe", "candidate_safety_regression", "eval_failed", "timeout"
+        ) else 0
         errors = c.get("errors", 999)
         timeouts = c.get("timeouts", 999)
-        unsafe = 1 if c.get("verdict") == "candidate_unsafe" else 0
-        sel_diff = c.get("avg_selections_diff", 0)
-        return (unsafe, errors, timeouts, -sel_diff)
+        spg = c.get("score_per_game_delta", 0) or 0
+        spct = c.get("score_pct", 0) or 0
+        return (unsafe, errors, timeouts, -spg, -spct)
     return sorted(candidates, key=sort_key)
 
 
@@ -243,11 +246,16 @@ def main():
                 )
                 if eval_result:
                     cand_info = eval_result.get("candidate", {})
+                    delta = eval_result.get("delta", {})
                     result_entry["eval_path"] = f"eval_{cand_name}.json"
                     result_entry["verdict"] = eval_result.get("verdict", "unknown")
                     result_entry["errors"] = cand_info.get("errors", 0)
                     result_entry["timeouts"] = cand_info.get("timeouts", 0)
-                    result_entry["avg_selections_diff"] = eval_result.get("delta", {}).get("avg_selections_diff", 0)
+                    result_entry["avg_selections_diff"] = delta.get("avg_selections_diff", 0)
+                    result_entry["score_per_game_delta"] = delta.get("score_per_game", 0)
+                    result_entry["score_pct"] = delta.get("score_pct", 0)
+                    result_entry["wins_delta"] = delta.get("wins", 0)
+                    result_entry["losses_delta"] = delta.get("losses", 0)
                 else:
                     result_entry["verdict"] = "eval_failed"
             else:

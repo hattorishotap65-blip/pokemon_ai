@@ -66,4 +66,8 @@ echo "=== Energy readiness ==="
 python experiments/test_energy_readiness.py
 
 echo ""
+echo "=== Bellibolt ability timing ==="
+python experiments/test_bellibolt_ability_timing.py
+
+echo ""
 echo "All tests passed."

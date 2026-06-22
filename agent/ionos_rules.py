@@ -400,6 +400,69 @@ def score_energy_attachment(
     return _score_attach_core(target_cid, state, target_energy, "normal")
 
 
+def _score_bellibolt_ability_timing(state: dict) -> tuple:
+    """Score Bellibolt ability use based on who benefits most from energy.
+
+    Checks all Iono's Pokemon on field to find the best acceleration target.
+    Priority: enables attack > enables KO > alternative attacker needs > scaling.
+    """
+    bellibolt_energy = _get_target_energy_count(_BELLIBOLT_EX, state)
+
+    best_score = 0.0
+    best_reason = ""
+
+    all_iono = []
+    active_cid = _active_cid(state)
+    if active_cid in _IONO_LINE:
+        active_mon = state.get("active_pokemon", {})
+        all_iono.append((active_cid, active_mon.get("energy_count", 0), True))
+
+    for b in (state.get("bench") or []):
+        bcid = str(b.get("card_id", ""))
+        if bcid in _IONO_LINE:
+            all_iono.append((bcid, b.get("energy_count", 0), False))
+
+    for mon_cid, mon_energy, is_active in all_iono:
+        needed = _energy_needed_to_attack(mon_cid, mon_energy)
+        if needed is None:
+            continue
+
+        if needed == 1:
+            score = 280.0
+            reason = f"ionos:bellibolt_ability_enables_attack_{mon_cid}"
+            if is_active:
+                score += 20.0
+            if score > best_score:
+                best_score = score
+                best_reason = reason
+
+        elif needed == 0 and mon_cid == _VOLTORB:
+            score = 35.0
+            reason = "ionos:bellibolt_ability_voltorb_extra_scaling"
+            if score > best_score:
+                best_score = score
+                best_reason = reason
+
+        elif needed > 1:
+            score = 100.0 + (10.0 if mon_cid == _BELLIBOLT_EX else 0.0)
+            reason = f"ionos:bellibolt_ability_progress_{mon_cid}"
+            if score > best_score:
+                best_score = score
+                best_reason = reason
+
+    bb_on_field = any(cid == _BELLIBOLT_EX for cid, _, _ in all_iono)
+    if bb_on_field and bellibolt_energy < _BELLIBOLT_ATTACK_ENERGY_REQ:
+        bb_score = 250.0
+        if bb_score > best_score:
+            best_score = bb_score
+            best_reason = "ionos:bellibolt_ability_charge_for_attack"
+
+    if best_score == 0.0:
+        return 30.0, "ionos:bellibolt_ability_voltorb_scaling"
+
+    return best_score, best_reason
+
+
 # -- Bellibolt ex energy acceleration scoring ---------------------------------
 
 def score_bellibolt_energy_attach(
@@ -1041,13 +1104,8 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
         hand           = [str(c) for c in (state.get("hand") or [])]
         energy_in_hand = hand.count(_LIGHTNING_ENERGY)
         if energy_in_hand > 0:
-            bellibolt_energy = _get_target_energy_count(_BELLIBOLT_EX, state)
-            if bellibolt_energy < _BELLIBOLT_ATTACK_ENERGY_REQ:
-                # Ability charges Bellibolt toward attack threshold (LLLC = 4)
-                return 250.0, "ionos:bellibolt_ability_charge_for_attack"
-            else:
-                # Bellibolt ready; ability still useful for Voltorb scaling
-                return 30.0, "ionos:bellibolt_ability_voltorb_scaling"
+            score, reason = _score_bellibolt_ability_timing(state)
+            return score, reason
         return 4.0, "ionos:bellibolt_ability_no_energy"
 
     # -- 7. ATTACH (opt_type=8) — energy × target scoring --------------------

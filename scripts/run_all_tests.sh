@@ -78,4 +78,8 @@ echo "=== Core param search ==="
 python experiments/test_core_param_search.py
 
 echo ""
+echo "=== Attack plan ==="
+python experiments/test_attack_plan.py
+
+echo ""
 echo "All tests passed."

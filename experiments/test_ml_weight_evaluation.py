@@ -191,57 +191,94 @@ check("Nonexistent source: returns False", not ok2)
 # ===================================================================
 print("\n--- compute_verdict ---")
 
-bl = {"errors": 0, "timeouts": 0, "avg_selections": 190, "score_per_game": 100,
+# BL positive, CD higher -> better (delta > 1.0)
+bl = {"errors": 0, "timeouts": 0, "avg_selections": 190, "score_per_game": 2.0,
       "score_available": True, "wins": 10, "losses": 8, "draws": 12, "avg_ms": 3000,
       "safety": {"zero_damage_attack": 0, "end_with_attack_available": 0}}
-cd = {"errors": 0, "timeouts": 0, "avg_selections": 195, "score_per_game": 105,
+cd = {"errors": 0, "timeouts": 0, "avg_selections": 195, "score_per_game": 4.0,
       "score_available": True, "wins": 12, "losses": 6, "draws": 12, "avg_ms": 3100,
       "safety": {"zero_damage_attack": 0, "end_with_attack_available": 0}}
 v = compute_verdict(bl, cd)
-check("Verdict better (+5%)", v["verdict"] == "candidate_better")
-check("Delta score_per_game", v["delta"]["score_per_game"] == 5.0)
-check("Delta score_pct > 0", v["delta"]["score_pct"] > 0)
+check("BL=2 CD=4: candidate_better", v["verdict"] == "candidate_better")
+check("Delta score_per_game=2.0", v["delta"]["score_per_game"] == 2.0)
+check("score_pct=100.0", v["delta"]["score_pct"] == 100.0)
+check("score_pct_available=True", v["delta"]["score_pct_available"] == True)
 check("Delta wins", v["delta"]["wins"] == 2)
 check("Delta losses", v["delta"]["losses"] == -2)
 check("Delta avg_ms_diff", v["delta"]["avg_ms_diff"] == 100)
-check("Delta safety_total_diff", v["delta"]["safety_total_diff"] == 0)
-check("score_available", v["score_available"] == True)
+check("Delta safety_total_diff=0", v["delta"]["safety_total_diff"] == 0)
 
-cd_worse = {"errors": 0, "timeouts": 0, "avg_selections": 185, "score_per_game": 95,
-            "score_available": True, "wins": 8, "losses": 12, "draws": 10, "avg_ms": 3000,
-            "safety": {}}
+# BL=4 CD=2 -> worse (delta < -1.0)
+cd_worse = {"errors": 0, "timeouts": 0, "score_per_game": 0.5,
+            "score_available": True, "safety": {}}
 v_worse = compute_verdict(bl, cd_worse)
-check("Verdict worse (-5%)", v_worse["verdict"] == "candidate_worse")
+check("BL=2 CD=0.5: candidate_worse", v_worse["verdict"] == "candidate_worse")
 
-cd_neutral = {"errors": 0, "timeouts": 0, "avg_selections": 190, "score_per_game": 100.5,
-              "score_available": True, "wins": 10, "losses": 8, "draws": 12, "avg_ms": 3000,
-              "safety": {}}
+# BL=2 CD=2.5 -> neutral (delta=0.5, within 1.0)
+cd_neutral = {"errors": 0, "timeouts": 0, "score_per_game": 2.5,
+              "score_available": True, "safety": {}}
 v_neutral = compute_verdict(bl, cd_neutral)
-check("Verdict neutral (<1%)", v_neutral["verdict"] == "candidate_neutral")
+check("BL=2 CD=2.5: neutral (delta=0.5)", v_neutral["verdict"] == "candidate_neutral")
 
-cd_err = {"errors": 1, "timeouts": 0, "avg_selections": 190, "score_per_game": 200, "safety": {}}
+# BL negative, CD=0 -> better (delta=+2.67 > 1.0)
+bl_neg = {"errors": 0, "timeouts": 0, "score_per_game": -2.67,
+          "score_available": True, "safety": {}}
+cd_zero = {"errors": 0, "timeouts": 0, "score_per_game": 0.0,
+           "score_available": True, "safety": {}}
+v_neg = compute_verdict(bl_neg, cd_zero)
+check("BL=-2.67 CD=0: candidate_better", v_neg["verdict"] == "candidate_better")
+check("BL neg: score_pct=None", v_neg["delta"]["score_pct"] is None)
+check("BL neg: score_pct_available=False", v_neg["delta"]["score_pct_available"] == False)
+
+# BL=0 CD=2.67 -> better (delta=+2.67 > 1.0)
+bl_zero_spg = {"errors": 0, "timeouts": 0, "score_per_game": 0.0,
+               "score_available": True, "safety": {}}
+cd_pos = {"errors": 0, "timeouts": 0, "score_per_game": 2.67,
+          "score_available": True, "safety": {}}
+v_zero = compute_verdict(bl_zero_spg, cd_pos)
+check("BL=0 CD=2.67: candidate_better", v_zero["verdict"] == "candidate_better")
+check("BL=0: score_pct=None", v_zero["delta"]["score_pct"] is None)
+check("BL=0: score_pct_available=False", v_zero["delta"]["score_pct_available"] == False)
+
+# BL=-2 CD=-4 -> worse (delta=-2.0 < -1.0)
+bl_neg2 = {"errors": 0, "timeouts": 0, "score_per_game": -2.0,
+           "score_available": True, "safety": {}}
+cd_neg4 = {"errors": 0, "timeouts": 0, "score_per_game": -4.0,
+           "score_available": True, "safety": {}}
+v_neg_worse = compute_verdict(bl_neg2, cd_neg4)
+check("BL=-2 CD=-4: candidate_worse", v_neg_worse["verdict"] == "candidate_worse")
+
+# BL=-4 CD=-2 -> better (delta=+2.0 > 1.0)
+bl_neg4 = {"errors": 0, "timeouts": 0, "score_per_game": -4.0,
+           "score_available": True, "safety": {}}
+cd_neg2 = {"errors": 0, "timeouts": 0, "score_per_game": -2.0,
+           "score_available": True, "safety": {}}
+v_neg_better = compute_verdict(bl_neg4, cd_neg2)
+check("BL=-4 CD=-2: candidate_better", v_neg_better["verdict"] == "candidate_better")
+
+# Errors override score
+cd_err = {"errors": 1, "timeouts": 0, "score_per_game": 200, "safety": {}}
 v_err = compute_verdict(bl, cd_err)
-check("Candidate errors -> unsafe", v_err["verdict"] == "candidate_unsafe")
+check("Errors -> unsafe even with great score", v_err["verdict"] == "candidate_unsafe")
 
-cd_to = {"errors": 0, "timeouts": 2, "avg_selections": 190, "safety": {}}
+cd_to = {"errors": 0, "timeouts": 2, "safety": {}}
 v_to = compute_verdict(bl, cd_to)
-check("Candidate timeouts -> unsafe", v_to["verdict"] == "candidate_unsafe")
+check("Timeouts -> unsafe", v_to["verdict"] == "candidate_unsafe")
 
-# Safety regression (baseline > 0)
-bl_safe = {"errors": 0, "timeouts": 0, "score_per_game": 100, "score_available": True,
+# Safety regression overrides score improvement
+bl_safe = {"errors": 0, "timeouts": 0, "score_per_game": 2.0, "score_available": True,
            "safety": {"zero_damage_attack": 2}}
-cd_regr = {"errors": 0, "timeouts": 0, "score_per_game": 105, "score_available": True,
+cd_regr = {"errors": 0, "timeouts": 0, "score_per_game": 5.0, "score_available": True,
            "safety": {"zero_damage_attack": 5}}
 v_regr = compute_verdict(bl_safe, cd_regr)
-check("Safety regression verdict", v_regr["verdict"] == "candidate_safety_regression")
+check("Safety regression overrides score", v_regr["verdict"] == "candidate_safety_regression")
 
-# Safety regression (baseline = 0, candidate > 0)
-bl_zero = {"errors": 0, "timeouts": 0, "score_per_game": 100, "score_available": True,
-           "safety": {"zero_damage_attack": 0}}
-cd_new_safety = {"errors": 0, "timeouts": 0, "score_per_game": 105, "score_available": True,
-                 "safety": {"zero_damage_attack": 1}}
-v_new = compute_verdict(bl_zero, cd_new_safety)
-check("Safety regression from 0", v_new["verdict"] == "candidate_safety_regression")
+bl_safe0 = {"errors": 0, "timeouts": 0, "score_per_game": 2.0, "score_available": True,
+            "safety": {"zero_damage_attack": 0}}
+cd_safe1 = {"errors": 0, "timeouts": 0, "score_per_game": 5.0, "score_available": True,
+            "safety": {"zero_damage_attack": 1}}
+v_regr0 = compute_verdict(bl_safe0, cd_safe1)
+check("Safety regression from 0", v_regr0["verdict"] == "candidate_safety_regression")
 
 # No score available
 bl_ns = {"errors": 0, "timeouts": 0, "score_available": False, "safety": {}}

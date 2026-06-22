@@ -116,6 +116,17 @@ ranked_ns = rank_candidates(cands_no_score)
 check("No score: safe first", ranked_ns[0]["path"] == "a.json")
 check("eval_failed last", ranked_ns[-1]["path"] == "b.json")
 
+# score_pct=None does not crash
+cands_pct_none = [
+    {"path": "n1.json", "verdict": "candidate_better", "errors": 0, "timeouts": 0,
+     "score_per_game_delta": 3.0, "score_pct": None},
+    {"path": "n2.json", "verdict": "candidate_neutral", "errors": 0, "timeouts": 0,
+     "score_per_game_delta": 1.0, "score_pct": None},
+]
+ranked_pn = rank_candidates(cands_pct_none)
+check("score_pct=None: no crash", ranked_pn[0]["path"] == "n1.json")
+check("score_pct=None: ranked by spg_delta", ranked_pn[1]["path"] == "n2.json")
+
 # Safety regression ranked down
 cands_sr = [
     {"path": "ok.json", "verdict": "candidate_neutral", "errors": 0, "timeouts": 0},

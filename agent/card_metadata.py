@@ -10,43 +10,67 @@ from typing import Any, Dict, List, Optional
 _CARD_CACHE: Dict[int, dict] = {}
 _ATTACK_CACHE: Dict[int, dict] = {}
 _LOADED = False
+_LOAD_ERROR: Optional[str] = None
+
+
+def _safe_id(obj, *attrs) -> Optional[int]:
+    for attr in attrs:
+        val = getattr(obj, attr, None)
+        if val is not None:
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                continue
+    return None
 
 
 def _ensure_loaded():
-    global _LOADED
+    global _LOADED, _LOAD_ERROR
     if _LOADED:
         return
     try:
         from cg.api import all_card_data, all_attack
         for c in all_card_data():
-            _CARD_CACHE[c.cardId] = {
-                "card_id": c.cardId,
-                "name": c.name or "",
-                "card_type": str(c.cardType) if c.cardType is not None else "unknown",
-                "hp": c.hp,
-                "is_ex": bool(c.ex),
-                "is_basic": bool(c.basic),
-                "is_stage1": bool(c.stage1),
-                "is_stage2": bool(c.stage2),
-                "weakness": str(c.weakness) if c.weakness is not None else None,
-                "resistance": str(c.resistance) if c.resistance is not None else None,
-                "energy_type": str(c.energyType) if c.energyType is not None else None,
-                "retreat_cost": c.retreatCost,
-                "evolves_from": c.evolvesFrom,
-                "attack_ids": list(c.attacks) if c.attacks else [],
-                "abilities": [{"name": s.name, "text": s.text} for s in (c.skills or [])],
+            cid = _safe_id(c, "cardId", "id")
+            if cid is None:
+                continue
+            _CARD_CACHE[cid] = {
+                "card_id": cid,
+                "name": getattr(c, "name", "") or "",
+                "card_type": str(getattr(c, "cardType", "unknown") or "unknown"),
+                "hp": getattr(c, "hp", 0) or 0,
+                "is_ex": bool(getattr(c, "ex", False)),
+                "is_basic": bool(getattr(c, "basic", False)),
+                "is_stage1": bool(getattr(c, "stage1", False)),
+                "is_stage2": bool(getattr(c, "stage2", False)),
+                "weakness": str(c.weakness) if getattr(c, "weakness", None) is not None else None,
+                "resistance": str(c.resistance) if getattr(c, "resistance", None) is not None else None,
+                "energy_type": str(c.energyType) if getattr(c, "energyType", None) is not None else None,
+                "retreat_cost": getattr(c, "retreatCost", 0) or 0,
+                "evolves_from": getattr(c, "evolvesFrom", None),
+                "attack_ids": list(getattr(c, "attacks", None) or []),
+                "abilities": [{"name": getattr(s, "name", ""), "text": getattr(s, "text", "")}
+                              for s in (getattr(c, "skills", None) or [])],
             }
         for a in all_attack():
-            _ATTACK_CACHE[a.attackId] = {
-                "attack_id": a.attackId,
-                "name": a.name or "",
-                "damage": a.damage,
-                "text": a.text or "",
-                "energies": [str(e) for e in (a.energies or [])],
+            aid = _safe_id(a, "attackId", "id")
+            if aid is None:
+                continue
+            _ATTACK_CACHE[aid] = {
+                "attack_id": aid,
+                "name": getattr(a, "name", "") or "",
+                "damage": getattr(a, "damage", 0) or 0,
+                "text": getattr(a, "text", "") or "",
+                "energies": [str(e) for e in (getattr(a, "energies", None) or [])],
             }
-    except Exception:
-        pass
+    except Exception as e:
+        _LOAD_ERROR = str(e)
     _LOADED = True
+
+
+def get_load_error() -> Optional[str]:
+    _ensure_loaded()
+    return _LOAD_ERROR
 
 
 def get_card_metadata(card_id: int) -> Optional[dict]:

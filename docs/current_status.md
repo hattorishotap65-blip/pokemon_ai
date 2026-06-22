@@ -65,7 +65,7 @@ were NOT firing in production.
 First call to `cg.api.all_card_data()` populates `_CARD_NAME_CACHE`;
 subsequent lookups are O(1) dict access.
 
-## Smoke Check (post-fix)
+## Smoke Check (post-fix, normalized state)
 
 | Metric | Value |
 |--------|-------|
@@ -73,6 +73,18 @@ subsequent lookups are O(1) dict access.
 | anomalies/g | 4.56 |
 | Errors | 0 |
 | Safety | all 0 |
+
+## Smoke Check (post card metadata enrichment)
+
+| Metric | Value |
+|--------|-------|
+| Games | 30 |
+| anomalies/g | 6.33 |
+| Errors | 0 |
+| Timeouts | 0 |
+| Safety | all 0 |
+| Avg time/game | 3180ms |
+| Speed regression | None |
 
 ## Known Limitations
 

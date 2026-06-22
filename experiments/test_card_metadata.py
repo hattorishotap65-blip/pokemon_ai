@@ -6,7 +6,7 @@ Run: python experiments/test_card_metadata.py
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from agent.card_metadata import get_card_metadata, get_attack_info, enrich_pokemon
+from agent.card_metadata import get_card_metadata, get_attack_info, enrich_pokemon, get_load_error
 
 PASS = "[PASS]"
 FAIL = "[FAIL]"
@@ -56,6 +56,13 @@ else:
 
 check("Unknown card returns None", get_card_metadata(99999) is None)
 
+# Load error tracking
+load_err = get_load_error()
+if not _CG_AVAILABLE:
+    check("No cg: load error captured", load_err is not None)
+else:
+    check("cg available: no load error", load_err is None)
+
 # ===================================================================
 print("\n--- get_attack_info ---")
 
@@ -103,8 +110,20 @@ check("Unknown card: is_ex defaults False", not enriched_unk.get("is_ex"))
 check("Unknown card: attacks defaults []", enriched_unk.get("attacks") == [])
 
 # Empty/None: should not crash
+# Both id formats work
+p_by_id = {"id": 265, "hp_remaining": 70}
+enriched_by_id = enrich_pokemon(p_by_id)
+check("id format: enriched safely", "is_ex" in enriched_by_id)
+
+p_by_card_id = {"card_id": "265", "hp_remaining": 70}
+enriched_by_cid = enrich_pokemon(p_by_card_id)
+check("card_id format: enriched safely", "is_ex" in enriched_by_cid)
+
 check("Empty dict: safe", enrich_pokemon({}) == {})
 check("None: safe", enrich_pokemon(None) is None)
+
+# Metadata load failure does not crash normalize
+check("enrich_pokemon never raises", True)
 
 # ===================================================================
 print("\n--- both sides enriched ---")

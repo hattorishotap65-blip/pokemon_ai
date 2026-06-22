@@ -121,12 +121,31 @@ predicted damage for switch target selection. No opponent-name logic.
 
 30g smoke: 4.83/g, 0 errors, safety all 0, 2991ms/game.
 
+## Stable Candidate Validation (150g)
+
+| Metric | Value |
+|--------|-------|
+| Games | 150 |
+| Anomalies/g | 5.12 |
+| Errors | 0 |
+| Timeouts | 0 |
+| attack_available_but_no_attack | 0 |
+| end_when_attack_available | 0 |
+| retreat_when_attack_available | 0 |
+| ability_without_followup_attack | 0 |
+| Tests | 313/313 |
+| Avg time/game | ~4300ms |
+
+Included PRs since v3: #88 (normalized state fix), #89 (card metadata),
+#90 (damage predictor), #91 (alternative attacker), #92 (Boss targeting),
+#93 (energy readiness), #94 (Bellibolt ability timing).
+
+**Verdict: Ready for submission.**
+
 ## Next PR Candidates
 
-1. **Boss's Orders targeting** — improve target selection
-2. **Bellibolt ability timing** — evaluate whether Bellibolt ability (energy
-   acceleration) is used at optimal timing
-3. **Boss's Orders targeting** — improve target selection when playing Boss
+1. Retreat-to-alternative when 0-damage + better attacker available (partially done in #91)
+2. Deck-out risk awareness when deck_count is low
 
 ## Rejected/Confirmed Parameters
 

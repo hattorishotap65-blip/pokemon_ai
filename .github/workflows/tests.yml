@@ -57,3 +57,6 @@ jobs:
 
       - name: Run alternative attacker tests
         run: python experiments/test_alternative_attacker.py
+
+      - name: Run boss targeting tests
+        run: python experiments/test_boss_targeting.py

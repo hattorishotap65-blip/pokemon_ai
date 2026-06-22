@@ -58,4 +58,8 @@ echo "=== Alternative attacker ==="
 python experiments/test_alternative_attacker.py
 
 echo ""
+echo "=== Boss targeting ==="
+python experiments/test_boss_targeting.py
+
+echo ""
 echo "All tests passed."

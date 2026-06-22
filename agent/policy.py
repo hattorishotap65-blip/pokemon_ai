@@ -282,10 +282,18 @@ class PolicyAgent:
         except Exception:
             pass
 
+        ml_score = 0.0
+        ml_reason = ""
+        try:
+            from agent.ml_policy import score_ml_policy
+            ml_score, ml_reason = score_ml_policy(action, state)
+        except Exception:
+            pass
+
         total = (type_score + adv + rule_bonus + turn_rule_score
                  + kilowattrel_ability_score
                  + voltorb_attack_score + voltorb_safety_score
-                 + attack_plan_bonus)
+                 + attack_plan_bonus + ml_score)
         breakdown = {
             "type_score":               round(type_score, 3),
             "adv_score":                round(adv, 3),

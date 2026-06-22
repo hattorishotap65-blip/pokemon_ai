@@ -75,3 +75,9 @@ jobs:
 
       - name: Run attack plan tests
         run: python experiments/test_attack_plan.py
+
+      - name: Run ML features tests
+        run: python experiments/test_ml_features.py
+
+      - name: Run ML policy tests
+        run: python experiments/test_ml_policy.py

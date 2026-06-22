@@ -108,7 +108,8 @@ Cached via `_CARD_CACHE`/`_ATTACK_CACHE`. Graceful degradation if cg.api unavail
 - Iono deck card-specific damage via effect_engine fallback
 - `policy.py._score_attack` penalizes 0-damage attacks by -500
 
-30g smoke: 5.47/g, 0 errors, safety all 0, 3078ms/game.
+30g smoke (post-fix, latest head 1e3df1a): 6.53/g, 0 errors, 0 timeouts,
+safety all 0, 3428ms/game. No regressions.
 
 ## Next PR Candidates
 

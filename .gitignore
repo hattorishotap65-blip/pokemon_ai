@@ -1,13 +1,23 @@
 __pycache__/
 *.pyc
 logs/
+
+# Reports: intermediate/overwritten outputs (not worth tracking)
 reports/latest_*.json
 reports/latest_*.md
 reports/anomaly_reports/
 reports/comparisons/
 reports/fix_prompts/
 reports/baseline/latest_*.json
+reports/baseline/latest_*.md
+reports/baseline/anomaly_reports/
+reports/baseline/fix_prompts/
 reports/candidate/latest_*.json
+reports/candidate/latest_*.md
+reports/candidate/anomaly_reports/
+reports/weight_search_*/
+reports/level6_weight_search_baseline.json
+
 battle_logs/inbox/*.jsonl
 battle_logs/inbox/*.json
 battle_logs/inbox/*.log

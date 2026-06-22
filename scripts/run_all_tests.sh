@@ -74,4 +74,8 @@ echo "=== Params loader ==="
 python experiments/test_params.py
 
 echo ""
+echo "=== Core param search ==="
+python experiments/test_core_param_search.py
+
+echo ""
 echo "All tests passed."

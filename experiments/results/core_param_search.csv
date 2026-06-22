@@ -1,0 +1,15 @@
+candidate_id,zero_damage_attack_penalty,ko_opponent_bonus,boss_can_ko,alt_attacker_ko_score,energy_ready_bonus,anomalies_per_game,errors,timeouts,safety_ok
+baseline,500.0,20.0,30.0,800.0,200.0,,,,OK
+zero_damage_attack_penalty_low_200,200,20.0,30.0,800.0,200.0,,,,OK
+zero_damage_attack_penalty_high_800,800,20.0,30.0,800.0,200.0,,,,OK
+ko_opponent_bonus_low_10,500.0,10,30.0,800.0,200.0,,,,OK
+ko_opponent_bonus_high_40,500.0,40,30.0,800.0,200.0,,,,OK
+boss_can_ko_low_15,500.0,20.0,15,800.0,200.0,,,,OK
+boss_can_ko_high_50,500.0,20.0,50,800.0,200.0,,,,OK
+alt_attacker_ko_score_low_400,500.0,20.0,30.0,400,200.0,,,,OK
+alt_attacker_ko_score_high_1200,500.0,20.0,30.0,1200,200.0,,,,OK
+energy_ready_bonus_low_100,500.0,20.0,30.0,800.0,100,,,,OK
+energy_ready_bonus_high_400,500.0,20.0,30.0,800.0,400,,,,OK
+random_0,400,15,20,1000,300,,,,OK
+random_1,500,10,50,800,200,,,,OK
+random_2,500,30,30,1200,400,,,,OK

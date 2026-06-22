@@ -69,3 +69,6 @@ jobs:
 
       - name: Run params loader tests
         run: python experiments/test_params.py
+
+      - name: Run core param search tests
+        run: python experiments/test_core_param_search.py

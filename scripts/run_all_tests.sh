@@ -90,4 +90,8 @@ echo "=== ML policy ==="
 python experiments/test_ml_policy.py
 
 echo ""
+echo "=== ML training logger ==="
+python experiments/test_ml_training_logger.py
+
+echo ""
 echo "All tests passed."

@@ -26,3 +26,5 @@ battle_logs/ignored/
 submission.tar.gz
 
 docs/card_pool/*.pdf
+
+artifacts/

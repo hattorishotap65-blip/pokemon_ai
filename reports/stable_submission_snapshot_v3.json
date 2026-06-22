@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "tag": "v3-submitted",
+  "date": "2026-06-22",
+  "base_commit": "9f3101d",
+  "submission_pr": "#86",
+  "submission_size_kb": 558,
+  "runtime_check": "submitted environment startup confirmed",
+  "included_prs": ["#75", "#76", "#77", "#80", "#82", "#83", "#84", "#85", "#86"],
+  "weights": {
+    "advantage_weight": 0.4,
+    "energy_to_plan_bonus": 5.0,
+    "energy_to_plan_bonus_no_need": 2.0,
+    "attack_suppress_penalty": -40.0,
+    "retreat_to_better_attacker_bonus": 1400.0,
+    "voltorb_ko_attack_bonus": 1000.0,
+    "voltorb_damage_scaling": 0.8,
+    "energy_attack_enablement_bonus": 200.0,
+    "evolve_first_bellibolt_bonus": 220.0,
+    "evolve_first_kilowattrel_bonus": 7.0,
+    "legal_attack_score": 250.0
+  },
+  "smoke_checks": {
+    "pr81": {"games": 30, "apg": 5.83, "errors": 0, "safety": "all_0"},
+    "pr84": {"games": 30, "apg": 5.80, "errors": 0, "safety": "all_0"}
+  }
+}

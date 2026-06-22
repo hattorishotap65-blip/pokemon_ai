@@ -6,7 +6,7 @@ Run: python experiments/test_attack_plan.py
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from agent.attack_plan import generate_attack_plans, select_best_plan, plan_matches_action, AttackPlan
+from agent.attack_plan import generate_attack_plans, select_best_plan, select_top_plans, plan_matches_action, AttackPlan
 
 PASS = "[PASS]"
 FAIL = "[FAIL]"
@@ -116,11 +116,11 @@ if escape:
 print("\n--- Bench attacker plan ---")
 
 plans_bench = generate_attack_plans(STATE_BENCH_ATTACKER)
-bench_atk = [p for p in plans_bench if p.plan_type == "bench_attacker"]
-check("Bench attacker plan found", len(bench_atk) > 0)
-if bench_atk:
-    check("Bench plan needs_switch", bench_atk[0].needs_switch)
-    check("Bench plan KW can KO 60HP", bench_atk[0].can_ko)
+kw_sub = [p for p in plans_bench if p.plan_type == "kilowattrel_sub_attacker"]
+check("KW sub-attacker plan found (was bench_attacker)", len(kw_sub) > 0)
+if kw_sub:
+    check("Bench plan needs_switch", kw_sub[0].needs_switch)
+    check("Bench plan KW can KO 60HP", kw_sub[0].can_ko)
 
 # ===================================================================
 print("\n--- select_best_plan ---")
@@ -151,6 +151,104 @@ state_boss = {"active_pokemon": {"card_id": "269"}, "your_index": 0,
               "opponent": {"bench": [{"card_id": "888"}]}}
 bonus_boss = plan_matches_action(boss_plan, boss_action, state_boss)
 check("Boss action matching plan gets bonus", bonus_boss > 0)
+
+# ===================================================================
+print("\n--- voltorb_charge plan ---")
+
+STATE_VOLTORB = {
+    "active_pokemon": {"card_id": "268", "name": "Tadbulb", "is_ex": False,
+                       "energy_type": "Lightning", "hp_remaining": 80,
+                       "attacks": [{"damage": 20}], "abilities": []},
+    "bench": [
+        {"card_id": "265", "name": "Voltorb", "is_ex": False, "energy_type": "Lightning",
+         "hp_remaining": 70, "energy_count": 1,
+         "attacks": [{"attack_id": 2, "damage": 60}], "abilities": []},
+        {"card_id": "269", "name": "Bellibolt ex", "is_ex": True, "energy_type": "Lightning",
+         "hp_remaining": 250, "energy_count": 4, "attacks": [{"damage": 230}], "abilities": []},
+    ],
+    "prizes_remaining": 4,
+    "opponent": {"prizes_remaining": 4,
+                 "active_pokemon": {"card_id": "777", "hp_remaining": 100, "is_ex": False,
+                                    "abilities": [], "attacks": []},
+                 "bench": []},
+}
+
+plans_vt = generate_attack_plans(STATE_VOLTORB)
+vt_plans = [p for p in plans_vt if p.plan_type == "voltorb_charge"]
+check("Voltorb charge plan found", len(vt_plans) > 0)
+if vt_plans:
+    check("Voltorb needs energy (1/2)", vt_plans[0].needs_energy)
+    check("Voltorb needs_bellibolt_ability", vt_plans[0].needs_bellibolt_ability)
+    check("Voltorb needs_switch", vt_plans[0].needs_switch)
+
+# ===================================================================
+print("\n--- bellibolt_self_attack plan ---")
+
+STATE_BB_SELF = {
+    "active_pokemon": {"card_id": "269", "name": "Bellibolt ex", "is_ex": True,
+                       "energy_type": "Lightning", "hp_remaining": 250, "energy_count": 3,
+                       "attacks": [{"damage": 230}], "abilities": []},
+    "bench": [],
+    "prizes_remaining": 4,
+    "opponent": {"prizes_remaining": 4,
+                 "active_pokemon": {"card_id": "777", "hp_remaining": 200, "is_ex": False,
+                                    "abilities": [], "attacks": []},
+                 "bench": []},
+}
+
+plans_bb = generate_attack_plans(STATE_BB_SELF)
+bb_self = [p for p in plans_bb if p.plan_type == "bellibolt_self_attack"]
+check("Bellibolt self-attack plan found", len(bb_self) > 0)
+if bb_self:
+    check("BB self needs_bellibolt_ability (1 away)", bb_self[0].needs_bellibolt_ability)
+
+# ===================================================================
+print("\n--- kilowattrel_sub_attacker plan ---")
+
+STATE_KW = {
+    "active_pokemon": {"card_id": "268", "name": "Tadbulb", "is_ex": False,
+                       "hp_remaining": 80, "attacks": [{"damage": 20}], "abilities": []},
+    "bench": [
+        {"card_id": "271", "name": "Kilowattrel", "is_ex": False, "energy_type": "Lightning",
+         "hp_remaining": 120, "energy_count": 3,
+         "attacks": [{"attack_id": 3, "damage": 70}], "abilities": []},
+    ],
+    "prizes_remaining": 4,
+    "opponent": {"prizes_remaining": 4,
+                 "active_pokemon": {"card_id": "777", "hp_remaining": 60, "is_ex": False,
+                                    "abilities": [], "attacks": []},
+                 "bench": []},
+}
+
+plans_kw = generate_attack_plans(STATE_KW)
+kw_plans = [p for p in plans_kw if p.plan_type == "kilowattrel_sub_attacker"]
+check("Kilowattrel sub-attacker plan found", len(kw_plans) > 0)
+if kw_plans:
+    check("KW can KO 60HP", kw_plans[0].can_ko)
+    check("KW needs_switch", kw_plans[0].needs_switch)
+
+# ===================================================================
+print("\n--- select_top_plans ---")
+
+top3 = select_top_plans(STATE_KO, limit=3)
+check("Top plans returns list", isinstance(top3, list))
+check("Top plans <= 3", len(top3) <= 3)
+check("Top plans sorted by score", all(top3[i].plan_score >= top3[i+1].plan_score for i in range(len(top3)-1)))
+
+# ===================================================================
+print("\n--- top plans bonus fallback ---")
+
+# Boss plan is best but no Boss action; second plan matches attack
+plan_boss = AttackPlan(plan_type="boss_ko", target_cid="888", plan_score=600, needs_boss=True)
+plan_atk = AttackPlan(plan_type="active_ko", attacker_cid="269", plan_score=300, needs_boss=False, needs_switch=False)
+atk_act = {"type": 13, "attackId": 1}
+st = {"active_pokemon": {"card_id": "269"}, "your_index": 0}
+
+b1 = plan_matches_action(plan_boss, atk_act, st)
+b2 = plan_matches_action(plan_atk, atk_act, st)
+check("Boss plan no match for attack", b1 == 0)
+check("Active plan matches attack", b2 > 0)
+check("Top plans would give bonus from 2nd plan", max(b1, b2) > 0)
 
 # ===================================================================
 print("\n--- empty state safety ---")

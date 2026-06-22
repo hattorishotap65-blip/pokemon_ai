@@ -273,10 +273,12 @@ class PolicyAgent:
 
         attack_plan_bonus = 0.0
         try:
-            from agent.attack_plan import select_best_plan, plan_matches_action
-            best_plan = select_best_plan(state)
-            if best_plan is not None:
-                attack_plan_bonus = plan_matches_action(best_plan, action, state)
+            from agent.attack_plan import select_top_plans, plan_matches_action
+            top_plans = select_top_plans(state, limit=3)
+            for tp in top_plans:
+                b = plan_matches_action(tp, action, state)
+                if b > attack_plan_bonus:
+                    attack_plan_bonus = b
         except Exception:
             pass
 

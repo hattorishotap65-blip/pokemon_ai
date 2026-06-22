@@ -10,6 +10,14 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 
+_VOLTORB = "265"
+_BELLIBOLT_EX = "269"
+_KILOWATTREL = "271"
+_VOLTORB_ENERGY_REQ = 2
+_BELLIBOLT_ENERGY_REQ = 4
+_KILOWATTREL_ENERGY_REQ = 3
+
+
 @dataclass
 class AttackPlan:
     plan_type: str
@@ -17,6 +25,7 @@ class AttackPlan:
     attacker_name: str = ""
     target_cid: str = ""
     target_name: str = ""
+    attack_index: int = 0
     predicted_damage: int = 0
     can_ko: bool = False
     wins_game: bool = False
@@ -26,6 +35,16 @@ class AttackPlan:
     needs_energy: bool = False
     plan_score: float = 0.0
     reasons: list = field(default_factory=list)
+
+
+def _bellibolt_on_field(state: dict) -> bool:
+    active_cid = str((state.get("active_pokemon") or {}).get("card_id", ""))
+    if active_cid == _BELLIBOLT_EX:
+        return True
+    for b in (state.get("bench") or []):
+        if str(b.get("card_id", "")) == _BELLIBOLT_EX:
+            return True
+    return False
 
 
 def generate_attack_plans(state: dict) -> List[AttackPlan]:
@@ -106,28 +125,82 @@ def generate_attack_plans(state: dict) -> List[AttackPlan]:
             )
             plans.append(p)
 
-    # --- 4. Bench attacker plans (switch to attack) ---
-    for i, bench_mon in enumerate(my_bench):
-        if not isinstance(bench_mon, dict):
-            continue
-        bp = predict_attack_damage(bench_mon, opp_active, state)
-        if bp["can_damage"] and bp["predicted_damage"] > 0:
-            energy = bench_mon.get("energy_count", 0) or 0
-            cid = str(bench_mon.get("card_id", ""))
-            needs_e = energy < 1
-            p = AttackPlan(
+    # --- 4. Iono deck-specific plans ---
+    all_mons = []
+    if my_active:
+        all_mons.append((my_active, True))
+    for bm in my_bench:
+        if isinstance(bm, dict):
+            all_mons.append((bm, False))
+
+    for mon, is_active in all_mons:
+        cid = str(mon.get("card_id", ""))
+        energy = mon.get("energy_count", 0) or 0
+        bp = predict_attack_damage(mon, opp_active, state)
+
+        if cid == _VOLTORB:
+            needs_e = energy < _VOLTORB_ENERGY_REQ
+            needs_bb = needs_e and _bellibolt_on_field(state)
+            if bp["can_damage"] or needs_e:
+                plans.append(AttackPlan(
+                    plan_type="voltorb_charge",
+                    attacker_cid=cid, attacker_name=mon.get("name", ""),
+                    target_cid=str(opp_active.get("card_id", "")),
+                    predicted_damage=bp["predicted_damage"],
+                    can_ko=bp["can_ko"],
+                    needs_switch=not is_active,
+                    needs_energy=needs_e,
+                    needs_bellibolt_ability=needs_bb,
+                    plan_score=_score_plan(bp, my_prizes, opp_active, is_active) * (0.6 if needs_e else 1.0) + (30 if needs_bb else 0),
+                    reasons=["voltorb_charge"] + (["needs_bellibolt"] if needs_bb else []),
+                ))
+
+        elif cid == _BELLIBOLT_EX:
+            needs_e = energy < _BELLIBOLT_ENERGY_REQ
+            one_away = energy == _BELLIBOLT_ENERGY_REQ - 1
+            if one_away or (bp["can_damage"] and not needs_e):
+                plans.append(AttackPlan(
+                    plan_type="bellibolt_self_attack",
+                    attacker_cid=cid, attacker_name=mon.get("name", ""),
+                    target_cid=str(opp_active.get("card_id", "")),
+                    predicted_damage=bp["predicted_damage"],
+                    can_ko=bp["can_ko"],
+                    needs_switch=not is_active,
+                    needs_energy=needs_e,
+                    needs_bellibolt_ability=one_away,
+                    plan_score=_score_plan(bp, my_prizes, opp_active, is_active) * (0.7 if one_away else 1.0) + (40 if one_away else 0),
+                    reasons=["bellibolt_self_attack"] + (["needs_bellibolt_ability"] if one_away else []),
+                ))
+
+        elif cid == _KILOWATTREL:
+            needs_e = energy < _KILOWATTREL_ENERGY_REQ
+            needs_bb = needs_e and _bellibolt_on_field(state)
+            if bp["can_damage"]:
+                plans.append(AttackPlan(
+                    plan_type="kilowattrel_sub_attacker",
+                    attacker_cid=cid, attacker_name=mon.get("name", ""),
+                    target_cid=str(opp_active.get("card_id", "")),
+                    predicted_damage=bp["predicted_damage"],
+                    can_ko=bp["can_ko"],
+                    needs_switch=not is_active,
+                    needs_energy=needs_e,
+                    needs_bellibolt_ability=needs_bb,
+                    plan_score=_score_plan(bp, my_prizes, opp_active, is_active, is_escape=False) * (0.5 if needs_e else 1.0),
+                    reasons=["kilowattrel_sub"] + (["needs_bellibolt"] if needs_bb else []),
+                ))
+
+        elif bp["can_damage"] and bp["predicted_damage"] > 0 and not is_active:
+            plans.append(AttackPlan(
                 plan_type="bench_attacker",
-                attacker_cid=cid,
-                attacker_name=bench_mon.get("name", ""),
+                attacker_cid=cid, attacker_name=mon.get("name", ""),
                 target_cid=str(opp_active.get("card_id", "")),
                 predicted_damage=bp["predicted_damage"],
                 can_ko=bp["can_ko"],
                 needs_switch=True,
-                needs_energy=needs_e,
-                plan_score=_score_plan(bp, my_prizes, opp_active, is_active=False) * (0.5 if needs_e else 1.0),
+                needs_energy=energy < 1,
+                plan_score=_score_plan(bp, my_prizes, opp_active, is_active=False) * (0.5 if energy < 1 else 1.0),
                 reasons=["bench_attacker"],
-            )
-            plans.append(p)
+            ))
 
     plans.sort(key=lambda p: p.plan_score, reverse=True)
     return plans
@@ -136,6 +209,11 @@ def generate_attack_plans(state: dict) -> List[AttackPlan]:
 def select_best_plan(state: dict) -> Optional[AttackPlan]:
     plans = generate_attack_plans(state)
     return plans[0] if plans else None
+
+
+def select_top_plans(state: dict, limit: int = 3) -> List[AttackPlan]:
+    plans = generate_attack_plans(state)
+    return plans[:limit]
 
 
 def _attack_wins(pred: dict, my_prizes: int, opp: dict) -> bool:

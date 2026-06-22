@@ -6,7 +6,7 @@ Last updated: 2026-06-22
 
 | Item | Value |
 |------|-------|
-| Version | v3-submitted |
+| Version | v5 (AGENT_VERSION in main.py) |
 | Deck | Iono's Kilowattrel |
 | Base commit | `9f3101d` |
 | Submission PR | #86 |
@@ -62,6 +62,17 @@ were NOT firing in production.
 
 **FIX:** `get_own_active`/`get_own_bench` now handle both formats.
 `get_card_name` falls back to `card_id` lookup via `cg.api`.
+First call to `cg.api.all_card_data()` populates `_CARD_NAME_CACHE`;
+subsequent lookups are O(1) dict access.
+
+## Smoke Check (post-fix)
+
+| Metric | Value |
+|--------|-------|
+| Games | 18 |
+| anomalies/g | 4.56 |
+| Errors | 0 |
+| Safety | all 0 |
 
 ## Known Limitations
 

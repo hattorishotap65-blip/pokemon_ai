@@ -1,0 +1,340 @@
+# Parameter Discovery Report
+
+Auto-discovered 322 candidate parameters.
+
+## global_params (154)
+
+| File | Line | Value | Role | Snippet |
+|------|------|-------|------|---------|
+| advantage.py | 104 | 60.0 | threshold | if opp_hp <= 60: |
+| damage_predictor.py | 158 | 1.0 | constant | return -1 |
+| damage_predictor.py | 166 | 1.0 | constant | return min(costs) if costs else -1 |
+| damage_predictor.py | 174 | 1.0 | threshold | return energy >= 1 |
+| damage_predictor.py | 203 | 800.0 | score | score += 800.0 |
+| damage_predictor.py | 206 | 400.0 | score | score += 400.0 |
+| damage_predictor.py | 210 | 100.0 | score | score += 100.0 |
+| damage_predictor.py | 214 | 200.0 | score | score += 200.0 |
+| damage_predictor.py | 217 | 300.0 | score | score -= 300.0 |
+| evaluator.py | 54 | 5.0 | score | score += 5.0 |
+| evaluator.py | 57 | 2.0 | score | score += 2.0 |
+| evaluator.py | 65 | 5.0 | threshold | if count >= 5: |
+| evaluator.py | 66 | 2.0 | score | score -= 2.0  # bench full = can't play more basics |
+| evaluator.py | 72 | 6.0 | constant | return -6.0 |
+| evaluator.py | 74 | 2.0 | constant | return -2.0 |
+| evaluator.py | 92 | 8.0 | constant | return -8.0 |
+| evaluator.py | 94 | 3.0 | constant | return -3.0 |
+| evaluator.py | 111 | 60.0 | threshold | return hp < 60 |
+| opponent_model.py | 28 | 3.0 | score | score += 3.0 |
+| policy.py | 421 | 10.0 | score | score  = 10.0 |
+| policy.py | 449 | 500.0 | score | score -= 500.0 |
+| policy.py | 458 | 20.0 | score | score += 20.0 |
+| policy.py | 461 | 30.0 | score | score += 30.0 |
+| policy.py | 464 | 5.0 | score | score += 5.0 |
+| policy.py | 469 | 5.0 | score | score += 5.0 |
+| policy.py | 473 | 3.0 | score | score += 3.0 |
+| policy.py | 477 | 6.0 | score | score -= 6.0 |
+| policy.py | 517 | 8.0 | score | score += 8.0 |
+| policy.py | 518 | 5.0 | threshold | if bench_count >= 5: |
+| policy.py | 519 | -20.0 | penalty | score = -20.0 |
+| policy.py | 519 | 20.0 | score | score = -20.0 |
+| policy.py | 559 | -8.0 | penalty | return -8.0, "tool_handheld_fan_bad_target" |
+| policy.py | 560 | 2.0 | constant | return 2.0, "tool_handheld_fan_generic" |
+| policy.py | 564 | 5.0 | constant | return 5.0, "tool_heroes_cape_main_attacker" |
+| policy.py | 566 | -8.0 | penalty | return -8.0, "tool_heroes_cape_bad_target" |
+| policy.py | 567 | 2.0 | constant | return 2.0, "tool_heroes_cape_generic" |
+| policy.py | 571 | 5.0 | constant | return 5.0, "tool_generic_main_attacker" |
+| policy.py | 573 | -5.0 | penalty | return -5.0, "tool_generic_bad_target" |
+| policy.py | 574 | 4.0 | constant | return 4.0, "tool_attach_generic" |
+| policy.py | 604 | 2.0 | score | score  += 2.0 |
+| policy.py | 607 | 2.0 | score | score  -= 2.0 |
+| policy.py | 612 | 1.0 | score | score  = 1.0 |
+| policy.py | 615 | 30.0 | threshold | if hp < 30: |
+| policy.py | 616 | 1.5 | score | score  = 1.5 |
+| policy.py | 665 | 3.0 | score | score += 3.0 |
+| policy.py | 668 | 2.0 | score | score -= 2.0 |
+| policy.py | 683 | 5.0 | score | score += 5.0 |
+| policy.py | 685 | 4.0 | score | score += 4.0 |
+| policy.py | 703 | 7.0 | constant | return 7.0, "retreat_for_plan" |
+| policy.py | 714 | 8.0 | score | score = 8.0 |
+| policy.py | 716 | 12.0 | score | score = 12.0 |
+| policy.py | 728 | 30.0 | threshold | if hp < 30: |
+| policy.py | 729 | 7.0 | constant | return 7.0, "retreat_save_pokemon" |
+| policy.py | 730 | 3.5 | constant | return 3.5, "retreat_low_hp" |
+| policy.py | 731 | 1.0 | constant | return 1.0, "retreat_unnecessary" |
+| policy.py | 789 | 3.0 | constant | return 3.0, "card_generic" |
+| policy.py | 801 | 3.0 | constant | return 3.0, "to_hand_generic" |
+| policy.py | 808 | 4.0 | score | score += 4.0 |
+| policy.py | 810 | 3.0 | score | score += 3.0 |
+| policy.py | 812 | 2.0 | score | score += 2.0 |
+| policy.py | 817 | 2.0 | score | score -= 2.0 |
+| policy.py | 825 | 5.0 | constant | return 5.0, "discard_generic" |
+| policy.py | 833 | 1.0 | constant | return 1.0, "discard_keep_evoline" |
+| policy.py | 835 | 1.5 | constant | return 1.5, "discard_keep_highvalue" |
+| policy.py | 844 | 5.0 | constant | return 5.0, "evolve_to_generic" |
+| policy.py | 872 | 3.0 | constant | return 3.0, "attach_target_generic" |
+| policy.py | 899 | 4.0 | score | score += 4.0 |
+| policy.py | 901 | 1.0 | score | score -= 1.0 |
+| policy.py | 912 | 3.0 | constant | return 3.0, "attach_select_generic" |
+| policy.py | 936 | 3.0 | constant | return 3.0, "boss_target_generic" |
+| policy.py | 940 | 5.0 | score | score = 5.0 |
+| policy.py | 948 | 30.0 | score | score += 30.0 |
+| policy.py | 951 | 20.0 | score | score += 20.0 |
+| policy.py | 954 | 10.0 | score | score += 10.0 |
+| policy.py | 960 | 10.0 | score | score += 10.0 |
+| policy.py | 963 | 60.0 | threshold | if hp <= 60: |
+| policy.py | 964 | 15.0 | score | score += 15.0 |
+| policy.py | 966 | 100.0 | threshold | elif hp <= 100: |
+| policy.py | 967 | 5.0 | score | score += 5.0 |
+| policy.py | 973 | 8.0 | score | score += 8.0 |
+| policy.py | 990 | 3.0 | constant | return 3.0, "to_active_generic" |
+| policy.py | 1012 | 15.0 | score | score += 15.0 |
+| policy.py | 1014 | 5.0 | score | score += 5.0 |
+| policy.py | 1016 | 10.0 | score | score -= 10.0 |
+| policy.py | 1021 | 1.5 | score | score = 1.5 |
+| policy.py | 1029 | 3.0 | constant | return 3.0, "to_bench_generic" |
+| policy.py | 1054 | 3.0 | constant | return 3.0, "heal_unknown" |
+| policy.py | 1105 | 3.0 | constant | return 3.0, "damage_target_generic" |
+| policy.py | 1112 | 5.0 | score | score  = 5.0 |
+| policy.py | 1117 | 50.0 | score | score  += 50.0 |
+| policy.py | 1121 | 40.0 | threshold | if hp <= 40: |
+| policy.py | 1122 | 20.0 | score | score  += 20.0 |
+| policy.py | 1125 | 80.0 | threshold | elif hp <= 80: |
+| policy.py | 1126 | 10.0 | score | score  += 10.0 |
+| policy.py | 1132 | 15.0 | score | score  += 15.0 |
+| policy.py | 1138 | 10.0 | score | score  += 10.0 |
+| policy.py | 1144 | 3.0 | score | score += 3.0 |
+| policy.py | 1164 | 3.0 | constant | return 3.0, "remove_damage_generic" |
+| policy.py | 1175 | 5.0 | score | score  = 5.0 + damage / 10.0 |
+| policy.py | 1178 | 30.0 | threshold | if hp <= 30: |
+| policy.py | 1179 | 20.0 | score | score  += 20.0 |
+| policy.py | 1181 | 60.0 | threshold | elif hp <= 60: |
+| policy.py | 1182 | 10.0 | score | score  += 10.0 |
+| policy.py | 1186 | 10.0 | score | score  += 10.0 |
+| policy.py | 1195 | 3.0 | constant | return 3.0, "setup_generic" |
+| policy.py | 1214 | 5.0 | constant | return 5.0, "discard_generic" |
+| turn_plan.py | 94 | 1.0 | score | score: float = -1.0 |
+| turn_plan.py | 152 | -1.0 | penalty | best_score = -1.0 |
+| turn_plan.py | 152 | 1.0 | score | best_score = -1.0 |
+| turn_plan.py | 212 | 250.0 | score | if c_opp.stage2:  t_score += 250 |
+| turn_plan.py | 213 | 130.0 | score | elif c_opp.stage1: t_score += 130 |
+| turn_plan.py | 221 | 50.0 | score | t_score = 50_000 |
+| turn_rule_engine.py | 382 | 6.0 | threshold | if my_prizes < 1 or my_prizes > 6: |
+| turn_rule_engine.py | 388 | 9999.0 | threshold | if opp_hp <= 0 or opp_hp >= 9999: |
+| turn_rule_engine.py | 457 | -400.0 | penalty | return -400.0, "turn_rule:ex_active_opp_final_prizes_retreat |
+| turn_rule_engine.py | 459 | 500.0 | constant | return 500.0, "turn_rule:retreat_ex_to_survive_final_prizes" |
+| turn_rule_engine.py | 468 | -60.0 | penalty | return -60.0, "turn_rule:avoid_end_when_ability_available" |
+| turn_rule_engine.py | 469 | -5.0 | penalty | return -5.0, "turn_rule:end_only_if_no_useful_action" |
+| turn_rule_engine.py | 475 | -250.0 | penalty | return -250.0, "turn_rule:avoid_retreat_losing_energy" |
+| turn_rule_engine.py | 476 | -40.0 | penalty | return -40.0, "turn_rule:retreat_low_priority" |
+| turn_rule_engine.py | 483 | 5.0 | constant | return 5.0, "turn_rule:ability_before_attack_optional" |
+| turn_rule_engine.py | 484 | 15.0 | constant | return 15.0, "turn_rule:ability_can_continue_turn" |
+| turn_rule_engine.py | 490 | 10.0 | constant | return 10.0, "turn_rule:attach_can_continue_turn" |
+| win_condition.py | 21 | 5.0 | threshold | if turn <= 3 or prizes >= 5: |
+| win_condition.py | 33 | 10.0 | constant | Returns 0-10. |
+| win_condition.py | 42 | 2.0 | score | score += 2.0 |
+| win_condition.py | 46 | 3.0 | score | score += min(bench_count, 3) * 1.0  # up to +3 |
+| win_condition.py | 54 | 1.5 | score | score += 1.5 |
+| win_condition.py | 60 | 1.5 | score | score += 1.5 |
+| win_condition.py | 66 | 4.0 | threshold | if hand_count >= 4: |
+| win_condition.py | 67 | 1.0 | score | score += 1.0 |
+| win_condition.py | 69 | 2.0 | score | score -= 2.0 |
+| win_condition.py | 76 | 1.5 | score | score += 1.5 |
+| win_condition.py | 85 | 10.0 | constant | Returns 0-10. |
+| win_condition.py | 98 | 3.0 | score | score += 3.0 |
+| win_condition.py | 101 | 2.0 | score | score += 2.0 |
+| win_condition.py | 103 | 1.0 | score | score += 1.0 |
+| win_condition.py | 105 | 2.0 | score | score += 2.0 |
+| win_condition.py | 112 | 1.5 | score | score += 1.5 |
+| win_condition.py | 120 | 1.0 | score | score += 1.0 |
+| win_condition.py | 122 | 1.0 | bonus | score += 1.0  # bonus for leading |
+| win_condition.py | 134 | 10.0 | constant | Returns 0-10. |
+| win_condition.py | 145 | 3.0 | score | score += 3.0 |
+| win_condition.py | 147 | 1.5 | score | score += 1.5 |
+| win_condition.py | 159 | 3.0 | score | score += 3.0 |
+| win_condition.py | 161 | 2.0 | score | score += 2.0 |
+| win_condition.py | 163 | 2.0 | score | score += 2.0 |
+| win_condition.py | 166 | 5.0 | threshold | if deck_count > 5: |
+| win_condition.py | 167 | 1.0 | score | score += 1.0 |
+| win_condition.py | 168 | 3.0 | threshold | elif deck_count <= 3: |
+| win_condition.py | 169 | 3.0 | score | score -= 3.0 |
+| win_condition.py | 173 | 1.0 | score | score += 1.0 |
+| win_condition.py | 177 | 2.0 | score | score += 2.0 |
+| win_condition.py | 179 | 1.5 | score | score += 1.5 |
+
+## deck_params (156)
+
+| File | Line | Value | Role | Snippet |
+|------|------|-------|------|---------|
+| effect_engine.py | 219 | 230.0 | constant | return 230, "bellibolt_official_lllc_230" |
+| effect_engine.py | 222 | 70.0 | constant | return 70, "kilowattrel_fixed_70" |
+| ionos_rules.py | 319 | 100.0 | score | score += 100.0; parts.append(f"{prefix}:enables_voltorb_atta |
+| ionos_rules.py | 321 | 90.0 | score | score += 90.0;  parts.append(f"{prefix}:enables_bellibolt_at |
+| ionos_rules.py | 323 | 80.0 | score | score += 80.0;  parts.append(f"{prefix}:enables_kilowattrel_ |
+| ionos_rules.py | 325 | 60.0 | score | score -= 60.0 |
+| ionos_rules.py | 328 | 40.0 | score | score += 40.0 |
+| ionos_rules.py | 334 | 70.0 | score | score += 70.0;  parts.append(f"{prefix}:voltorb_first_energy |
+| ionos_rules.py | 336 | 140.0 | score | score += 140.0; parts.append(f"{prefix}:voltorb_enable_attac |
+| ionos_rules.py | 338 | 80.0 | score | score -= 80.0;  parts.append(f"{prefix}:voltorb_over_attach" |
+| ionos_rules.py | 341 | 50.0 | score | score += 50.0;  parts.append(f"{prefix}:bellibolt_first_ener |
+| ionos_rules.py | 343 | 100.0 | score | score += 100.0; parts.append(f"{prefix}:bellibolt_close_to_a |
+| ionos_rules.py | 345 | 50.0 | score | score -= 50.0;  parts.append(f"{prefix}:bellibolt_over_attac |
+| ionos_rules.py | 347 | 30.0 | score | score += 30.0;  parts.append(f"{prefix}:bellibolt_prep") |
+| ionos_rules.py | 350 | 45.0 | score | score += 45.0;  parts.append(f"{prefix}:kilowattrel_first_en |
+| ionos_rules.py | 352 | 100.0 | score | score += 100.0; parts.append(f"{prefix}:kilowattrel_close_to |
+| ionos_rules.py | 354 | 50.0 | score | score -= 50.0;  parts.append(f"{prefix}:kilowattrel_over_att |
+| ionos_rules.py | 356 | 30.0 | score | score += 30.0;  parts.append(f"{prefix}:kilowattrel_prep") |
+| ionos_rules.py | 359 | 45.0 | score | score += 45.0;  parts.append(f"{prefix}:tadbulb_first_energy |
+| ionos_rules.py | 361 | 20.0 | score | score -= 20.0;  parts.append(f"{prefix}:tadbulb_too_much") |
+| ionos_rules.py | 364 | 45.0 | score | score += 45.0;  parts.append(f"{prefix}:wattrel_first_energy |
+| ionos_rules.py | 366 | 20.0 | score | score -= 20.0;  parts.append(f"{prefix}:wattrel_too_much") |
+| ionos_rules.py | 370 | 35.0 | score | score += 35.0 |
+| ionos_rules.py | 375 | 9999.0 | threshold | if opp_hp < 9999: |
+| ionos_rules.py | 379 | 400.0 | score | score += 400.0 |
+| ionos_rules.py | 395 | -20.0 | penalty | return -20.0, "ionos:non_lightning_energy" |
+| ionos_rules.py | 397 | -20.0 | penalty | return -20.0, "ionos:avoid_non_iono_pokemon" |
+| ionos_rules.py | 431 | 280.0 | score | score = 280.0 |
+| ionos_rules.py | 434 | 20.0 | score | score += 20.0 |
+| ionos_rules.py | 440 | 35.0 | score | score = 35.0 |
+| ionos_rules.py | 447 | 100.0 | score | score = 100.0 + (10.0 if mon_cid == _BELLIBOLT_EX else 0.0) |
+| ionos_rules.py | 455 | 250.0 | score | bb_score = 250.0 |
+| ionos_rules.py | 461 | 30.0 | constant | return 30.0, "ionos:bellibolt_ability_voltorb_scaling" |
+| ionos_rules.py | 476 | -20.0 | penalty | return -20.0, "bellibolt_engine:non_lightning" |
+| ionos_rules.py | 478 | -20.0 | penalty | return -20.0, "bellibolt_engine:not_iono_pokemon" |
+| ionos_rules.py | 482 | 30.0 | score | score += 30.0 |
+| ionos_rules.py | 496 | -30.0 | penalty | return -30.0, "poffin_bench_full" |
+| ionos_rules.py | 501 | 90.0 | score | score += 90.0;  parts.append("poffin_low_bench") |
+| ionos_rules.py | 503 | 45.0 | score | score += 45.0;  parts.append("poffin_medium_bench") |
+| ionos_rules.py | 505 | 60.0 | score | if not f["has_tadbulb"]:  score += 60.0; parts.append("missi |
+| ionos_rules.py | 506 | 55.0 | score | if not f["has_voltorb"]:  score += 55.0; parts.append("missi |
+| ionos_rules.py | 507 | 35.0 | score | if not f["has_wattrel"]:  score += 35.0; parts.append("missi |
+| ionos_rules.py | 510 | 30.0 | score | score += 30.0; parts.append("energy_flood_need_setup") |
+| ionos_rules.py | 513 | 40.0 | score | score += 40.0; parts.append("bellibolt_in_hand_need_tadbulb" |
+| ionos_rules.py | 515 | 35.0 | score | score += 35.0; parts.append("kilowattrel_in_hand_need_wattre |
+| ionos_rules.py | 525 | -30.0 | penalty | return -30.0, "bench_full" |
+| ionos_rules.py | 537 | 160.0 | constant | return 160.0, "poffin_first_voltorb_active_tadbulb" |
+| ionos_rules.py | 540 | 150.0 | constant | return 150.0, "poffin_first_wattrel_active_tadbulb_with_kilo |
+| ionos_rules.py | 541 | 125.0 | constant | return 125.0, "poffin_first_wattrel_active_tadbulb" |
+| ionos_rules.py | 543 | 25.0 | constant | return 25.0, "poffin_extra_tadbulb_low_priority" |
+| ionos_rules.py | 549 | 170.0 | constant | return 170.0, "poffin_first_tadbulb_active_voltorb_with_bell |
+| ionos_rules.py | 550 | 150.0 | constant | return 150.0, "poffin_first_tadbulb_active_voltorb" |
+| ionos_rules.py | 552 | 115.0 | constant | return 115.0, "poffin_first_wattrel_active_voltorb" |
+| ionos_rules.py | 557 | 155.0 | constant | return 155.0, "poffin_first_tadbulb_active_wattrel" |
+| ionos_rules.py | 559 | 145.0 | constant | return 145.0, "poffin_first_voltorb_active_wattrel" |
+| ionos_rules.py | 566 | 55.0 | constant | if tadbulb_cnt == 1: return 55.0, "poffin_second_tadbulb" |
+| ionos_rules.py | 567 | 10.0 | constant | return 10.0, "poffin_extra_tadbulb" |
+| ionos_rules.py | 572 | 150.0 | constant | if voltorb_cnt == 0: return 150.0, "poffin_first_voltorb" |
+| ionos_rules.py | 623 | 5.0 | threshold | if bench_count >= 5: |
+| ionos_rules.py | 624 | -30.0 | penalty | return -30.0, "bench_full" |
+| ionos_rules.py | 636 | 120.0 | constant | if cid == _TADBULB and tadbulb_cnt == 0: return 120.0, "play |
+| ionos_rules.py | 637 | 115.0 | constant | if cid == _VOLTORB and voltorb_cnt == 0: return 115.0, "play |
+| ionos_rules.py | 638 | 100.0 | constant | if cid == _WATTREL and wattrel_cnt == 0: return 100.0, "play |
+| ionos_rules.py | 640 | 100.0 | constant | if cid == _TADBULB and tadbulb_cnt == 0: return 100.0, "play |
+| ionos_rules.py | 641 | 95.0 | constant | if cid == _VOLTORB and voltorb_cnt == 0: return  95.0, "play |
+| ionos_rules.py | 642 | 80.0 | constant | if cid == _WATTREL and wattrel_cnt == 0: return  80.0, "play |
+| ionos_rules.py | 658 | 75.0 | score | if setup_poor:                                  score += 75. |
+| ionos_rules.py | 659 | 45.0 | threshold | if f["energy_in_hand"] >= 4:                   score += 45.0 |
+| ionos_rules.py | 660 | 25.0 | threshold | if f["energy_in_hand"] >= 5:                   score += 25.0 |
+| ionos_rules.py | 662 | 30.0 | score | score += 30.0; parts.append("lillie_missing_core_basic") |
+| ionos_rules.py | 669 | 55.0 | score | if setup_poor:               score += 55.0; parts.append("le |
+| ionos_rules.py | 670 | 25.0 | score | if not f["has_tadbulb"]:     score += 25.0; parts.append("le |
+| ionos_rules.py | 671 | 25.0 | score | if not f["has_voltorb"]:     score += 25.0; parts.append("le |
+| ionos_rules.py | 672 | 20.0 | threshold | if f["energy_in_hand"] >= 4: score += 20.0; parts.append("le |
+| ionos_rules.py | 756 | -120.0 | penalty | return -120.0, "search_avoid_bellibolt_without_tadbulb" |
+| ionos_rules.py | 759 | 220.0 | score | score += 220.0 |
+| ionos_rules.py | 762 | 90.0 | score | score -= 90.0 |
+| ionos_rules.py | 765 | 100.0 | score | score += 100.0 |
+| ionos_rules.py | 769 | 90.0 | score | score -= 90.0 |
+| ionos_rules.py | 783 | 80.0 | score | if m["need_basic"]:        score += 80.0; parts.append("cana |
+| ionos_rules.py | 784 | 70.0 | score | if m["need_attacker"]:     score += 70.0; parts.append("cana |
+| ionos_rules.py | 785 | 60.0 | score | if m["need_evolution"]:    score += 60.0; parts.append("cana |
+| ionos_rules.py | 787 | 70.0 | score | score += 70.0; parts.append("canari_use_missing_core_piece") |
+| ionos_rules.py | 790 | -20.0 | penalty | return -20.0, "canari_low_value" |
+| ionos_rules.py | 803 | 160.0 | constant | return 160.0, "canari_kilowattrel_for_wattrel_in_play" |
+| ionos_rules.py | 805 | -70.0 | penalty | return -70.0, "canari_avoid_kilowattrel_without_wattrel" |
+| ionos_rules.py | 807 | -50.0 | penalty | return -50.0, "canari_avoid_duplicate_kilowattrel_in_hand" |
+| ionos_rules.py | 808 | 45.0 | constant | return 45.0, "canari_extra_kilowattrel_low_priority" |
+| ionos_rules.py | 812 | 170.0 | constant | return 170.0, "canari_missing_voltorb_attacker" |
+| ionos_rules.py | 814 | 70.0 | constant | return 70.0, "canari_second_voltorb_backup" |
+| ionos_rules.py | 815 | 15.0 | constant | return 15.0, "canari_extra_voltorb_low_priority" |
+| ionos_rules.py | 819 | 175.0 | constant | return 175.0, "canari_missing_tadbulb_base" |
+| ionos_rules.py | 821 | 65.0 | constant | return 65.0, "canari_second_tadbulb_backup" |
+| ionos_rules.py | 822 | 15.0 | constant | return 15.0, "canari_extra_tadbulb_low_priority" |
+| ionos_rules.py | 826 | 130.0 | constant | return 130.0, "canari_missing_wattrel_base" |
+| ionos_rules.py | 828 | 45.0 | constant | return 45.0, "canari_second_wattrel_backup" |
+| ionos_rules.py | 829 | 10.0 | constant | return 10.0, "canari_extra_wattrel_low_priority" |
+| ionos_rules.py | 841 | 80.0 | score | if m["need_bellibolt"]:    score += 80.0; parts.append("ultr |
+| ionos_rules.py | 842 | 60.0 | score | if m["need_kilowattrel"]:  score += 60.0; parts.append("ultr |
+| ionos_rules.py | 843 | 60.0 | score | if m["need_attacker"]:     score += 60.0; parts.append("ultr |
+| ionos_rules.py | 844 | 50.0 | score | if m["need_basic"]:        score += 50.0; parts.append("ultr |
+| ionos_rules.py | 846 | 45.0 | score | score += 45.0; parts.append("ultra_ball_energy_flood_discard |
+| ionos_rules.py | 849 | -30.0 | penalty | return -30.0, "ultra_ball_low_value_due_to_discard_cost" |
+| ionos_rules.py | 862 | 170.0 | constant | return 170.0, "ultra_ball_kilowattrel_for_wattrel" |
+| ionos_rules.py | 864 | -90.0 | penalty | return -90.0, "ultra_ball_avoid_kilowattrel_without_wattrel" |
+| ionos_rules.py | 866 | -70.0 | penalty | return -70.0, "ultra_ball_avoid_duplicate_kilowattrel" |
+| ionos_rules.py | 867 | 35.0 | constant | return 35.0, "ultra_ball_extra_kilowattrel_low_priority" |
+| ionos_rules.py | 871 | 180.0 | constant | return 180.0, "ultra_ball_missing_voltorb_attacker" |
+| ionos_rules.py | 873 | 55.0 | constant | return 55.0, "ultra_ball_second_voltorb_backup" |
+| ionos_rules.py | 874 | 10.0 | constant | return 10.0, "ultra_ball_extra_voltorb_low_priority" |
+| ionos_rules.py | 878 | 170.0 | constant | return 170.0, "ultra_ball_missing_tadbulb_base" |
+| ionos_rules.py | 880 | 50.0 | constant | return 50.0, "ultra_ball_second_tadbulb_backup" |
+| ionos_rules.py | 881 | 10.0 | constant | return 10.0, "ultra_ball_extra_tadbulb_low_priority" |
+| ionos_rules.py | 885 | 130.0 | constant | return 130.0, "ultra_ball_missing_wattrel_base" |
+| ionos_rules.py | 887 | 35.0 | constant | return 35.0, "ultra_ball_second_wattrel_backup" |
+| ionos_rules.py | 888 | 8.0 | constant | return 8.0, "ultra_ball_extra_wattrel_low_priority" |
+| ionos_rules.py | 911 | 180.0 | score | score = 180.0 |
+| ionos_rules.py | 918 | 40.0 | score | score += 40.0 |
+| ionos_rules.py | 921 | 70.0 | score | score += 70.0 |
+| ionos_rules.py | 924 | 100.0 | score | score += 100.0 |
+| ionos_rules.py | 959 | -80.0 | penalty | return -80.0, "voltorb_attack_available_avoid_optional_abili |
+| ionos_rules.py | 965 | 20.0 | constant | after_dmg  = before_dmg + 20 |
+| ionos_rules.py | 968 | -500.0 | penalty | return -500.0, "voltorb_avoid_attach_when_attack_available" |
+| ionos_rules.py | 1013 | -250.0 | penalty | return -250.0, "kilowattrel_avoid_ability_when_attack_availa |
+| ionos_rules.py | 1017 | -300.0 | penalty | return -300.0, "kilowattrel_ability_breaks_attack_ready_stat |
+| ionos_rules.py | 1020 | 5.0 | threshold | if hand_count >= 5: |
+| ionos_rules.py | 1021 | -120.0 | penalty | return -120.0, "kilowattrel_avoid_ability_with_large_hand" |
+| ionos_rules.py | 1027 | 4.0 | constant | if hand_count == 4: |
+| ionos_rules.py | 1028 | 10.0 | score | score += 10.0 |
+| ionos_rules.py | 1031 | 3.0 | threshold | if hand_count <= 3: |
+| ionos_rules.py | 1032 | 80.0 | score | score += 80.0 |
+| ionos_rules.py | 1036 | 50.0 | score | score += 50.0 |
+| ionos_rules.py | 1040 | 50.0 | score | score += 50.0 |
+| ionos_rules.py | 1044 | 30.0 | score | score += 30.0 |
+| ionos_rules.py | 1049 | 80.0 | score | score -= 80.0 |
+| ionos_rules.py | 1073 | 60.0 | score | score_e = -60.0 |
+| ionos_rules.py | 1094 | 23.0 | constant | return 23.0, "ionos:bellibolt_ex_attack" |
+| ionos_rules.py | 1100 | 6.0 | constant | return 6.0, "ionos:kilowattrel_attack" |
+| ionos_rules.py | 1109 | 4.0 | constant | return 4.0, "ionos:bellibolt_ability_no_energy" |
+| ionos_rules.py | 1177 | 5.0 | constant | return 5.0, "ionos:energy_retrieval_no_energy_in_hand" |
+| ionos_rules.py | 1178 | 2.0 | constant | return 2.0, "ionos:energy_retrieval" |
+| ionos_rules.py | 1196 | 5.0 | constant | return 5.0, "ionos:evolves_to_bellibolt" |
+| ionos_rules.py | 1198 | 3.0 | constant | return 3.0, "ionos:evolves_to_kilowattrel" |
+| ionos_rules.py | 1203 | 30.0 | constant | return 30.0, "ionos:start_voltorb" |
+| ionos_rules.py | 1205 | 15.0 | constant | return 15.0, "ionos:start_wattrel" |
+| ionos_rules.py | 1207 | 10.0 | constant | return 10.0, "ionos:start_tadbulb" |
+| ionos_rules.py | 1209 | -10.0 | penalty | return -10.0, "ionos:avoid_evolved_start" |
+| ionos_rules.py | 1221 | -8.0 | penalty | return -8.0, "ionos:lillies_keep_bellibolt" |
+| ionos_rules.py | 1223 | -6.0 | penalty | return -6.0, "ionos:lillies_keep_kilowattrel" |
+| ionos_rules.py | 1241 | 80.0 | constant | return 80.0, "ionos:retreat_bellibolt_to_voltorb_higher_dama |
+| ionos_rules.py | 1242 | -700.0 | penalty | return -700.0, "ionos:avoid_retreat_bellibolt_can_attack" |
+| ionos_rules.py | 1244 | -300.0 | penalty | return -300.0, "ionos:avoid_retreat_voltorb_can_attack" |
+| ionos_rules.py | 1254 | 100.0 | constant | return 100.0, "ionos:retreat_kilowattrel_to_voltorb_high_dam |
+| ionos_rules.py | 1255 | -300.0 | penalty | return -300.0, "ionos:avoid_retreat_kilowattrel_can_attack" |
+| ionos_rules.py | 1263 | 150.0 | constant | return 150.0, "ionos:retreat_wattrel_to_voltorb_high_damage" |
+| ionos_rules.py | 1267 | 2.0 | constant | return 2.0, "ionos:night_stretcher" |
+
+## fixed_rules (12)
+
+| File | Line | Value | Role | Snippet |
+|------|------|-------|------|---------|
+| ionos_rules.py | 499 | 120.0 | score | score += 120.0; parts.append("poffin_empty_bench") |
+| ionos_rules.py | 631 | 130.0 | constant | if cid == _TADBULB: return 130.0, "play_basic_empty_bench_ta |
+| ionos_rules.py | 632 | 125.0 | constant | if cid == _VOLTORB: return 125.0, "play_basic_empty_bench_vo |
+| ionos_rules.py | 633 | 105.0 | constant | if cid == _WATTREL: return 105.0, "play_basic_empty_bench_wa |
+| ionos_rules.py | 955 | -1000.0 | penalty | return -1000.0, "voltorb_avoid_end_when_attack_available" |
+| ionos_rules.py | 957 | -1000.0 | penalty | return -1000.0, "voltorb_avoid_retreat_when_attack_available |
+| turn_rule_engine.py | 429 | -500.0 | penalty | return -500.0, "turn_rule:empty_bench_play_basic_first" |
+| turn_rule_engine.py | 437 | 2000.0 | constant | return 2000.0, "turn_rule:winning_attack" |
+| turn_rule_engine.py | 439 | -800.0 | penalty | return -800.0, "turn_rule:do_not_retreat_when_winning_attack |
+| turn_rule_engine.py | 441 | -800.0 | penalty | return -800.0, "turn_rule:do_not_end_when_winning_attack" |
+| turn_rule_engine.py | 466 | -1000.0 | penalty | return -1000.0, "turn_rule:avoid_end_when_attack_available" |
+| turn_rule_engine.py | 473 | -1000.0 | penalty | return -1000.0, "turn_rule:avoid_retreat_when_attack_availab |

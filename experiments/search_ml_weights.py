@@ -134,7 +134,9 @@ def evaluate_candidate(
 def rank_candidates(candidates: List[dict]) -> List[dict]:
     """Rank candidates: prefer safe, then best score_per_game_delta."""
     def sort_key(c):
-        unsafe = 1 if c.get("verdict") in ("candidate_unsafe", "eval_failed", "timeout") else 0
+        unsafe = 1 if c.get("verdict") in (
+            "candidate_unsafe", "candidate_safety_regression", "eval_failed", "timeout"
+        ) else 0
         errors = c.get("errors", 999)
         timeouts = c.get("timeouts", 999)
         spg = c.get("score_per_game_delta", 0) or 0

@@ -203,13 +203,21 @@ cd_to = {"errors": 0, "timeouts": 2, "avg_selections": 190, "safety": {}}
 v_to = compute_verdict(bl, cd_to)
 check("Candidate timeouts -> unsafe", v_to["verdict"] == "candidate_unsafe")
 
-# Safety regression
+# Safety regression (baseline > 0)
 bl_safe = {"errors": 0, "timeouts": 0, "score_per_game": 100, "score_available": True,
            "safety": {"zero_damage_attack": 2}}
 cd_regr = {"errors": 0, "timeouts": 0, "score_per_game": 105, "score_available": True,
            "safety": {"zero_damage_attack": 5}}
 v_regr = compute_verdict(bl_safe, cd_regr)
 check("Safety regression verdict", v_regr["verdict"] == "candidate_safety_regression")
+
+# Safety regression (baseline = 0, candidate > 0)
+bl_zero = {"errors": 0, "timeouts": 0, "score_per_game": 100, "score_available": True,
+           "safety": {"zero_damage_attack": 0}}
+cd_new_safety = {"errors": 0, "timeouts": 0, "score_per_game": 105, "score_available": True,
+                 "safety": {"zero_damage_attack": 1}}
+v_new = compute_verdict(bl_zero, cd_new_safety)
+check("Safety regression from 0", v_new["verdict"] == "candidate_safety_regression")
 
 # No score available
 bl_ns = {"errors": 0, "timeouts": 0, "score_available": False, "safety": {}}

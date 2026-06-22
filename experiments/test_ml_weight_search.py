@@ -116,6 +116,14 @@ ranked_ns = rank_candidates(cands_no_score)
 check("No score: safe first", ranked_ns[0]["path"] == "a.json")
 check("eval_failed last", ranked_ns[-1]["path"] == "b.json")
 
+# Safety regression ranked down
+cands_sr = [
+    {"path": "ok.json", "verdict": "candidate_neutral", "errors": 0, "timeouts": 0},
+    {"path": "sr.json", "verdict": "candidate_safety_regression", "errors": 0, "timeouts": 0},
+]
+ranked_sr = rank_candidates(cands_sr)
+check("Safety regression ranked below neutral", ranked_sr[0]["path"] == "ok.json")
+
 # ===================================================================
 print("\n--- build_summary ---")
 

@@ -252,7 +252,7 @@ def compute_verdict(baseline: dict, candidate: dict) -> dict:
         verdict = "candidate_unsafe"
     elif baseline.get("errors", 0) > 0:
         verdict = "baseline_errors"
-    elif c_safety > b_safety > 0:
+    elif c_safety > b_safety:
         verdict = "candidate_safety_regression"
     elif score_available and delta["score_pct"] > 1.0:
         verdict = "candidate_better"

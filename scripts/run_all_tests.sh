@@ -70,4 +70,8 @@ echo "=== Bellibolt ability timing ==="
 python experiments/test_bellibolt_ability_timing.py
 
 echo ""
+echo "=== Params loader ==="
+python experiments/test_params.py
+
+echo ""
 echo "All tests passed."

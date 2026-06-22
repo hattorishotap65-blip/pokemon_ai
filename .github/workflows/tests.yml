@@ -51,3 +51,6 @@ jobs:
 
       - name: Run card metadata tests
         run: python experiments/test_card_metadata.py
+
+      - name: Run damage predictor tests
+        run: python experiments/test_damage_predictor.py

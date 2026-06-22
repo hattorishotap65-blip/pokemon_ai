@@ -50,4 +50,8 @@ echo "=== Card metadata ==="
 python experiments/test_card_metadata.py
 
 echo ""
+echo "=== Damage predictor ==="
+python experiments/test_damage_predictor.py
+
+echo ""
 echo "All tests passed."

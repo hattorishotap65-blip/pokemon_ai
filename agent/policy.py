@@ -435,6 +435,19 @@ class PolicyAgent:
         except Exception:
             pass
 
+        try:
+            from agent.damage_predictor import predict_attack_damage, format_prediction
+            my_active = state.get("active_pokemon", {})
+            pred = predict_attack_damage(my_active, opp, state)
+            if pred["predicted_damage"] == 0 and pred["raw_damage"] > 0:
+                score -= 500.0
+                reason = format_prediction(pred)
+                return score, reason
+            if pred["can_ko"] and pred["predicted_damage"] > 0:
+                damage = max(damage, pred["predicted_damage"])
+        except Exception:
+            pass
+
         if damage > 0 and damage >= opp_hp:
             score += 20.0
             reason = "ko_opponent"

@@ -22,7 +22,11 @@ def _ensure_loaded():
     if _LOADED:
         return
     _LOADED = True
-    for p in (_CONFIG_PATH, "/kaggle_simulations/agent/configs/ml_policy_weights.json"):
+    env_path = os.environ.get("POKEMON_AI_ML_WEIGHTS_PATH")
+    paths = [_CONFIG_PATH, "/kaggle_simulations/agent/configs/ml_policy_weights.json"]
+    if env_path:
+        paths = [env_path] + paths
+    for p in paths:
         try:
             with open(p, encoding="utf-8") as f:
                 data = json.load(f)

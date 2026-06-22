@@ -87,3 +87,6 @@ jobs:
 
       - name: Run ML training tests
         run: python experiments/test_ml_training.py
+
+      - name: Run ML weight evaluation tests
+        run: python experiments/test_ml_weight_evaluation.py

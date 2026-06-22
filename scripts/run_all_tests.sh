@@ -98,4 +98,8 @@ echo "=== ML training ==="
 python experiments/test_ml_training.py
 
 echo ""
+echo "=== ML weight evaluation ==="
+python experiments/test_ml_weight_evaluation.py
+
+echo ""
 echo "All tests passed."

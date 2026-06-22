@@ -54,4 +54,8 @@ echo "=== Damage predictor ==="
 python experiments/test_damage_predictor.py
 
 echo ""
+echo "=== Alternative attacker ==="
+python experiments/test_alternative_attacker.py
+
+echo ""
 echo "All tests passed."

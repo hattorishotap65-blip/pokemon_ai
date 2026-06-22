@@ -151,6 +151,73 @@ def predict_attack_damage(
     return result
 
 
+def _has_attack_energy(candidate: dict) -> bool:
+    """Rough check: candidate has at least 1 energy attached."""
+    return (candidate.get("energy_count", 0) or 0) >= 1
+
+
+def find_alternative_attackers(
+    state: dict, defender: dict,
+) -> List[dict]:
+    """Find bench Pokemon that can damage the defender when active cannot.
+
+    Returns list of candidate dicts sorted by score (highest first).
+    Uses only predicted damage / card properties, not opponent names.
+    """
+    bench = state.get("bench") or []
+    if not isinstance(bench, list):
+        return []
+
+    candidates = []
+    for i, poke in enumerate(bench):
+        if not isinstance(poke, dict) or not poke:
+            continue
+
+        pred = predict_attack_damage(poke, defender, state)
+        if not pred["can_damage"]:
+            continue
+
+        score = 0.0
+        reasons = []
+
+        if pred["can_ko"]:
+            score += 800.0
+            reasons.append("alternative_attacker_can_ko")
+        else:
+            score += 400.0
+            reasons.append("alternative_attacker_can_damage")
+
+        if not poke.get("is_ex", False):
+            score += 100.0
+            reasons.append("non_ex_attacker_preferred")
+
+        if _has_attack_energy(poke):
+            score += 200.0
+            reasons.append("energy_ready")
+        else:
+            score -= 300.0
+            reasons.append("energy_not_ready")
+
+        hp = poke.get("hp_remaining", 0) or 0
+        score += min(hp * 0.5, 100.0)
+
+        candidates.append({
+            "bench_index": i,
+            "card_id": str(poke.get("card_id", "")),
+            "name": poke.get("name", ""),
+            "is_ex": poke.get("is_ex", False),
+            "predicted_damage": pred["predicted_damage"],
+            "can_damage": pred["can_damage"],
+            "can_ko": pred["can_ko"],
+            "energy_ready": _has_attack_energy(poke),
+            "score": score,
+            "reasons": reasons,
+        })
+
+    candidates.sort(key=lambda c: c["score"], reverse=True)
+    return candidates
+
+
 def format_prediction(pred: dict) -> str:
     """Format prediction for log/reason output."""
     parts = [f"predicted_damage={pred['predicted_damage']}"]

@@ -111,10 +111,19 @@ Cached via `_CARD_CACHE`/`_ATTACK_CACHE`. Graceful degradation if cg.api unavail
 30g smoke (post-fix, latest head 1e3df1a): 6.53/g, 0 errors, 0 timeouts,
 safety all 0, 3428ms/game. No regressions.
 
+## Alternative Attacker Selection (PR #91)
+
+`find_alternative_attackers()` in damage_predictor.py: when active attack
+predicts 0 damage, searches bench for candidates that can damage the defender.
+Scores by can_ko > can_damage > non_ex > energy_ready > HP.
+policy.py retreat scored +8/+12 when alternative found, to_active uses
+predicted damage for switch target selection. No opponent-name logic.
+
+30g smoke: 4.83/g, 0 errors, safety all 0, 2991ms/game.
+
 ## Next PR Candidates
 
-1. **Retreat to alternative attacker** — when 0-damage predicted,
-   retreat to non-ex attacker (Voltorb/Kilowattrel) instead of End
+1. **Boss's Orders targeting** — improve target selection
 2. **Bellibolt ability timing** — evaluate whether Bellibolt ability (energy
    acceleration) is used at optimal timing
 3. **Boss's Orders targeting** — improve target selection when playing Boss

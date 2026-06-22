@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from experiments.train_ml_policy import (
     load_examples, group_by_decision, flatten_numeric_features,
     score_features, train_pairwise_ranker, evaluate_ranker,
-    save_weights, load_weights,
+    save_weights, load_weights, get_sample_weight,
 )
 
 PASS = "[PASS]"
@@ -150,6 +150,67 @@ w_none = train_pairwise_ranker(
     epochs=1, lr=0.01,
 )
 check("None features: no crash", isinstance(w_none, dict))
+
+# ===================================================================
+print("\n--- get_sample_weight ---")
+
+check("win -> 1.0", get_sample_weight({"outcome": {"outcome_weight": 1.0}}) == 1.0)
+check("loss -> 0.3", get_sample_weight({"outcome": {"outcome_weight": -1.0}}) == 0.3)
+check("draw -> 0.5", get_sample_weight({"outcome": {"outcome_weight": 0.0}}) == 0.5)
+check("unknown -> 0.7", get_sample_weight({"outcome": {"outcome_weight": None}}) == 0.7)
+check("no outcome -> 0.7", get_sample_weight({}) == 0.7)
+check("no outcome key -> 0.7", get_sample_weight({"outcome": {}}) == 0.7)
+
+# ===================================================================
+print("\n--- deck_id one-hot ---")
+
+ff_deck = flatten_numeric_features({"x": 1}, {"deck_id": "ionos_kilowattrel", "opponent_deck_id": "unknown"})
+check("deck_id one-hot", ff_deck.get("deck_id=ionos_kilowattrel") == 1.0)
+check("opponent_deck_id one-hot", ff_deck.get("opponent_deck_id=unknown") == 1.0)
+check("numeric preserved with extra", ff_deck.get("x") == 1.0)
+
+# ===================================================================
+print("\n--- outcome-weighted training ---")
+
+ow_data = [
+    {"decision_id": "w1", "selected": True, "features": {"x": 10, "y": 1},
+     "outcome": {"outcome_weight": 1.0}},
+    {"decision_id": "w1", "selected": False, "features": {"x": 2, "y": 5}},
+    {"decision_id": "l1", "selected": True, "features": {"x": 8, "y": 0},
+     "outcome": {"outcome_weight": -1.0}},
+    {"decision_id": "l1", "selected": False, "features": {"x": 1, "y": 3}},
+]
+ow_groups = group_by_decision(ow_data)
+w_ow = train_pairwise_ranker(ow_groups, epochs=3, lr=0.05, seed=42, use_outcome_weighting=True)
+check("OW training: weights not empty", len(w_ow) > 0)
+
+w_no_ow = train_pairwise_ranker(ow_groups, epochs=3, lr=0.05, seed=42, use_outcome_weighting=False)
+check("No OW training: weights not empty", len(w_no_ow) > 0)
+
+# ===================================================================
+print("\n--- evaluate with weighted metrics ---")
+
+m_ow = evaluate_ranker(ow_groups, w_ow)
+check("Has weighted_top1_accuracy", "weighted_top1_accuracy" in m_ow)
+check("Has win_weighted_decisions", "win_weighted_decisions" in m_ow)
+check("Has loss_weighted_decisions", "loss_weighted_decisions" in m_ow)
+check("Has unknown_outcome_decisions", "unknown_outcome_decisions" in m_ow)
+check("win_decisions count", m_ow["win_weighted_decisions"] == 1)
+check("loss_decisions count", m_ow["loss_weighted_decisions"] == 1)
+
+# ===================================================================
+print("\n--- save with training_config ---")
+
+with tempfile.TemporaryDirectory() as td:
+    path = os.path.join(td, "ow.json")
+    tc = {"epochs": 5, "lr": 0.01, "use_outcome_weighting": True,
+          "sample_weighting": "win=1.0,loss=0.3,draw=0.5,unknown=0.7"}
+    save_weights(path, {"a": 0.5}, {"top1_accuracy": 0.9}, tc)
+    loaded = load_weights(path)
+    check("enabled=False", loaded["enabled"] == False)
+    check("mode=outcome_weighted_offline", loaded["mode"] == "outcome_weighted_offline")
+    check("training_config present", "training_config" in loaded)
+    check("output valid JSON", isinstance(json.dumps(loaded), str))
 
 # ===================================================================
 print(f"\n{'='*50}")

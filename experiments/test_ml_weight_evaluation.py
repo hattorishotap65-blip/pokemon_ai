@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from experiments.evaluate_ml_weights import (
     parse_match_output, make_eval_env, prepare_eval_weights,
-    cleanup_eval_weights, compute_verdict, save_result,
+    cleanup_eval_weights, compute_verdict, save_result, to_wsl_path,
 )
 
 PASS = "[PASS]"
@@ -130,6 +130,13 @@ with tempfile.TemporaryDirectory() as td:
     check("Has baseline", "baseline" in loaded)
     check("Has candidate", "candidate" in loaded)
     check("Has verdict", loaded["verdict"] == "candidate_ok")
+
+# ===================================================================
+print("\n--- to_wsl_path ---")
+
+check("C:\\ -> /mnt/c/", to_wsl_path("C:\\Users\\test\\w.json") == "/mnt/c/Users/test/w.json")
+check("c:\\ -> /mnt/c/", to_wsl_path("c:\\Users\\test\\w.json") == "/mnt/c/Users/test/w.json")
+check("D:\\ -> /mnt/d/", to_wsl_path("D:\\data\\file") == "/mnt/d/data/file")
 
 # ===================================================================
 print("\n--- configs not modified ---")

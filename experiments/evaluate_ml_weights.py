@@ -23,6 +23,16 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, _REPO_ROOT)
 
 
+def to_wsl_path(path: str) -> str:
+    """Convert Windows absolute path to WSL /mnt/ path."""
+    p = os.path.abspath(path)
+    if len(p) >= 2 and p[1] == ":":
+        drive = p[0].lower()
+        rest = p[2:].replace("\\", "/")
+        return f"/mnt/{drive}{rest}"
+    return p.replace("\\", "/")
+
+
 def parse_match_output(stdout: str) -> dict:
     """Parse run_matches_real.py stdout for key metrics."""
     result = {"games": 0, "errors": 0, "timeouts": 0, "avg_ms": 0, "avg_selections": 0}
@@ -83,14 +93,14 @@ def run_games(n: int, start_game: int, env: dict, use_wsl: bool,
               timeout: int = 900) -> dict:
     """Run games and return parsed results."""
     if use_wsl:
-        wsl_root = f"/mnt/c{_REPO_ROOT[2:].replace(os.sep, '/')}"
+        wsl_root = to_wsl_path(_REPO_ROOT)
         env_exports = ""
         for k in ("POKEMON_AI_POLICY_MODE", "POKEMON_AI_ML_WEIGHTS_PATH"):
             if k in env:
                 v = env[k]
-                if k == "POKEMON_AI_ML_WEIGHTS_PATH" and v.startswith("c:"):
-                    v = f"/mnt/c{v[2:].replace(os.sep, '/')}"
-                env_exports += f"export {k}={v} && "
+                if k == "POKEMON_AI_ML_WEIGHTS_PATH":
+                    v = to_wsl_path(v)
+                env_exports += f"export {k}='{v}' && "
         cmd = (
             f'wsl -d Ubuntu -e bash -c "'
             f'{env_exports}'

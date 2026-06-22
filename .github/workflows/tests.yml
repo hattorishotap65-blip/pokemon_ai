@@ -63,3 +63,6 @@ jobs:
 
       - name: Run energy readiness tests
         run: python experiments/test_energy_readiness.py
+
+      - name: Run bellibolt ability timing tests
+        run: python experiments/test_bellibolt_ability_timing.py

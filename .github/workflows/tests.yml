@@ -60,3 +60,6 @@ jobs:
 
       - name: Run boss targeting tests
         run: python experiments/test_boss_targeting.py
+
+      - name: Run energy readiness tests
+        run: python experiments/test_energy_readiness.py

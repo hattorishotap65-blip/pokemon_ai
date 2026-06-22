@@ -151,9 +151,28 @@ def predict_attack_damage(
     return result
 
 
+def _min_attack_cost(candidate: dict) -> int:
+    """Return minimum energy cost across all attacks, or -1 if unknown."""
+    attacks = candidate.get("attacks") or []
+    if not attacks:
+        return -1
+    costs = []
+    for atk in attacks:
+        if "energies" not in atk:
+            continue
+        energies = atk["energies"]
+        if isinstance(energies, list):
+            costs.append(len(energies))
+    return min(costs) if costs else -1
+
+
 def _has_attack_energy(candidate: dict) -> bool:
-    """Rough check: candidate has at least 1 energy attached."""
-    return (candidate.get("energy_count", 0) or 0) >= 1
+    """Check if candidate has enough energy to use at least one attack."""
+    energy = candidate.get("energy_count", 0) or 0
+    cost = _min_attack_cost(candidate)
+    if cost < 0:
+        return energy >= 1
+    return energy >= cost
 
 
 def find_alternative_attackers(

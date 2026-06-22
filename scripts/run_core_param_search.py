@@ -86,26 +86,30 @@ def write_temp_config(candidate: dict, path: str):
 
 
 def run_evaluation(games: int, start_game: int, use_wsl: bool) -> dict:
-    """Run simulation and return metrics."""
-    if use_wsl:
-        wsl_root = f"/mnt/c{_REPO_ROOT[2:].replace(os.sep, '/')}"
-        cmd = (
-            f'wsl -d Ubuntu -e bash -c '
-            f'"cd {wsl_root} && '
-            f'PYTHONPATH={wsl_root}/reference/extracted '
-            f'python3 experiments/run_matches_real.py --n {games} --start-game {start_game}"'
-        )
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600)
-    else:
-        env = os.environ.copy()
-        env["PYTHONPATH"] = os.path.join(_REPO_ROOT, "reference", "extracted")
-        result = subprocess.run(
-            [sys.executable, "experiments/run_matches_real.py",
-             "--n", str(games), "--start-game", str(start_game)],
-            cwd=_REPO_ROOT, capture_output=True, text=True, timeout=600, env=env,
-        )
-
+    """Run simulation and return metrics. Handles timeout gracefully."""
     metrics = {"games": games, "errors": 0, "timeouts": 0}
+    try:
+        if use_wsl:
+            wsl_root = f"/mnt/c{_REPO_ROOT[2:].replace(os.sep, '/')}"
+            cmd = (
+                f'wsl -d Ubuntu -e bash -c '
+                f'"cd {wsl_root} && '
+                f'PYTHONPATH={wsl_root}/reference/extracted '
+                f'python3 experiments/run_matches_real.py --n {games} --start-game {start_game}"'
+            )
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600)
+        else:
+            env = os.environ.copy()
+            env["PYTHONPATH"] = os.path.join(_REPO_ROOT, "reference", "extracted")
+            result = subprocess.run(
+                [sys.executable, "experiments/run_matches_real.py",
+                 "--n", str(games), "--start-game", str(start_game)],
+                cwd=_REPO_ROOT, capture_output=True, text=True, timeout=600, env=env,
+            )
+    except subprocess.TimeoutExpired:
+        print("  WARNING: simulation timed out, skipping candidate")
+        metrics["timeouts"] = games
+        return metrics
     for line in (result.stdout or "").split("\n"):
         if "Errors" in line:
             try:
@@ -224,6 +228,14 @@ def main():
             write_temp_config(c, _DEFAULT)
 
             metrics = run_evaluation(args.games, game_cursor, args.use_wsl)
+            if metrics.get("timeouts", 0) == args.games:
+                c.update(metrics)
+                c["anomalies_per_game"] = "-"
+                results.append(c)
+                print(f"  SKIPPED (timeout)")
+                game_cursor += args.games
+                continue
+
             anomalies = run_anomaly_detection(game_cursor, args.games)
 
             c.update(metrics)
@@ -236,21 +248,23 @@ def main():
             game_cursor += args.games
     finally:
         shutil.copy(backup_path, _DEFAULT)
-        os.remove(backup_path)
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
         print(f"\ndefault_params.json restored.")
 
-    results_dir = os.path.join(_REPO_ROOT, "experiments", "results")
-    os.makedirs(results_dir, exist_ok=True)
+        results_dir = os.path.join(_REPO_ROOT, "experiments", "results")
+        os.makedirs(results_dir, exist_ok=True)
 
-    csv_path = os.path.join(results_dir, "core_param_search.csv")
-    with open(csv_path, "w", encoding="utf-8") as f:
-        f.write(format_csv(results))
-    print(f"CSV: {csv_path}")
+        if results:
+            csv_path = os.path.join(results_dir, "core_param_search.csv")
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write(format_csv(results))
+            print(f"CSV: {csv_path}")
 
-    md_path = os.path.join(_REPO_ROOT, "docs", "core_param_search_report.md")
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(format_markdown(results))
-    print(f"Report: {md_path}")
+            md_path = os.path.join(_REPO_ROOT, "docs", "core_param_search_report.md")
+            with open(md_path, "w", encoding="utf-8") as f:
+                f.write(format_markdown(results))
+            print(f"Report: {md_path}")
 
 
 if __name__ == "__main__":

@@ -100,11 +100,21 @@ All active/bench Pokemon (own + opponent) get enriched with:
 name, is_ex, is_basic, stage, weakness, resistance, attacks, abilities, retreat_cost.
 Cached via `_CARD_CACHE`/`_ATTACK_CACHE`. Graceful degradation if cg.api unavailable.
 
+## Damage Predictor (PR #90)
+
+`agent/damage_predictor.py`: predicts attack damage before attacking.
+- `prevent_damage_from_ex` detection via ability text keywords
+- Weakness (x2) and resistance (-30) applied
+- Iono deck card-specific damage via effect_engine fallback
+- `policy.py._score_attack` penalizes 0-damage attacks by -500
+
+30g smoke (post-fix, latest head 1e3df1a): 6.53/g, 0 errors, 0 timeouts,
+safety all 0, 3428ms/game. No regressions.
+
 ## Next PR Candidates
 
-1. **damage_predictor.py** — predict attack damage before attacking,
-   using weakness/resistance/abilities. Prevent 0-damage attacks (e.g.
-   Bellibolt ex vs Crustle with prevent-damage-from-ex).
+1. **Retreat to alternative attacker** — when 0-damage predicted,
+   retreat to non-ex attacker (Voltorb/Kilowattrel) instead of End
 2. **Bellibolt ability timing** — evaluate whether Bellibolt ability (energy
    acceleration) is used at optimal timing
 3. **Boss's Orders targeting** — improve target selection when playing Boss

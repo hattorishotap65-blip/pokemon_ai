@@ -54,3 +54,6 @@ jobs:
 
       - name: Run damage predictor tests
         run: python experiments/test_damage_predictor.py
+
+      - name: Run alternative attacker tests
+        run: python experiments/test_alternative_attacker.py

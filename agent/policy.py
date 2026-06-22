@@ -702,6 +702,27 @@ class PolicyAgent:
         if plan is not None and plan.has_plan and plan.need_switch:
             return 7.0, "retreat_for_plan"
 
+        try:
+            from agent.damage_predictor import predict_attack_damage, find_alternative_attackers
+            my_active = state.get("active_pokemon", {})
+            opp_active = state.get("opponent", {}).get("active_pokemon", {})
+            pred = predict_attack_damage(my_active, opp_active, state)
+            if pred["predicted_damage"] == 0 and pred["raw_damage"] > 0:
+                alts = find_alternative_attackers(state, opp_active)
+                if alts:
+                    best = alts[0]
+                    score = 8.0
+                    if best["can_ko"]:
+                        score = 12.0
+                    if not best.get("energy_ready", False):
+                        score *= 0.5
+                    reason = "retreat_to_alternative_attacker_after_zero_damage_prediction"
+                    if best["can_ko"]:
+                        reason = "retreat_to_candidate_can_ko"
+                    return score, reason
+        except Exception:
+            pass
+
         if self.evaluator.is_active_in_danger(state):
             hp = state.get("active_pokemon", {}).get("hp_remaining", 9999)
             if hp < 30:
@@ -918,7 +939,27 @@ class PolicyAgent:
         # use attack_score as a proxy for readiness
         score += float(self.knowledge.attack_score(cid)) * 0.3
 
-        # Penalise if it's a setup Pokemon (don't want it getting KO'd)
+        try:
+            from agent.damage_predictor import predict_attack_damage
+            opp_active = state.get("opponent", {}).get("active_pokemon", {})
+            area = action.get("area")
+            idx = action.get("index")
+            candidate = {}
+            if area == 5 and idx is not None:
+                b = state.get("bench", [])
+                if idx < len(b):
+                    candidate = b[idx]
+            if candidate:
+                pred = predict_attack_damage(candidate, opp_active, state)
+                if pred["can_ko"]:
+                    score += 15.0
+                elif pred["can_damage"]:
+                    score += 5.0
+                if pred["predicted_damage"] == 0 and pred["raw_damage"] > 0:
+                    score -= 10.0
+        except Exception:
+            pass
+
         if role in ("evolution_base", "basic_setup"):
             score = 1.5
 

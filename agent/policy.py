@@ -273,8 +273,8 @@ class PolicyAgent:
 
         attack_plan_bonus = 0.0
         try:
-            from agent.attack_plan import select_top_plans, plan_matches_action
-            top_plans = select_top_plans(state, limit=3)
+            from agent.attack_plan import get_cached_top_plans, plan_matches_action
+            top_plans = get_cached_top_plans(state, limit=3)
             for tp in top_plans:
                 b = plan_matches_action(tp, action, state)
                 if b > attack_plan_bonus:

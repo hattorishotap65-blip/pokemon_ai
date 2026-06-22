@@ -109,6 +109,34 @@ def _extract_from_logs(start_game: int, count: int, output: str,
     return total
 
 
+def _read_game_outcome(log_path: str) -> dict:
+    """Read game-level outcome from the last entries of a log file."""
+    from agent.ml_training_logger import compute_outcome_weight
+    outcome = {
+        "deck_name": "unknown", "result": "", "prizes_taken": None,
+        "turn_count": None,
+    }
+    try:
+        with open(log_path, encoding="utf-8") as f:
+            last_entry = None
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        last_entry = json.loads(line)
+                    except Exception:
+                        pass
+            if last_entry:
+                outcome["deck_name"] = last_entry.get("deck_name", "unknown") or "unknown"
+                outcome["result"] = last_entry.get("result") or ""
+                outcome["prizes_taken"] = last_entry.get("prizes_taken")
+                outcome["turn_count"] = last_entry.get("game_turn")
+    except Exception:
+        pass
+    outcome["outcome_weight"] = compute_outcome_weight(outcome["result"])
+    return outcome
+
+
 def _extract_from_real_logs(start_game: int, count: int, output: str,
                            max_examples: int, include_unselected: bool) -> int:
     """Extract training data from real game logs (top_candidates format)."""
@@ -122,6 +150,8 @@ def _extract_from_real_logs(start_game: int, count: int, output: str,
         log_path = os.path.join(logs_dir, f"game_g{gid:05d}.jsonl")
         if not os.path.exists(log_path):
             continue
+
+        game_outcome = _read_game_outcome(log_path)
 
         with open(log_path, encoding="utf-8") as f:
             for line_no, line in enumerate(f):
@@ -191,11 +221,20 @@ def _extract_from_real_logs(start_game: int, count: int, output: str,
                     score = cand.get("final_score", 0.0)
                     reason = cand.get("reason", "")
 
+                    from agent.ml_training_logger import infer_opponent_deck_id
+                    opp_deck = infer_opponent_deck_id(state)
+
                     ex = make_training_example(
                         state=state, action=action, selected=is_selected,
                         score=score, reason=reason, breakdown=breakdown,
                         features=features, game_id=gid,
                         decision_id=decision_id, candidate_index=ci,
+                        deck_id=game_outcome["deck_name"],
+                        opponent_deck_id=opp_deck,
+                        game_result=game_outcome["result"],
+                        prizes_taken=game_outcome["prizes_taken"],
+                        turn_count=game_outcome["turn_count"],
+                        outcome_weight=game_outcome["outcome_weight"],
                     )
                     append_jsonl(output, ex)
                     total += 1

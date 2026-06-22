@@ -25,7 +25,13 @@ sys.path.insert(0, _REPO_ROOT)
 
 def to_wsl_path(path: str) -> str:
     """Convert Windows absolute path to WSL /mnt/ path."""
-    p = os.path.abspath(path)
+    import re
+    raw = str(path)
+    if re.match(r"^[A-Za-z]:[\\/]", raw):
+        drive = raw[0].lower()
+        rest = raw[2:].replace("\\", "/")
+        return f"/mnt/{drive}{rest}"
+    p = os.path.abspath(raw)
     if len(p) >= 2 and p[1] == ":":
         drive = p[0].lower()
         rest = p[2:].replace("\\", "/")

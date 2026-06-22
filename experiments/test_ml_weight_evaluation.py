@@ -134,9 +134,14 @@ with tempfile.TemporaryDirectory() as td:
 # ===================================================================
 print("\n--- to_wsl_path ---")
 
-check("C:\\ -> /mnt/c/", to_wsl_path("C:\\Users\\test\\w.json") == "/mnt/c/Users/test/w.json")
-check("c:\\ -> /mnt/c/", to_wsl_path("c:\\Users\\test\\w.json") == "/mnt/c/Users/test/w.json")
-check("D:\\ -> /mnt/d/", to_wsl_path("D:\\data\\file") == "/mnt/d/data/file")
+r1 = to_wsl_path("C:\\Users\\test\\w.json")
+check("C:\\ -> /mnt/c/", r1 == "/mnt/c/Users/test/w.json")
+r2 = to_wsl_path("c:\\Users\\test\\w.json")
+check("c:\\ -> /mnt/c/", r2 == "/mnt/c/Users/test/w.json")
+r3 = to_wsl_path("D:\\data\\file")
+check("D:\\ -> /mnt/d/", r3 == "/mnt/d/data/file")
+r4 = to_wsl_path("C:/forward/slash")
+check("C:/ -> /mnt/c/", r4 == "/mnt/c/forward/slash")
 
 # ===================================================================
 print("\n--- configs not modified ---")

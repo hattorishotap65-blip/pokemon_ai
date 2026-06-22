@@ -161,11 +161,12 @@ def get_end_options(select: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def get_own_player(state: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Get own player dict. Works with both players[] and normalized state."""
     if not isinstance(state, dict):
         return {}
 
     players = state.get("players") or []
-    your_index = state.get("yourIndex", 0)
+    your_index = state.get("yourIndex", state.get("your_index", 0))
 
     try:
         your_index = int(your_index)
@@ -177,10 +178,24 @@ def get_own_player(state: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         if isinstance(player, dict):
             return player
 
+    # Normalized state format: active_pokemon/bench at top level
+    if state.get("active_pokemon") is not None or state.get("bench") is not None:
+        return state
+
     return {}
 
 
 def get_own_active(state: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Get own active Pokemon. Works with both formats."""
+    if not isinstance(state, dict):
+        return None
+
+    # Normalized state: active_pokemon at top level
+    ap = state.get("active_pokemon")
+    if isinstance(ap, dict) and ap:
+        return ap
+
+    # Players format
     player = get_own_player(state)
     active = player.get("active") or []
 
@@ -195,11 +210,25 @@ def get_own_active(state: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
 
 
 def get_own_bench(state: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    player = get_own_player(state)
-    bench = player.get("bench") or []
-    if not isinstance(bench, list):
+    """Get own bench. Works with both formats."""
+    if not isinstance(state, dict):
         return []
-    return [c for c in bench if isinstance(c, dict)]
+
+    # Normalized state: bench at top level
+    bench = state.get("bench") or []
+    if isinstance(bench, list) and bench:
+        if isinstance(bench[0], dict):
+            return [c for c in bench if isinstance(c, dict)]
+
+    # Players format
+    player = get_own_player(state)
+    if player is not state:
+        bench = player.get("bench") or []
+        if not isinstance(bench, list):
+            return []
+        return [c for c in bench if isinstance(c, dict)]
+
+    return []
 
 
 def own_active_and_bench(state: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -221,9 +250,28 @@ def get_card_id(card: Any) -> Optional[int]:
         return None
 
 
+_CARD_NAME_CACHE: Dict[str, str] = {}
+
+def _lookup_card_name(card_id: str) -> str:
+    if card_id in _CARD_NAME_CACHE:
+        return _CARD_NAME_CACHE[card_id]
+    try:
+        from cg.api import all_card_data
+        for c in all_card_data():
+            _CARD_NAME_CACHE[str(c.id)] = c.name or ""
+        return _CARD_NAME_CACHE.get(card_id, "")
+    except Exception:
+        return ""
+
+
 def get_card_name(card: Any) -> str:
     if isinstance(card, dict):
-        return str(card.get("name") or card.get("card_name") or "")
+        name = str(card.get("name") or card.get("card_name") or "")
+        if name:
+            return name
+        cid = str(card.get("card_id") or card.get("id") or "")
+        if cid:
+            return _lookup_card_name(cid)
     return ""
 
 

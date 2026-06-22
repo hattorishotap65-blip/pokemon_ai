@@ -358,6 +358,57 @@ atk_normal, _ = rule_score_option(ATK_OPT, STATE_WITH_BENCH, SELECT_WITH_ATTACK)
 check(f"Normal attack still scores +{_expected_attack_score}", atk_normal == _expected_attack_score)
 
 # ---------------------------------------------------------------------------
+# Normalized state format (from main.py _board_to_state)
+# ---------------------------------------------------------------------------
+print("\n--- normalized state format ---")
+
+from agent.turn_rule_engine import get_own_active, get_own_bench
+
+# Normalized state: active_pokemon and bench at top level, no players[]
+NORM_STATE = {
+    "active_pokemon": {"card_id": "265", "hp_remaining": 70, "energy_count": 1,
+                       "energies": ["Lightning"], "energy_cards": ["4"]},
+    "bench": [
+        {"card_id": "268", "hp_remaining": 80, "energy_count": 0},
+    ],
+    "prizes_remaining": 4,
+    "opponent": {
+        "prizes_remaining": 4,
+        "active_pokemon": {"card_id": "999", "hp_remaining": 100},
+        "bench": [],
+    },
+}
+
+active_n = get_own_active(NORM_STATE)
+check("Normalized: get_own_active returns active", active_n is not None)
+check("Normalized: active card_id correct", active_n.get("card_id") == "265")
+
+bench_n = get_own_bench(NORM_STATE)
+check("Normalized: get_own_bench returns bench", len(bench_n) == 1)
+check("Normalized: bench card_id correct", bench_n[0].get("card_id") == "268")
+
+# Empty bench in normalized format
+NORM_EMPTY_BENCH = {
+    "active_pokemon": {"card_id": "265", "hp_remaining": 70},
+    "bench": [],
+    "prizes_remaining": 4,
+    "opponent": {"prizes_remaining": 4, "active_pokemon": {"card_id": "999", "hp_remaining": 100}},
+}
+SELECT_PLAY_ATK = {"option": [{"type": 13, "attackId": "a1"}, {"type": 7, "index": 0}, {"type": 14}]}
+
+atk_norm_eb, atk_norm_eb_r = rule_score_option(ATK_OPT, NORM_EMPTY_BENCH, SELECT_PLAY_ATK)
+check("Normalized empty bench: attack penalized", atk_norm_eb < 0)
+check("Normalized empty bench: reason", "empty_bench" in atk_norm_eb_r)
+
+# Normalized state with bench present: attack should work normally
+atk_norm_wb, _ = rule_score_option(ATK_OPT, NORM_STATE, SELECT_WITH_ATTACK)
+check(f"Normalized with bench: attack at +{_expected_attack_score}", atk_norm_wb == _expected_attack_score)
+
+# Players format still works
+atk_players, _ = rule_score_option(ATK_OPT, STATE_WITH_BENCH, SELECT_WITH_ATTACK)
+check(f"Players format: attack still +{_expected_attack_score}", atk_players == _expected_attack_score)
+
+# ---------------------------------------------------------------------------
 print(f"\n{'='*50}")
 print(f"  Passed: {_total - _failures}/{_total}")
 if _failures == 0:

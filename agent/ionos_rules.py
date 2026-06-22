@@ -82,6 +82,9 @@ IONO_POKEMON_IDS  = frozenset({_VOLTORB, _TADBULB, _BELLIBOLT_EX, _WATTREL, _KIL
 IONO_BASIC_IDS    = frozenset({_VOLTORB, _TADBULB, _WATTREL})
 SETUP_SUPPORT_IDS = frozenset({_BUDDYS_POFFIN, _ULTRA_BALL, _LILLIES, _CANARI, _LEVINCIA})
 
+_LOW_HP_BASICS = {_VOLTORB: 70, _TADBULB: 80, _WATTREL: 60}
+_SPREAD_THREAT_NAMES = {"dragapult", "greninja", "incineroar"}  # lowercase substrings
+
 _AREA_ACTIVE = 4
 _AREA_BENCH  = 5
 
@@ -500,19 +503,53 @@ def _score_poffin_bench(cid: str, state: dict) -> tuple:
         if tadbulb_cnt == 1: return 55.0, "poffin_second_tadbulb"
         return 10.0, "poffin_extra_tadbulb"
 
+    liability = _bench_low_hp_liability(cid, state)
+
     if cid == _VOLTORB:
         if voltorb_cnt == 0: return 150.0, "poffin_first_voltorb"
-        if voltorb_cnt == 1: return  45.0, "poffin_second_voltorb"
-        return 10.0, "poffin_extra_voltorb"
+        if voltorb_cnt == 1: return 45.0 + liability, "poffin_second_voltorb"
+        return 10.0 + liability, "poffin_extra_voltorb"
 
     if cid == _WATTREL:
         if wattrel_cnt == 0:
             return (140.0, "poffin_first_wattrel_with_kilowattrel") if has_kilowattrel_hand \
                 else (110.0, "poffin_first_wattrel")
-        if wattrel_cnt == 1: return 35.0, "poffin_second_wattrel"
-        return 10.0, "poffin_extra_wattrel"
+        if wattrel_cnt == 1: return 35.0 + liability, "poffin_second_wattrel"
+        return 10.0 + liability, "poffin_extra_wattrel"
 
     return 0.0, ""
+
+
+def _opp_has_spread_threat(state: dict) -> bool:
+    """True if opponent's active or bench suggests spread/bench damage."""
+    opp = state.get("opponent", {})
+    opp_active = opp.get("active_pokemon", {})
+    name = str(opp_active.get("name") or opp_active.get("card_name") or "").lower()
+    for threat in _SPREAD_THREAT_NAMES:
+        if threat in name:
+            return True
+    for b in (opp.get("bench") or []):
+        bname = str(b.get("name") or b.get("card_name") or "").lower()
+        for threat in _SPREAD_THREAT_NAMES:
+            if threat in bname:
+                return True
+    return False
+
+
+def _bench_low_hp_liability(cid: str, state: dict) -> float:
+    """Penalty for adding a low-HP basic when bench already has copies."""
+    if cid not in _LOW_HP_BASICS:
+        return 0.0
+    bench_count = _bench_size(state)
+    if bench_count == 0:
+        return 0.0
+    existing = _count_own(state, cid)
+    if existing == 0:
+        return 0.0
+    penalty = -15.0 * existing
+    if _opp_has_spread_threat(state):
+        penalty -= 20.0
+    return penalty
 
 
 def _score_play_iono_basic(cid: str, state: dict) -> tuple:
@@ -540,10 +577,11 @@ def _score_play_iono_basic(cid: str, state: dict) -> tuple:
     if cid == _TADBULB and tadbulb_cnt == 0: return 100.0, "play_missing_tadbulb"
     if cid == _VOLTORB and voltorb_cnt == 0: return  95.0, "play_missing_voltorb"
     if cid == _WATTREL and wattrel_cnt == 0: return  80.0, "play_missing_wattrel"
-    if cid == _TADBULB and tadbulb_cnt == 1: return  35.0, "play_second_tadbulb"
-    if cid == _VOLTORB and voltorb_cnt == 1: return  35.0, "play_second_voltorb"
-    if cid == _WATTREL and wattrel_cnt == 1: return  25.0, "play_second_wattrel"
-    return 5.0, "play_extra_iono_basic"
+    liability = _bench_low_hp_liability(cid, state)
+    if cid == _TADBULB and tadbulb_cnt == 1: return 35.0 + liability, "play_second_tadbulb"
+    if cid == _VOLTORB and voltorb_cnt == 1: return 35.0 + liability, "play_second_voltorb"
+    if cid == _WATTREL and wattrel_cnt == 1: return 25.0 + liability, "play_second_wattrel"
+    return 5.0 + liability, "play_extra_iono_basic"
 
 
 def _score_setup_support_use(cid: str, state: dict) -> tuple:

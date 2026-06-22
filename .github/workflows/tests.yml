@@ -45,3 +45,6 @@ jobs:
 
       - name: Run auto tune runner tests
         run: python experiments/test_auto_tune_runner.py
+
+      - name: Run bench liability tests
+        run: python experiments/test_bench_liability.py

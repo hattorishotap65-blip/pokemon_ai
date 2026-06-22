@@ -42,4 +42,8 @@ echo "=== Auto tune runner ==="
 python experiments/test_auto_tune_runner.py
 
 echo ""
+echo "=== Bench liability ==="
+python experiments/test_bench_liability.py
+
+echo ""
 echo "All tests passed."

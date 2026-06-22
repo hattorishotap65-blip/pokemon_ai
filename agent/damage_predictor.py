@@ -14,28 +14,30 @@ Usage:
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
-_PREVENT_EX_KEYWORDS = [
-    "from pokémon ex",
-    "from pokemon ex",
-    "prevent all damage",
-    "prevent that damage",
-    "takes no damage",
-    "no damage",
+_EX_REFERENCES = ["pokémon ex", "pokemon ex"]
+_DAMAGE_PREVENTION_PHRASES = [
+    "prevent that damage", "prevent all damage",
+    "takes no damage", "no damage", "damage from attacks",
 ]
 
 _RESISTANCE_VALUE = 30
 
 
 def _detect_prevent_damage_from_ex(defender: dict) -> bool:
-    """Check if defender has an ability/effect that prevents damage from ex."""
+    """Check if defender has an ability/effect that prevents damage from ex.
+
+    Requires BOTH an ex reference AND a damage prevention phrase in the same text.
+    """
+    texts = []
     for ability in (defender.get("abilities") or []):
-        text = (ability.get("text") or "").lower()
-        for kw in _PREVENT_EX_KEYWORDS:
-            if kw in text:
-                return True
+        texts.append((ability.get("text") or "").lower())
     for attack in (defender.get("attacks") or []):
-        text = (attack.get("text") or "").lower()
-        if "prevent all damage" in text or "takes no damage" in text:
+        texts.append((attack.get("text") or "").lower())
+
+    for text in texts:
+        has_ex_ref = any(ref in text for ref in _EX_REFERENCES)
+        has_prevention = any(phrase in text for phrase in _DAMAGE_PREVENTION_PHRASES)
+        if has_ex_ref and has_prevention:
             return True
     return False
 

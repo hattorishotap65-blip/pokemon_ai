@@ -438,7 +438,13 @@ class PolicyAgent:
         try:
             from agent.damage_predictor import predict_attack_damage, format_prediction
             my_active = state.get("active_pokemon", {})
-            pred = predict_attack_damage(my_active, opp, state)
+            matched_attack = None
+            if attack_id is not None:
+                for atk in (my_active.get("attacks") or []):
+                    if atk.get("attack_id") == attack_id:
+                        matched_attack = atk
+                        break
+            pred = predict_attack_damage(my_active, opp, state, attack=matched_attack)
             if pred["predicted_damage"] == 0 and pred["raw_damage"] > 0:
                 score -= 500.0
                 reason = format_prediction(pred)

@@ -148,6 +148,53 @@ check("None defender: safe", predict_attack_damage(BELLIBOLT_EX, None, STATE)["p
 check("Empty dicts: safe", predict_attack_damage({}, {}, {})["predicted_damage"] == 0)
 
 # ===================================================================
+print("\n--- prevent_ex detection strictness ---")
+
+# "no damage" without ex reference should NOT trigger prevent_damage_from_ex
+GENERIC_NO_DMG = {
+    "card_id": "555", "name": "Shield Mon", "is_ex": False,
+    "hp_remaining": 100, "abilities": [
+        {"name": "Shield", "text": "Prevent all damage done to this Pokemon during your opponent's next turn."}
+    ], "attacks": [],
+}
+check("Generic 'prevent all damage' without ex: no prevent_ex",
+      not _detect_prevent_damage_from_ex(GENERIC_NO_DMG))
+
+pred_no_ex_ref = predict_attack_damage(BELLIBOLT_EX, GENERIC_NO_DMG, STATE)
+check("BB ex vs generic prevent: damage NOT prevented", not pred_no_ex_ref["damage_prevented"])
+
+# Both ex reference AND prevention phrase: should trigger
+PROPER_PREVENT_EX = {
+    "card_id": "556", "name": "Anti-Ex Mon", "is_ex": False,
+    "hp_remaining": 100, "abilities": [
+        {"name": "Shell", "text": "If this Pokemon would be damaged by an attack from your opponent's Pokemon ex, prevent that damage."}
+    ], "attacks": [],
+}
+check("Proper prevent_ex text: detected", _detect_prevent_damage_from_ex(PROPER_PREVENT_EX))
+
+# ===================================================================
+print("\n--- specific attack matching ---")
+
+MULTI_ATTACK_MON = {
+    "card_id": "300", "name": "Multi", "is_ex": False,
+    "energy_type": "Fire", "hp_remaining": 100,
+    "attacks": [
+        {"attack_id": 10, "name": "Weak Hit", "damage": 20, "text": "", "energies": []},
+        {"attack_id": 11, "name": "Strong Hit", "damage": 100, "text": "", "energies": []},
+    ],
+    "abilities": [],
+}
+
+# Use specific attack
+pred_weak = predict_attack_damage(MULTI_ATTACK_MON, GENERIC_OPP, STATE,
+                                   attack=MULTI_ATTACK_MON["attacks"][0])
+check("Specific attack (Weak Hit): damage=20", pred_weak["raw_damage"] == 20)
+
+pred_strong = predict_attack_damage(MULTI_ATTACK_MON, GENERIC_OPP, STATE,
+                                     attack=MULTI_ATTACK_MON["attacks"][1])
+check("Specific attack (Strong Hit): damage=100", pred_strong["raw_damage"] == 100)
+
+# ===================================================================
 print(f"\n{'='*50}")
 print(f"  Passed: {_total - _failures}/{_total}")
 if _failures == 0:

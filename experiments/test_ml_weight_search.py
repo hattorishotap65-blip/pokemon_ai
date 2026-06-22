@@ -121,6 +121,24 @@ summary_ne = build_summary("base.json", "out/", 1, 1, 0.2, 0.1, False, [], 3)
 check("No eval: best empty", len(summary_ne["best_candidates"]) == 0)
 
 # ===================================================================
+print("\n--- evaluate flag parsing ---")
+
+import argparse
+from experiments.search_ml_weights import main as _main_ref
+# Re-create parser logic inline to test flag behavior
+def _parse_eval_flag(args_list):
+    p = argparse.ArgumentParser()
+    p.add_argument("--evaluate", dest="evaluate", action="store_true")
+    p.add_argument("--no-evaluate", dest="evaluate", action="store_false")
+    p.set_defaults(evaluate=False)
+    return p.parse_args(args_list)
+
+check("Default: evaluate=False", _parse_eval_flag([]).evaluate == False)
+check("--evaluate: True", _parse_eval_flag(["--evaluate"]).evaluate == True)
+check("--no-evaluate: False", _parse_eval_flag(["--no-evaluate"]).evaluate == False)
+check("--evaluate --no-evaluate: last wins (False)", _parse_eval_flag(["--evaluate", "--no-evaluate"]).evaluate == False)
+
+# ===================================================================
 print("\n--- configs not modified ---")
 
 cfg_path = os.path.join(os.path.dirname(__file__), "..", "configs", "ml_policy_weights.json")

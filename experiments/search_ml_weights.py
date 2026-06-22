@@ -182,8 +182,9 @@ def main():
     parser.add_argument("--mutation-scale", type=float, default=0.1)
     parser.add_argument("--top-k", type=int, default=3)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--evaluate", action="store_true")
-    parser.add_argument("--no-evaluate", action="store_true", default=True)
+    parser.add_argument("--evaluate", dest="evaluate", action="store_true")
+    parser.add_argument("--no-evaluate", dest="evaluate", action="store_false")
+    parser.set_defaults(evaluate=False)
     parser.add_argument("--n", type=int, default=30)
     parser.add_argument("--start-game", type=int, default=86000)
     parser.add_argument("--mode", default="hybrid", choices=["hybrid", "ml"])
@@ -191,7 +192,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=900)
     args = parser.parse_args()
 
-    do_eval = args.evaluate and not args.no_evaluate
+    do_eval = args.evaluate
 
     if not os.path.exists(args.base_weights):
         print(f"ERROR: base weights not found: {args.base_weights}")

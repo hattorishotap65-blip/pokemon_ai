@@ -66,3 +66,6 @@ jobs:
 
       - name: Run bellibolt ability timing tests
         run: python experiments/test_bellibolt_ability_timing.py
+
+      - name: Run params loader tests
+        run: python experiments/test_params.py

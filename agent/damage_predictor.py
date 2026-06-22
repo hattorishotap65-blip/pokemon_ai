@@ -199,8 +199,16 @@ def find_alternative_attackers(
         score = 0.0
         reasons = []
 
+        try:
+            from agent.params import get as _p
+            _alt_ko = _p("alt_attacker_ko_score")
+            _e_ready = _p("energy_ready_bonus")
+        except Exception:
+            _alt_ko = 800.0
+            _e_ready = 200.0
+
         if pred["can_ko"]:
-            score += 800.0
+            score += _alt_ko
             reasons.append("alternative_attacker_can_ko")
         else:
             score += 400.0
@@ -211,7 +219,7 @@ def find_alternative_attackers(
             reasons.append("non_ex_attacker_preferred")
 
         if _has_attack_energy(poke):
-            score += 200.0
+            score += _e_ready
             reasons.append("energy_ready")
         else:
             score -= 300.0

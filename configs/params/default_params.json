@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "description": "Externalized scoring parameters. Same as hardcoded defaults.",
+  "zero_damage_attack_penalty": 500.0,
+  "ko_opponent_bonus": 20.0,
+  "boss_can_ko": 30.0,
+  "alt_attacker_ko_score": 800.0,
+  "energy_ready_bonus": 200.0
+}

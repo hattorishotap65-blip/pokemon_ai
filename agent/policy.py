@@ -446,7 +446,8 @@ class PolicyAgent:
                         break
             pred = predict_attack_damage(my_active, opp, state, attack=matched_attack)
             if pred["predicted_damage"] == 0 and pred["raw_damage"] > 0:
-                score -= 500.0
+                from agent.params import get as _p
+                score -= _p("zero_damage_attack_penalty")
                 reason = format_prediction(pred)
                 return score, reason
             if pred["can_ko"] and pred["predicted_damage"] > 0:
@@ -455,7 +456,8 @@ class PolicyAgent:
             pass
 
         if damage > 0 and damage >= opp_hp:
-            score += 20.0
+            from agent.params import get as _p
+            score += _p("ko_opponent_bonus")
             reason = "ko_opponent"
             if state.get("opponent", {}).get("prizes_remaining", 6) == 1:
                 score += 30.0
@@ -945,7 +947,8 @@ class PolicyAgent:
             my_active = state.get("active_pokemon", {})
             pred = predict_attack_damage(my_active, target, state)
             if pred["can_ko"]:
-                score += 30.0
+                from agent.params import get as _p
+                score += _p("boss_can_ko")
                 reasons.append("boss_can_ko")
                 if is_ex:
                     score += 20.0

@@ -307,6 +307,8 @@ class PolicyAgent:
             "voltorb_attack_reason":    voltorb_attack_reason,
             "voltorb_safety_score":     round(voltorb_safety_score, 3),
             "voltorb_safety_reason":    voltorb_safety_reason,
+            "ml_score":                 round(ml_score, 3),
+            "ml_reason":                ml_reason,
         }
         return total, reason, breakdown
 

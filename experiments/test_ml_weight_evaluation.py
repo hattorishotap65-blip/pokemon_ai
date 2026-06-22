@@ -28,7 +28,7 @@ def check(label, condition):
 # ===================================================================
 print("\n--- parse_match_output ---")
 
-SAMPLE_OUTPUT = """
+SAMPLE_OUTPUT_NO_SCORE = """
 ==============================================
   Results  (self-play)
 ==============================================
@@ -41,27 +41,46 @@ SAMPLE_OUTPUT = """
   Elapsed        : 95.1s  (3168ms/game)
   Results CSV    : logs/real_20260623.csv
 """
+parsed_ns = parse_match_output(SAMPLE_OUTPUT_NO_SCORE)
+check("No score: total_score None", parsed_ns["total_score"] is None)
+
+SAMPLE_OUTPUT = """
+==============================================
+  Results  (self-play)
+==============================================
+  Games          : 30
+  P0 wins        :   15  ( 50.0%)
+  P1 wins        :   15  ( 50.0%)
+  Timeouts       :    0  (  0.0%)
+  Errors         :    0  (  0.0%)
+  Avg selections : 189.3
+  Total score    : -10
+  Score/game     : -0.33
+  score=-10
+  Elapsed        : 95.1s  (3168ms/game)
+  Results CSV    : logs/real_20260623.csv
+"""
 parsed = parse_match_output(SAMPLE_OUTPUT)
 check("Parse games=30", parsed["games"] == 30)
-check("Parse wins=7", parsed["wins"] == 7)
-check("Parse losses=8", parsed["losses"] == 8)
+check("Parse wins=15", parsed["wins"] == 15)
+check("Parse losses=15", parsed["losses"] == 15)
 check("Parse errors=0", parsed["errors"] == 0)
 check("Parse timeouts=0", parsed["timeouts"] == 0)
 check("Parse avg_selections", parsed["avg_selections"] == 189.3)
 check("Parse avg_ms", parsed["avg_ms"] == 3168)
 check("Parse results_csv", parsed["results_csv"] == "logs/real_20260623.csv")
-check("Parse total_score None (no score line)", parsed["total_score"] is None)
+check("Parse total_score=-10", parsed["total_score"] == -10.0)
 
-# With score line
+# Positive score
 SAMPLE_SCORE = """
-  Games          : 30
+  Games          : 10
   P0 wins        :    7
-  P1 wins        :    8
-  score=222
-  Elapsed        : 95.1s  (3168ms/game)
+  P1 wins        :    3
+  score=40
+  Elapsed        : 30.0s  (3000ms/game)
 """
 ps = parse_match_output(SAMPLE_SCORE)
-check("Parse total_score=222", ps["total_score"] == 222.0)
+check("Parse total_score=40", ps["total_score"] == 40.0)
 
 SAMPLE_ERR = """
   Games          : 30
@@ -110,13 +129,18 @@ check("Nonexistent CSV: no crash", parse_results_csv("/nonexistent.csv")["games"
 # ===================================================================
 print("\n--- merge_metrics ---")
 
+merged_ns = merge_metrics(parsed_ns, "")
+check("Merge no score: score_available=False", merged_ns["score_available"] == False)
+check("Merge no score: score_per_game=0", merged_ns["score_per_game"] == 0)
+
 merged = merge_metrics(parsed, "")
 check("Merge has score_per_game", "score_per_game" in merged)
-check("Merge no total_score: score_available=False", merged["score_available"] == False)
+check("Merge scored: score_available=True", merged["score_available"] == True)
+check("Merge score_per_game=-10/30", abs(merged["score_per_game"] - (-10.0/30)) < 0.01)
 check("Merge has wins", "wins" in merged)
 check("Merge has safety", "safety" in merged)
 
-# With total_score
+# With total_score directly
 merged_s = merge_metrics({"games": 10, "total_score": 50.0, "avg_selections": 100}, "")
 check("Merge score_per_game=5.0", merged_s["score_per_game"] == 5.0)
 check("Merge score_available=True", merged_s["score_available"] == True)

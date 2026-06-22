@@ -50,6 +50,18 @@ check("Parse timeouts=0", parsed["timeouts"] == 0)
 check("Parse avg_selections", parsed["avg_selections"] == 189.3)
 check("Parse avg_ms", parsed["avg_ms"] == 3168)
 check("Parse results_csv", parsed["results_csv"] == "logs/real_20260623.csv")
+check("Parse total_score None (no score line)", parsed["total_score"] is None)
+
+# With score line
+SAMPLE_SCORE = """
+  Games          : 30
+  P0 wins        :    7
+  P1 wins        :    8
+  score=222
+  Elapsed        : 95.1s  (3168ms/game)
+"""
+ps = parse_match_output(SAMPLE_SCORE)
+check("Parse total_score=222", ps["total_score"] == 222.0)
 
 SAMPLE_ERR = """
   Games          : 30
@@ -81,6 +93,17 @@ with tempfile.TemporaryDirectory() as td:
     check("CSV wins=2", csv_r["wins"] == 2)
     check("CSV losses=1", csv_r["losses"] == 1)
     check("CSV draws=1", csv_r["draws"] == 1)
+    check("CSV safety all 0", all(v == 0 for v in csv_r["safety"].values()))
+
+    # CSV with safety columns
+    csv_safety = os.path.join(td, "safety.csv")
+    with open(csv_safety, "w") as f:
+        f.write("game,winner,selections,zero_damage_attack,end_with_attack_available\n")
+        f.write("g1,p0,100,1,0\n")
+        f.write("g2,p1,120,0,2\n")
+    csv_sr = parse_results_csv(csv_safety)
+    check("Safety zero_damage=1", csv_sr["safety"]["zero_damage_attack"] == 1)
+    check("Safety end_with_attack=2", csv_sr["safety"]["end_with_attack_available"] == 2)
 
 check("Nonexistent CSV: no crash", parse_results_csv("/nonexistent.csv")["games"] == 0)
 
@@ -89,7 +112,14 @@ print("\n--- merge_metrics ---")
 
 merged = merge_metrics(parsed, "")
 check("Merge has score_per_game", "score_per_game" in merged)
+check("Merge no total_score: score_available=False", merged["score_available"] == False)
 check("Merge has wins", "wins" in merged)
+check("Merge has safety", "safety" in merged)
+
+# With total_score
+merged_s = merge_metrics({"games": 10, "total_score": 50.0, "avg_selections": 100}, "")
+check("Merge score_per_game=5.0", merged_s["score_per_game"] == 5.0)
+check("Merge score_available=True", merged_s["score_available"] == True)
 
 # ===================================================================
 print("\n--- make_eval_env ---")
@@ -138,9 +168,11 @@ check("Nonexistent source: returns False", not ok2)
 print("\n--- compute_verdict ---")
 
 bl = {"errors": 0, "timeouts": 0, "avg_selections": 190, "score_per_game": 100,
-      "wins": 10, "losses": 8, "draws": 12, "avg_ms": 3000}
+      "score_available": True, "wins": 10, "losses": 8, "draws": 12, "avg_ms": 3000,
+      "safety": {"zero_damage_attack": 0, "end_with_attack_available": 0}}
 cd = {"errors": 0, "timeouts": 0, "avg_selections": 195, "score_per_game": 105,
-      "wins": 12, "losses": 6, "draws": 12, "avg_ms": 3100}
+      "score_available": True, "wins": 12, "losses": 6, "draws": 12, "avg_ms": 3100,
+      "safety": {"zero_damage_attack": 0, "end_with_attack_available": 0}}
 v = compute_verdict(bl, cd)
 check("Verdict better (+5%)", v["verdict"] == "candidate_better")
 check("Delta score_per_game", v["delta"]["score_per_game"] == 5.0)
@@ -148,25 +180,42 @@ check("Delta score_pct > 0", v["delta"]["score_pct"] > 0)
 check("Delta wins", v["delta"]["wins"] == 2)
 check("Delta losses", v["delta"]["losses"] == -2)
 check("Delta avg_ms_diff", v["delta"]["avg_ms_diff"] == 100)
+check("Delta safety_total_diff", v["delta"]["safety_total_diff"] == 0)
 check("score_available", v["score_available"] == True)
 
 cd_worse = {"errors": 0, "timeouts": 0, "avg_selections": 185, "score_per_game": 95,
-            "wins": 8, "losses": 12, "draws": 10, "avg_ms": 3000}
+            "score_available": True, "wins": 8, "losses": 12, "draws": 10, "avg_ms": 3000,
+            "safety": {}}
 v_worse = compute_verdict(bl, cd_worse)
 check("Verdict worse (-5%)", v_worse["verdict"] == "candidate_worse")
 
 cd_neutral = {"errors": 0, "timeouts": 0, "avg_selections": 190, "score_per_game": 100.5,
-              "wins": 10, "losses": 8, "draws": 12, "avg_ms": 3000}
+              "score_available": True, "wins": 10, "losses": 8, "draws": 12, "avg_ms": 3000,
+              "safety": {}}
 v_neutral = compute_verdict(bl, cd_neutral)
 check("Verdict neutral (<1%)", v_neutral["verdict"] == "candidate_neutral")
 
-cd_err = {"errors": 1, "timeouts": 0, "avg_selections": 190, "score_per_game": 200}
+cd_err = {"errors": 1, "timeouts": 0, "avg_selections": 190, "score_per_game": 200, "safety": {}}
 v_err = compute_verdict(bl, cd_err)
 check("Candidate errors -> unsafe", v_err["verdict"] == "candidate_unsafe")
 
-cd_to = {"errors": 0, "timeouts": 2, "avg_selections": 190}
+cd_to = {"errors": 0, "timeouts": 2, "avg_selections": 190, "safety": {}}
 v_to = compute_verdict(bl, cd_to)
 check("Candidate timeouts -> unsafe", v_to["verdict"] == "candidate_unsafe")
+
+# Safety regression
+bl_safe = {"errors": 0, "timeouts": 0, "score_per_game": 100, "score_available": True,
+           "safety": {"zero_damage_attack": 2}}
+cd_regr = {"errors": 0, "timeouts": 0, "score_per_game": 105, "score_available": True,
+           "safety": {"zero_damage_attack": 5}}
+v_regr = compute_verdict(bl_safe, cd_regr)
+check("Safety regression verdict", v_regr["verdict"] == "candidate_safety_regression")
+
+# No score available
+bl_ns = {"errors": 0, "timeouts": 0, "score_available": False, "safety": {}}
+cd_ns = {"errors": 0, "timeouts": 0, "score_available": False, "safety": {}}
+v_ns = compute_verdict(bl_ns, cd_ns)
+check("No score: neutral", v_ns["verdict"] == "candidate_neutral")
 
 # ===================================================================
 print("\n--- save_result ---")

@@ -44,7 +44,7 @@ def parse_match_output(stdout: str) -> dict:
     result = {
         "games": 0, "errors": 0, "timeouts": 0, "avg_ms": 0,
         "avg_selections": 0, "wins": 0, "losses": 0,
-        "results_csv": "",
+        "total_score": None, "results_csv": "",
     }
     for line in stdout.splitlines():
         line = line.strip()
@@ -74,13 +74,23 @@ def parse_match_output(stdout: str) -> dict:
         m = re.search(r"Results CSV\s*:\s*(\S+)", line)
         if m:
             result["results_csv"] = m.group(1)
+        m = re.search(r"score\s*[=:]\s*(-?\d+(?:\.\d+)?)", line, re.I)
+        if m:
+            result["total_score"] = float(m.group(1))
     return result
 
 
+_SAFETY_KEYS = [
+    "zero_damage_attack", "end_with_attack_available",
+    "damage_prevented_attack", "invalid_actions",
+]
+
+
 def parse_results_csv(csv_path: str) -> dict:
-    """Parse results CSV for win/loss/draw counts."""
+    """Parse results CSV for win/loss/draw counts and safety metrics."""
     import csv as csv_mod
-    result = {"wins": 0, "losses": 0, "draws": 0, "games": 0}
+    result = {"wins": 0, "losses": 0, "draws": 0, "games": 0,
+              "safety": {k: 0 for k in _SAFETY_KEYS}}
     try:
         if not os.path.exists(csv_path):
             return result
@@ -95,6 +105,13 @@ def parse_results_csv(csv_path: str) -> dict:
                     result["losses"] += 1
                 else:
                     result["draws"] += 1
+                for k in _SAFETY_KEYS:
+                    val = row.get(k)
+                    if val not in (None, ""):
+                        try:
+                            result["safety"][k] += int(float(val))
+                        except (ValueError, TypeError):
+                            pass
     except Exception:
         pass
     return result
@@ -103,6 +120,7 @@ def parse_results_csv(csv_path: str) -> dict:
 def merge_metrics(stdout_metrics: dict, csv_path: str = "") -> dict:
     """Merge stdout parsed metrics with CSV data."""
     result = dict(stdout_metrics)
+    result["safety"] = {k: 0 for k in _SAFETY_KEYS}
     if csv_path:
         resolved = csv_path
         if not os.path.isabs(csv_path):
@@ -113,10 +131,19 @@ def merge_metrics(stdout_metrics: dict, csv_path: str = "") -> dict:
             result["losses"] = csv_data["losses"]
             result["draws"] = csv_data["draws"]
             result["games"] = csv_data["games"]
+        result["safety"] = csv_data.get("safety", result["safety"])
+
     games = result.get("games", 0)
     if games > 0:
         result["draws"] = result.get("draws", games - result.get("wins", 0) - result.get("losses", 0))
-    result["score_per_game"] = round(result.get("avg_selections", 0), 2)
+
+    total_score = result.get("total_score")
+    if total_score is not None and games > 0:
+        result["score_per_game"] = round(total_score / games, 2)
+        result["score_available"] = True
+    else:
+        result["score_per_game"] = 0
+        result["score_available"] = False
     return result
 
 
@@ -214,12 +241,19 @@ def compute_verdict(baseline: dict, candidate: dict) -> dict:
     c_spg = candidate.get("score_per_game", 0)
     delta["score_per_game"] = round(c_spg - b_spg, 2)
     delta["score_pct"] = round((c_spg - b_spg) / b_spg * 100, 2) if b_spg else 0.0
-    score_available = b_spg > 0 or c_spg > 0
+    score_available = (baseline.get("score_available", False)
+                       or candidate.get("score_available", False))
+
+    b_safety = sum((baseline.get("safety") or {}).values())
+    c_safety = sum((candidate.get("safety") or {}).values())
+    delta["safety_total_diff"] = c_safety - b_safety
 
     if candidate.get("errors", 0) > 0 or candidate.get("timeouts", 0) > 0:
         verdict = "candidate_unsafe"
     elif baseline.get("errors", 0) > 0:
         verdict = "baseline_errors"
+    elif c_safety > b_safety > 0:
+        verdict = "candidate_safety_regression"
     elif score_available and delta["score_pct"] > 1.0:
         verdict = "candidate_better"
     elif score_available and delta["score_pct"] < -1.0:

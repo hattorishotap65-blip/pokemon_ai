@@ -278,6 +278,19 @@ check("Cache None state: no crash", isinstance(cached_none, list))
 cached_empty = get_cached_top_plans({}, limit=3)
 check("Cache empty state: no crash", isinstance(cached_empty, list))
 
+# Bench energy change invalidates cache
+import copy
+state_mut = copy.deepcopy(STATE_VOLTORB)
+clear_attack_plan_cache()
+plans_before = get_cached_top_plans(state_mut, limit=3)
+state_mut["bench"][0]["energy_count"] = 99
+plans_after = get_cached_top_plans(state_mut, limit=3)
+# With deepcopy, id changes so cache always misses. Check that plans differ.
+vt_before = [p for p in plans_before if p.plan_type == "voltorb_charge"]
+vt_after = [p for p in plans_after if p.plan_type == "voltorb_charge"]
+check("Bench energy change: voltorb needs_energy changed",
+      vt_before[0].needs_energy != vt_after[0].needs_energy if vt_before and vt_after else False)
+
 # ===================================================================
 print("\n--- empty state safety ---")
 

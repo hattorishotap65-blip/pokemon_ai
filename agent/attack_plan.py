@@ -225,11 +225,22 @@ _cache_plans: List[AttackPlan] = []
 
 
 def _make_cache_key(state: dict):
-    """Fast cache key from state identity + core fields."""
+    """Fast cache key from state identity + core fields including bench."""
     if not isinstance(state, dict):
         return None
     ap = state.get("active_pokemon") or {}
-    opp = (state.get("opponent") or {}).get("active_pokemon") or {}
+    opp_data = state.get("opponent") or {}
+    opp = opp_data.get("active_pokemon") or {}
+
+    my_bench = tuple(
+        (str(b.get("card_id", "")), b.get("hp_remaining", 0), b.get("energy_count", 0))
+        for b in (state.get("bench") or []) if isinstance(b, dict)
+    )
+    opp_bench = tuple(
+        (str(b.get("card_id", "")), b.get("hp_remaining", 0), b.get("is_ex", False))
+        for b in (opp_data.get("bench") or []) if isinstance(b, dict)
+    )
+
     return (
         id(state),
         str(ap.get("card_id", "")),
@@ -237,7 +248,10 @@ def _make_cache_key(state: dict):
         ap.get("energy_count", 0),
         str(opp.get("card_id", "")),
         opp.get("hp_remaining", 0),
+        opp.get("is_ex", False),
         state.get("prizes_remaining", 6),
+        my_bench,
+        opp_bench,
     )
 
 

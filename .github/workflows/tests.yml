@@ -84,3 +84,6 @@ jobs:
 
       - name: Run ML training logger tests
         run: python experiments/test_ml_training_logger.py
+
+      - name: Run ML training tests
+        run: python experiments/test_ml_training.py

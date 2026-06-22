@@ -94,4 +94,8 @@ echo "=== ML training logger ==="
 python experiments/test_ml_training_logger.py
 
 echo ""
+echo "=== ML training ==="
+python experiments/test_ml_training.py
+
+echo ""
 echo "All tests passed."

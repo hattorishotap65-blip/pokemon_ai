@@ -81,11 +81,18 @@ subsequent lookups are O(1) dict access.
 - Spread threat detection: name-based only (Dragapult/Greninja/Incineroar)
 - Bench liability: does not account for opponent's actual damage output
 
+## Card Metadata Enrichment (PR #89)
+
+`_normalize_pokemon` now calls `enrich_pokemon()` from `agent/card_metadata.py`.
+All active/bench Pokemon (own + opponent) get enriched with:
+name, is_ex, is_basic, stage, weakness, resistance, attacks, abilities, retreat_cost.
+Cached via `_CARD_CACHE`/`_ATTACK_CACHE`. Graceful degradation if cg.api unavailable.
+
 ## Next PR Candidates
 
-1. **opponent card_name in normalized state** — `_normalize_pokemon` lacks `name`,
-   making ex detection and spread detection rely on card_id lookup fallback.
-   Adding name to normalization would be more reliable.
+1. **damage_predictor.py** — predict attack damage before attacking,
+   using weakness/resistance/abilities. Prevent 0-damage attacks (e.g.
+   Bellibolt ex vs Crustle with prevent-damage-from-ex).
 2. **Bellibolt ability timing** — evaluate whether Bellibolt ability (energy
    acceleration) is used at optimal timing
 3. **Boss's Orders targeting** — improve target selection when playing Boss

@@ -135,12 +135,15 @@ def run_anomaly_detection(start_game: int, count: int) -> dict:
         if os.path.exists(src):
             shutil.copy(src, inbox)
 
-    subprocess.run(
-        [sys.executable, "tools/analyze_battle_logs.py",
-         "--input", "battle_logs/inbox", "--output", "reports",
-         "--deck-profile", "data/deck_profile.json", "--top", "20"],
-        cwd=_REPO_ROOT, capture_output=True, text=True,
-    )
+    try:
+        subprocess.run(
+            [sys.executable, "tools/analyze_battle_logs.py",
+             "--input", "battle_logs/inbox", "--output", "reports",
+             "--deck-profile", "data/deck_profile.json", "--top", "20"],
+            cwd=_REPO_ROOT, capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        print("  WARNING: anomaly detection timed out")
 
     import glob
     for f in glob.glob(os.path.join(inbox, "*.jsonl")):

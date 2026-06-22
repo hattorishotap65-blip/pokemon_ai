@@ -159,10 +159,26 @@ Searched via `scripts/run_core_param_search.py` at 30g/50g/100g/200g.
 alt_attacker_ko_score=1200 showed improvement at 30g/100g but vanished at 200g.
 energy_ready_bonus=100 improved at 30g but reversed at 50g.
 
+## Attack Plan Validation (PR #104/#105)
+
+Lightweight attack_plan with Iono-specific plan types.
+30g + 50g + 100g validation after merge:
+
+| Scale | Games | Errors | Timeouts | APG | Safety | ms/game |
+|-------|-------|--------|----------|-----|--------|---------|
+| 30g | 30 | 0 | 0 | - | all 0 | 2938 |
+| 50g | 50 | 0 | 0 | - | all 0 | 3583 |
+| 100g | 100 | 0 | 0 | 5.68 | all 0 | 3113 |
+
+Tests: 460/460 pass.
+
+**Verdict: stable.** APG 5.68 vs pre-plan 5.12 is within 30g variance.
+No safety regressions. Speed maintained (~3100ms/game).
+
 ## Next PR Candidates
 
-1. Lightweight attack_plan implementation
-2. Deck-out risk awareness when deck_count is low
+1. Deck-out risk awareness when deck_count is low
+2. Attack plan cache (avoid re-generating per action)
 
 ## Rejected/Confirmed Parameters
 

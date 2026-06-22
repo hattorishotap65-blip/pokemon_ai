@@ -82,4 +82,12 @@ echo "=== Attack plan ==="
 python experiments/test_attack_plan.py
 
 echo ""
+echo "=== ML features ==="
+python experiments/test_ml_features.py
+
+echo ""
+echo "=== ML policy ==="
+python experiments/test_ml_policy.py
+
+echo ""
 echo "All tests passed."

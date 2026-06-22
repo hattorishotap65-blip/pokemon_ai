@@ -1,0 +1,222 @@
+{
+  "schema_version": "1.0",
+  "description": "Parameters safe for auto-tune exploration. Start small, expand after validation.",
+  "params": [
+    {
+      "name": "zero_damage_attack_penalty",
+      "file": "policy.py",
+      "current": 500.0,
+      "range": [200, 400, 500, 600, 800],
+      "category": "global",
+      "role": "Penalizes attacks predicted to deal 0 damage"
+    },
+    {
+      "name": "ko_opponent_bonus",
+      "file": "policy.py",
+      "current": 20.0,
+      "range": [10, 15, 20, 30, 40],
+      "category": "global",
+      "role": "Bonus when attack can KO opponent active"
+    },
+    {
+      "name": "winning_ko_bonus",
+      "file": "policy.py",
+      "current": 30.0,
+      "range": [15, 20, 30, 40, 50],
+      "category": "global",
+      "role": "Extra bonus when KO wins the game"
+    },
+    {
+      "name": "boss_can_ko",
+      "file": "policy.py",
+      "current": 30.0,
+      "range": [15, 20, 30, 40, 50],
+      "category": "global",
+      "role": "Boss target bonus when our active can KO it"
+    },
+    {
+      "name": "boss_ko_ex",
+      "file": "policy.py",
+      "current": 20.0,
+      "range": [10, 15, 20, 30, 40],
+      "category": "global",
+      "role": "Extra Boss bonus when KO target is ex"
+    },
+    {
+      "name": "boss_low_hp",
+      "file": "policy.py",
+      "current": 15.0,
+      "range": [8, 12, 15, 20, 25],
+      "category": "global",
+      "role": "Boss target bonus for HP <= 60"
+    },
+    {
+      "name": "boss_key_support",
+      "file": "policy.py",
+      "current": 8.0,
+      "range": [4, 6, 8, 12, 15],
+      "category": "global",
+      "role": "Boss target bonus for evolution_base/engine"
+    },
+    {
+      "name": "to_active_can_ko",
+      "file": "policy.py",
+      "current": 15.0,
+      "range": [8, 12, 15, 20, 25],
+      "category": "global",
+      "role": "Switch target bonus when candidate can KO"
+    },
+    {
+      "name": "to_active_can_damage",
+      "file": "policy.py",
+      "current": 5.0,
+      "range": [2, 4, 5, 8, 10],
+      "category": "global",
+      "role": "Switch target bonus when candidate can damage"
+    },
+    {
+      "name": "alt_attacker_ko_score",
+      "file": "damage_predictor.py",
+      "current": 800.0,
+      "range": [400, 600, 800, 1000, 1200],
+      "category": "global",
+      "role": "Alternative attacker score when can KO"
+    },
+    {
+      "name": "alt_attacker_damage_score",
+      "file": "damage_predictor.py",
+      "current": 400.0,
+      "range": [200, 300, 400, 500, 600],
+      "category": "global",
+      "role": "Alternative attacker score when can damage"
+    },
+    {
+      "name": "energy_ready_bonus",
+      "file": "damage_predictor.py",
+      "current": 200.0,
+      "range": [100, 150, 200, 300, 400],
+      "category": "global",
+      "role": "Bonus for alternative attacker with enough energy"
+    },
+    {
+      "name": "energy_not_ready_penalty",
+      "file": "damage_predictor.py",
+      "current": 300.0,
+      "range": [150, 200, 300, 400, 500],
+      "category": "global",
+      "role": "Penalty for alternative attacker without energy"
+    },
+    {
+      "name": "ex_final_prize_end_penalty",
+      "file": "turn_rule_engine.py",
+      "current": 400.0,
+      "range": [200, 300, 400, 500, 600],
+      "category": "global",
+      "role": "Penalty for ending turn with ex active vs final prizes"
+    },
+    {
+      "name": "ex_final_prize_retreat_boost",
+      "file": "turn_rule_engine.py",
+      "current": 500.0,
+      "range": [300, 400, 500, 600, 800],
+      "category": "global",
+      "role": "Boost for retreating ex when opponent near winning"
+    },
+    {
+      "name": "avoid_retreat_losing_energy",
+      "file": "turn_rule_engine.py",
+      "current": 250.0,
+      "range": [100, 175, 250, 350, 400],
+      "category": "global",
+      "role": "Penalty for retreating when active has energy"
+    },
+    {
+      "name": "win_condition_weight",
+      "file": "evaluator.py",
+      "current": 0.6,
+      "range": [0.3, 0.4, 0.6, 0.8, 1.0],
+      "category": "global",
+      "role": "Scale factor for plan progress in board evaluation"
+    },
+    {
+      "name": "deck_critical_penalty",
+      "file": "evaluator.py",
+      "current": 8.0,
+      "range": [4, 6, 8, 10, 15],
+      "category": "global",
+      "role": "Penalty when deck count critically low"
+    },
+    {
+      "name": "future_weight",
+      "file": "planner.py",
+      "current": 0.7,
+      "range": [0.4, 0.6, 0.7, 0.8, 1.0],
+      "category": "global",
+      "role": "Lookahead future value weight"
+    },
+    {
+      "name": "threat_weight",
+      "file": "planner.py",
+      "current": 0.8,
+      "range": [0.4, 0.6, 0.8, 1.0, 1.2],
+      "category": "global",
+      "role": "Lookahead threat value weight"
+    },
+    {
+      "name": "bellibolt_ability_enables_attack",
+      "file": "ionos_rules.py",
+      "current": 280.0,
+      "range": [140, 210, 280, 350, 420],
+      "category": "deck",
+      "role": "Bellibolt ability bonus when 1 more energy enables attack"
+    },
+    {
+      "name": "bellibolt_ability_charge",
+      "file": "ionos_rules.py",
+      "current": 250.0,
+      "range": [125, 190, 250, 310, 375],
+      "category": "deck",
+      "role": "Bellibolt ability bonus for self-charge toward attack"
+    },
+    {
+      "name": "bellibolt_ability_progress",
+      "file": "ionos_rules.py",
+      "current": 100.0,
+      "range": [50, 75, 100, 130, 160],
+      "category": "deck",
+      "role": "Bellibolt ability bonus for progressing toward attack"
+    },
+    {
+      "name": "voltorb_damage_increase",
+      "file": "ionos_rules.py",
+      "current": 35.0,
+      "range": [18, 25, 35, 45, 55],
+      "category": "deck",
+      "role": "Energy attach bonus for Voltorb damage scaling"
+    },
+    {
+      "name": "voltorb_ko_line",
+      "file": "ionos_rules.py",
+      "current": 400.0,
+      "range": [200, 300, 400, 500, 600],
+      "category": "deck",
+      "role": "Energy attach bonus when reaching opponent KO threshold"
+    },
+    {
+      "name": "bench_low_hp_penalty_per_copy",
+      "file": "ionos_rules.py",
+      "current": 15.0,
+      "range": [8, 12, 15, 20, 25],
+      "category": "deck",
+      "role": "Penalty per existing copy of low-HP basic on bench"
+    },
+    {
+      "name": "spread_threat_extra_penalty",
+      "file": "ionos_rules.py",
+      "current": 20.0,
+      "range": [10, 15, 20, 30, 40],
+      "category": "deck",
+      "role": "Extra penalty when opponent has spread threat"
+    }
+  ]
+}

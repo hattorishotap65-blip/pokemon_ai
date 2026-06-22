@@ -62,4 +62,8 @@ echo "=== Boss targeting ==="
 python experiments/test_boss_targeting.py
 
 echo ""
+echo "=== Energy readiness ==="
+python experiments/test_energy_readiness.py
+
+echo ""
 echo "All tests passed."

@@ -48,3 +48,6 @@ jobs:
 
       - name: Run bench liability tests
         run: python experiments/test_bench_liability.py
+
+      - name: Run card metadata tests
+        run: python experiments/test_card_metadata.py

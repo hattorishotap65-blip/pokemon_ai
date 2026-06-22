@@ -46,4 +46,8 @@ echo "=== Bench liability ==="
 python experiments/test_bench_liability.py
 
 echo ""
+echo "=== Card metadata ==="
+python experiments/test_card_metadata.py
+
+echo ""
 echo "All tests passed."

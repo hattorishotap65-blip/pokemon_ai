@@ -123,7 +123,7 @@ def _normalize_pokemon(p) -> dict:
         raw_cards    = p.get("energyCards") or []
         energy_cards = [str(c.get("id", "") if isinstance(c, dict) else getattr(c, "id", ""))
                         for c in raw_cards if c is not None]
-        return {
+        result = {
             "card_id":      str(p.get("id", "")),
             "hp_remaining": p.get("hp", 0),
             "max_hp":       p.get("maxHp", 1) or 1,
@@ -132,20 +132,27 @@ def _normalize_pokemon(p) -> dict:
             "energy_types": energy_types,
             "energy_cards": energy_cards,
         }
-    # Typed Pokemon dataclass from cg.api
-    raw_energies = getattr(p, "energies", None) or []
-    energy_types = _resolve_energy_types(raw_energies)
-    raw_cards    = getattr(p, "energyCards", None) or []
-    energy_cards = [str(getattr(c, "id", "")) for c in raw_cards if c is not None]
-    return {
-        "card_id":      str(getattr(p, "id", "")),
-        "hp_remaining": getattr(p, "hp", 0),
-        "max_hp":       getattr(p, "maxHp", 1) or 1,
-        "energy_count": len(energy_types),
-        "energies":     energy_types,
-        "energy_types": energy_types,
-        "energy_cards": energy_cards,
-    }
+    else:
+        # Typed Pokemon dataclass from cg.api
+        raw_energies = getattr(p, "energies", None) or []
+        energy_types = _resolve_energy_types(raw_energies)
+        raw_cards    = getattr(p, "energyCards", None) or []
+        energy_cards = [str(getattr(c, "id", "")) for c in raw_cards if c is not None]
+        result = {
+            "card_id":      str(getattr(p, "id", "")),
+            "hp_remaining": getattr(p, "hp", 0),
+            "max_hp":       getattr(p, "maxHp", 1) or 1,
+            "energy_count": len(energy_types),
+            "energies":     energy_types,
+            "energy_types": energy_types,
+            "energy_cards": energy_cards,
+        }
+    try:
+        from agent.card_metadata import enrich_pokemon
+        enrich_pokemon(result)
+    except Exception:
+        pass
+    return result
 
 
 def _board_to_state(current) -> dict:

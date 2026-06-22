@@ -916,10 +916,70 @@ class PolicyAgent:
         return float(attach) + pw, f"attach_select_{role}"
 
     def _score_card_to_active(self, action: dict, state: dict):
-        """Pick Pokemon to put into Active Spot (switch / promote)."""
+        """Pick Pokemon to put into Active Spot (switch / promote / Boss target)."""
+        p_idx = action.get("playerIndex")
+        my_idx = state.get("your_index", 0)
+        if p_idx is not None and int(p_idx) != my_idx:
+            return self._score_boss_target(action, state)
+        return self._score_own_to_active(action, state)
+
+    def _score_boss_target(self, action: dict, state: dict):
+        """Score opponent bench Pokemon as Boss's Orders / gust target."""
+        area = action.get("area")
+        idx = action.get("index")
+        target = {}
+        if area == 5 and idx is not None:
+            opp_bench = state.get("opponent", {}).get("bench", [])
+            if idx < len(opp_bench):
+                target = opp_bench[idx]
+        if not target:
+            return 3.0, "boss_target_generic"
+
+        hp = int(target.get("hp_remaining") or 9999)
+        is_ex = target.get("is_ex", False)
+        score = 5.0
+        reasons = []
+
+        try:
+            from agent.damage_predictor import predict_attack_damage
+            my_active = state.get("active_pokemon", {})
+            pred = predict_attack_damage(my_active, target, state)
+            if pred["can_ko"]:
+                score += 30.0
+                reasons.append("boss_can_ko")
+                if is_ex:
+                    score += 20.0
+                    reasons.append("boss_ko_ex")
+            elif pred["can_damage"] and hp <= pred["predicted_damage"] * 1.5:
+                score += 10.0
+                reasons.append("boss_near_ko")
+        except Exception:
+            pass
+
+        if is_ex:
+            score += 10.0
+            reasons.append("boss_target_ex")
+
+        if hp <= 60:
+            score += 15.0
+            reasons.append("boss_low_hp")
+        elif hp <= 100:
+            score += 5.0
+            reasons.append("boss_moderate_hp")
+
+        cid = str(target.get("card_id", ""))
+        role = self.knowledge.get_role(cid)
+        if role in ("evolution_base", "basic_setup", "engine_attacker"):
+            score += 8.0
+            reasons.append(f"boss_key_support_{role}")
+
+        reason = "|".join(reasons) if reasons else "boss_target"
+        return score, f"boss_target:{reason}"
+
+    def _score_own_to_active(self, action: dict, state: dict):
+        """Pick own Pokemon to put into Active Spot (switch / promote)."""
         cid = self._cid_from_hand(action, state)
         if not cid:
-            # SWITCH context: option IS a bench Pokemon (area=BENCH, not HAND)
             area = action.get("area")
             idx  = action.get("index")
             if area == 5 and idx is not None:
@@ -934,9 +994,6 @@ class PolicyAgent:
         base = {"main_attacker": 10.0, "sub_attacker": 7.0}.get(role, 3.0)
         score = base + pw
 
-        # Bonus: the candidate has enough energy to attack immediately
-        # We can check energy from the bench slot but don't have easy access here;
-        # use attack_score as a proxy for readiness
         score += float(self.knowledge.attack_score(cid)) * 0.3
 
         try:

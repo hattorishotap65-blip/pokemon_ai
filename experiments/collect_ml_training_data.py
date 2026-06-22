@@ -221,12 +221,16 @@ def _extract_from_real_logs(start_game: int, count: int, output: str,
                     score = cand.get("final_score", 0.0)
                     reason = cand.get("reason", "")
 
+                    from agent.ml_training_logger import infer_opponent_deck_id
+                    opp_deck = infer_opponent_deck_id(state)
+
                     ex = make_training_example(
                         state=state, action=action, selected=is_selected,
                         score=score, reason=reason, breakdown=breakdown,
                         features=features, game_id=gid,
                         decision_id=decision_id, candidate_index=ci,
                         deck_id=game_outcome["deck_name"],
+                        opponent_deck_id=opp_deck,
                         game_result=game_outcome["result"],
                         prizes_taken=game_outcome["prizes_taken"],
                         turn_count=game_outcome["turn_count"],

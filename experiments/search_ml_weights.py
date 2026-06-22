@@ -139,8 +139,8 @@ def rank_candidates(candidates: List[dict]) -> List[dict]:
         ) else 0
         errors = c.get("errors", 999)
         timeouts = c.get("timeouts", 999)
-        spg = c.get("score_per_game_delta", 0) or 0
-        spct = c.get("score_pct", 0) or 0
+        spg = c.get("score_per_game_delta") or 0
+        spct = c.get("score_pct") or 0
         return (unsafe, errors, timeouts, -spg, -spct)
     return sorted(candidates, key=sort_key)
 

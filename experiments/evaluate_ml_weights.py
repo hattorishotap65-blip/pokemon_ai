@@ -239,8 +239,16 @@ def compute_verdict(baseline: dict, candidate: dict) -> dict:
 
     b_spg = baseline.get("score_per_game", 0)
     c_spg = candidate.get("score_per_game", 0)
-    delta["score_per_game"] = round(c_spg - b_spg, 2)
-    delta["score_pct"] = round((c_spg - b_spg) / b_spg * 100, 2) if b_spg else 0.0
+    delta_score = round(c_spg - b_spg, 2)
+    delta["score_per_game"] = delta_score
+
+    if b_spg > 0:
+        delta["score_pct"] = round(delta_score / b_spg * 100, 2)
+        delta["score_pct_available"] = True
+    else:
+        delta["score_pct"] = None
+        delta["score_pct_available"] = False
+
     score_available = (baseline.get("score_available", False)
                        or candidate.get("score_available", False))
 
@@ -254,9 +262,9 @@ def compute_verdict(baseline: dict, candidate: dict) -> dict:
         verdict = "baseline_errors"
     elif c_safety > b_safety:
         verdict = "candidate_safety_regression"
-    elif score_available and delta["score_pct"] > 1.0:
+    elif score_available and delta_score > 1.0:
         verdict = "candidate_better"
-    elif score_available and delta["score_pct"] < -1.0:
+    elif score_available and delta_score < -1.0:
         verdict = "candidate_worse"
     else:
         verdict = "candidate_neutral"

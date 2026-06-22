@@ -41,9 +41,22 @@ def to_wsl_path(path: str) -> str:
 
 def parse_match_output(stdout: str) -> dict:
     """Parse run_matches_real.py stdout for key metrics."""
-    result = {"games": 0, "errors": 0, "timeouts": 0, "avg_ms": 0, "avg_selections": 0}
+    result = {
+        "games": 0, "errors": 0, "timeouts": 0, "avg_ms": 0,
+        "avg_selections": 0, "wins": 0, "losses": 0,
+        "results_csv": "",
+    }
     for line in stdout.splitlines():
         line = line.strip()
+        m = re.search(r"Games\s*:\s*(\d+)", line)
+        if m:
+            result["games"] = int(m.group(1))
+        m = re.search(r"(?:P0 wins|Policy wins)\s*:\s*(\d+)", line)
+        if m:
+            result["wins"] = int(m.group(1))
+        m = re.search(r"(?:P1 wins|Random wins)\s*:\s*(\d+)", line)
+        if m:
+            result["losses"] = int(m.group(1))
         m = re.search(r"Errors\s*:\s*(\d+)", line)
         if m:
             result["errors"] = int(m.group(1))
@@ -53,12 +66,57 @@ def parse_match_output(stdout: str) -> dict:
         m = re.search(r"Avg selections\s*:\s*([\d.]+)", line)
         if m:
             result["avg_selections"] = float(m.group(1))
-        m = re.search(r"(\d+)ms/game", line)
-        if m:
-            result["avg_ms"] = int(m.group(1))
         m = re.search(r"Elapsed\s*:.*\((\d+)ms/game\)", line)
         if m:
             result["avg_ms"] = int(m.group(1))
+        elif re.search(r"(\d+)ms/game", line):
+            result["avg_ms"] = int(re.search(r"(\d+)ms/game", line).group(1))
+        m = re.search(r"Results CSV\s*:\s*(\S+)", line)
+        if m:
+            result["results_csv"] = m.group(1)
+    return result
+
+
+def parse_results_csv(csv_path: str) -> dict:
+    """Parse results CSV for win/loss/draw counts."""
+    import csv as csv_mod
+    result = {"wins": 0, "losses": 0, "draws": 0, "games": 0}
+    try:
+        if not os.path.exists(csv_path):
+            return result
+        with open(csv_path, encoding="utf-8") as f:
+            reader = csv_mod.DictReader(f)
+            for row in reader:
+                result["games"] += 1
+                winner = (row.get("winner") or "").strip()
+                if winner == "p0":
+                    result["wins"] += 1
+                elif winner == "p1":
+                    result["losses"] += 1
+                else:
+                    result["draws"] += 1
+    except Exception:
+        pass
+    return result
+
+
+def merge_metrics(stdout_metrics: dict, csv_path: str = "") -> dict:
+    """Merge stdout parsed metrics with CSV data."""
+    result = dict(stdout_metrics)
+    if csv_path:
+        resolved = csv_path
+        if not os.path.isabs(csv_path):
+            resolved = os.path.join(_REPO_ROOT, csv_path)
+        csv_data = parse_results_csv(resolved)
+        if csv_data["games"] > 0:
+            result["wins"] = csv_data["wins"]
+            result["losses"] = csv_data["losses"]
+            result["draws"] = csv_data["draws"]
+            result["games"] = csv_data["games"]
+    games = result.get("games", 0)
+    if games > 0:
+        result["draws"] = result.get("draws", games - result.get("wins", 0) - result.get("losses", 0))
+    result["score_per_game"] = round(result.get("avg_selections", 0), 2)
     return result
 
 
@@ -116,12 +174,15 @@ def run_games(n: int, start_game: int, env: dict, use_wsl: bool,
         )
         try:
             r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
-            result = parse_match_output(r.stdout + r.stderr)
-            result["games"] = n
+            parsed = parse_match_output(r.stdout + r.stderr)
+            result = merge_metrics(parsed, parsed.get("results_csv", ""))
+            if not result.get("games"):
+                result["games"] = n
             result["returncode"] = r.returncode
             return result
         except subprocess.TimeoutExpired:
-            return {"games": n, "errors": 0, "timeouts": n, "avg_ms": 0, "returncode": -1}
+            return {"games": n, "errors": 0, "timeouts": n, "avg_ms": 0, "returncode": -1,
+                    "wins": 0, "losses": 0, "draws": 0, "score_per_game": 0}
     else:
         try:
             r = subprocess.run(
@@ -129,28 +190,44 @@ def run_games(n: int, start_game: int, env: dict, use_wsl: bool,
                  "--n", str(n), "--start-game", str(start_game)],
                 cwd=_REPO_ROOT, capture_output=True, text=True, timeout=timeout, env=env,
             )
-            result = parse_match_output(r.stdout + r.stderr)
-            result["games"] = n
+            parsed = parse_match_output(r.stdout + r.stderr)
+            result = merge_metrics(parsed, parsed.get("results_csv", ""))
+            if not result.get("games"):
+                result["games"] = n
             result["returncode"] = r.returncode
             return result
         except subprocess.TimeoutExpired:
-            return {"games": n, "errors": 0, "timeouts": n, "avg_ms": 0, "returncode": -1}
+            return {"games": n, "errors": 0, "timeouts": n, "avg_ms": 0, "returncode": -1,
+                    "wins": 0, "losses": 0, "draws": 0, "score_per_game": 0}
 
 
 def compute_verdict(baseline: dict, candidate: dict) -> dict:
     delta = {}
-    b_sel = baseline.get("avg_selections", 0)
-    c_sel = candidate.get("avg_selections", 0)
-    delta["avg_selections_diff"] = round(c_sel - b_sel, 1)
+    delta["avg_selections_diff"] = round(
+        candidate.get("avg_selections", 0) - baseline.get("avg_selections", 0), 1)
+    delta["avg_ms_diff"] = candidate.get("avg_ms", 0) - baseline.get("avg_ms", 0)
+    delta["wins"] = candidate.get("wins", 0) - baseline.get("wins", 0)
+    delta["losses"] = candidate.get("losses", 0) - baseline.get("losses", 0)
+    delta["draws"] = candidate.get("draws", 0) - baseline.get("draws", 0)
 
-    if candidate["errors"] > 0 or candidate["timeouts"] > 0:
+    b_spg = baseline.get("score_per_game", 0)
+    c_spg = candidate.get("score_per_game", 0)
+    delta["score_per_game"] = round(c_spg - b_spg, 2)
+    delta["score_pct"] = round((c_spg - b_spg) / b_spg * 100, 2) if b_spg else 0.0
+    score_available = b_spg > 0 or c_spg > 0
+
+    if candidate.get("errors", 0) > 0 or candidate.get("timeouts", 0) > 0:
         verdict = "candidate_unsafe"
-    elif baseline["errors"] > 0:
+    elif baseline.get("errors", 0) > 0:
         verdict = "baseline_errors"
+    elif score_available and delta["score_pct"] > 1.0:
+        verdict = "candidate_better"
+    elif score_available and delta["score_pct"] < -1.0:
+        verdict = "candidate_worse"
     else:
-        verdict = "candidate_ok"
+        verdict = "candidate_neutral"
 
-    return {"delta": delta, "verdict": verdict}
+    return {"delta": delta, "verdict": verdict, "score_available": score_available}
 
 
 def save_result(path: str, weights_path: str, mode: str,

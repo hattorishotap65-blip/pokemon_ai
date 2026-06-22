@@ -7,7 +7,8 @@ import sys, os, json, tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from experiments.evaluate_ml_weights import (
-    parse_match_output, make_eval_env, prepare_eval_weights,
+    parse_match_output, parse_results_csv, merge_metrics,
+    make_eval_env, prepare_eval_weights,
     cleanup_eval_weights, compute_verdict, save_result, to_wsl_path,
 )
 
@@ -28,7 +29,12 @@ def check(label, condition):
 print("\n--- parse_match_output ---")
 
 SAMPLE_OUTPUT = """
-Game 30/30: g85029  W=7 L=8 D=15   score=222
+==============================================
+  Results  (self-play)
+==============================================
+  Games          : 30
+  P0 wins        :    7  ( 23.3%)
+  P1 wins        :    8  ( 26.7%)
   Timeouts       :    0  (  0.0%)
   Errors         :    0  (  0.0%)
   Avg selections : 189.3
@@ -36,12 +42,17 @@ Game 30/30: g85029  W=7 L=8 D=15   score=222
   Results CSV    : logs/real_20260623.csv
 """
 parsed = parse_match_output(SAMPLE_OUTPUT)
+check("Parse games=30", parsed["games"] == 30)
+check("Parse wins=7", parsed["wins"] == 7)
+check("Parse losses=8", parsed["losses"] == 8)
 check("Parse errors=0", parsed["errors"] == 0)
 check("Parse timeouts=0", parsed["timeouts"] == 0)
 check("Parse avg_selections", parsed["avg_selections"] == 189.3)
 check("Parse avg_ms", parsed["avg_ms"] == 3168)
+check("Parse results_csv", parsed["results_csv"] == "logs/real_20260623.csv")
 
 SAMPLE_ERR = """
+  Games          : 30
   Errors         :    2  (  6.7%)
   Timeouts       :    1  (  3.3%)
   Avg selections : 150.0
@@ -53,6 +64,32 @@ check("Parse timeouts=1", parsed_err["timeouts"] == 1)
 
 parsed_empty = parse_match_output("")
 check("Empty stdout: no crash", isinstance(parsed_empty, dict))
+
+# ===================================================================
+print("\n--- parse_results_csv ---")
+
+with tempfile.TemporaryDirectory() as td:
+    csv_path = os.path.join(td, "results.csv")
+    with open(csv_path, "w") as f:
+        f.write("game,winner,selections\n")
+        f.write("g1,p0,100\n")
+        f.write("g2,p1,120\n")
+        f.write("g3,p0,110\n")
+        f.write("g4,,130\n")
+    csv_r = parse_results_csv(csv_path)
+    check("CSV games=4", csv_r["games"] == 4)
+    check("CSV wins=2", csv_r["wins"] == 2)
+    check("CSV losses=1", csv_r["losses"] == 1)
+    check("CSV draws=1", csv_r["draws"] == 1)
+
+check("Nonexistent CSV: no crash", parse_results_csv("/nonexistent.csv")["games"] == 0)
+
+# ===================================================================
+print("\n--- merge_metrics ---")
+
+merged = merge_metrics(parsed, "")
+check("Merge has score_per_game", "score_per_game" in merged)
+check("Merge has wins", "wins" in merged)
 
 # ===================================================================
 print("\n--- make_eval_env ---")
@@ -100,13 +137,30 @@ check("Nonexistent source: returns False", not ok2)
 # ===================================================================
 print("\n--- compute_verdict ---")
 
-bl = {"errors": 0, "timeouts": 0, "avg_selections": 190}
-cd = {"errors": 0, "timeouts": 0, "avg_selections": 195}
+bl = {"errors": 0, "timeouts": 0, "avg_selections": 190, "score_per_game": 100,
+      "wins": 10, "losses": 8, "draws": 12, "avg_ms": 3000}
+cd = {"errors": 0, "timeouts": 0, "avg_selections": 195, "score_per_game": 105,
+      "wins": 12, "losses": 6, "draws": 12, "avg_ms": 3100}
 v = compute_verdict(bl, cd)
-check("Verdict ok", v["verdict"] == "candidate_ok")
-check("Delta selections", v["delta"]["avg_selections_diff"] == 5.0)
+check("Verdict better (+5%)", v["verdict"] == "candidate_better")
+check("Delta score_per_game", v["delta"]["score_per_game"] == 5.0)
+check("Delta score_pct > 0", v["delta"]["score_pct"] > 0)
+check("Delta wins", v["delta"]["wins"] == 2)
+check("Delta losses", v["delta"]["losses"] == -2)
+check("Delta avg_ms_diff", v["delta"]["avg_ms_diff"] == 100)
+check("score_available", v["score_available"] == True)
 
-cd_err = {"errors": 1, "timeouts": 0, "avg_selections": 190}
+cd_worse = {"errors": 0, "timeouts": 0, "avg_selections": 185, "score_per_game": 95,
+            "wins": 8, "losses": 12, "draws": 10, "avg_ms": 3000}
+v_worse = compute_verdict(bl, cd_worse)
+check("Verdict worse (-5%)", v_worse["verdict"] == "candidate_worse")
+
+cd_neutral = {"errors": 0, "timeouts": 0, "avg_selections": 190, "score_per_game": 100.5,
+              "wins": 10, "losses": 8, "draws": 12, "avg_ms": 3000}
+v_neutral = compute_verdict(bl, cd_neutral)
+check("Verdict neutral (<1%)", v_neutral["verdict"] == "candidate_neutral")
+
+cd_err = {"errors": 1, "timeouts": 0, "avg_selections": 190, "score_per_game": 200}
 v_err = compute_verdict(bl, cd_err)
 check("Candidate errors -> unsafe", v_err["verdict"] == "candidate_unsafe")
 
@@ -129,7 +183,7 @@ with tempfile.TemporaryDirectory() as td:
     check("Has mode", loaded["mode"] == "hybrid")
     check("Has baseline", "baseline" in loaded)
     check("Has candidate", "candidate" in loaded)
-    check("Has verdict", loaded["verdict"] == "candidate_ok")
+    check("Has verdict", loaded["verdict"] == "candidate_better")
 
 # ===================================================================
 print("\n--- to_wsl_path ---")

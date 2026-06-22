@@ -93,15 +93,28 @@ check("JSON serializable", isinstance(json.dumps(cand), str))
 print("\n--- rank_candidates ---")
 
 cands = [
-    {"path": "c1.json", "verdict": "candidate_ok", "errors": 0, "timeouts": 0, "avg_selections_diff": 5},
-    {"path": "c2.json", "verdict": "candidate_unsafe", "errors": 1, "timeouts": 0, "avg_selections_diff": 10},
-    {"path": "c3.json", "verdict": "candidate_ok", "errors": 0, "timeouts": 0, "avg_selections_diff": 8},
-    {"path": "c4.json", "verdict": "candidate_ok", "errors": 0, "timeouts": 1, "avg_selections_diff": 3},
+    {"path": "c1.json", "verdict": "candidate_neutral", "errors": 0, "timeouts": 0,
+     "score_per_game_delta": 2.0, "score_pct": 3.0},
+    {"path": "c2.json", "verdict": "candidate_unsafe", "errors": 1, "timeouts": 0,
+     "score_per_game_delta": 10.0, "score_pct": 15.0},
+    {"path": "c3.json", "verdict": "candidate_better", "errors": 0, "timeouts": 0,
+     "score_per_game_delta": 5.0, "score_pct": 8.0},
+    {"path": "c4.json", "verdict": "candidate_neutral", "errors": 0, "timeouts": 1,
+     "score_per_game_delta": 3.0, "score_pct": 5.0},
 ]
 ranked = rank_candidates(cands)
-check("Best first: no errors/timeouts", ranked[0]["path"] == "c3.json")
-check("Second: c1 (lower diff)", ranked[1]["path"] == "c1.json")
+check("Best: highest score_per_game_delta (c3)", ranked[0]["path"] == "c3.json")
+check("Second: c1 (safe, lower spg delta)", ranked[1]["path"] == "c1.json")
 check("Unsafe last", ranked[-1]["verdict"] == "candidate_unsafe")
+
+# No score metrics
+cands_no_score = [
+    {"path": "a.json", "verdict": "candidate_neutral", "errors": 0, "timeouts": 0},
+    {"path": "b.json", "verdict": "eval_failed", "errors": 0, "timeouts": 0},
+]
+ranked_ns = rank_candidates(cands_no_score)
+check("No score: safe first", ranked_ns[0]["path"] == "a.json")
+check("eval_failed last", ranked_ns[-1]["path"] == "b.json")
 
 # ===================================================================
 print("\n--- build_summary ---")

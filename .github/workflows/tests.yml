@@ -90,3 +90,6 @@ jobs:
 
       - name: Run ML weight evaluation tests
         run: python experiments/test_ml_weight_evaluation.py
+
+      - name: Run ML weight search tests
+        run: python experiments/test_ml_weight_search.py

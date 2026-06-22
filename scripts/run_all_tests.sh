@@ -102,4 +102,8 @@ echo "=== ML weight evaluation ==="
 python experiments/test_ml_weight_evaluation.py
 
 echo ""
+echo "=== ML weight search ==="
+python experiments/test_ml_weight_search.py
+
+echo ""
 echo "All tests passed."

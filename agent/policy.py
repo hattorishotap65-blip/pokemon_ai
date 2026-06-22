@@ -271,9 +271,19 @@ class PolicyAgent:
         except Exception:
             pass
 
+        attack_plan_bonus = 0.0
+        try:
+            from agent.attack_plan import select_best_plan, plan_matches_action
+            best_plan = select_best_plan(state)
+            if best_plan is not None:
+                attack_plan_bonus = plan_matches_action(best_plan, action, state)
+        except Exception:
+            pass
+
         total = (type_score + adv + rule_bonus + turn_rule_score
                  + kilowattrel_ability_score
-                 + voltorb_attack_score + voltorb_safety_score)
+                 + voltorb_attack_score + voltorb_safety_score
+                 + attack_plan_bonus)
         breakdown = {
             "type_score":               round(type_score, 3),
             "adv_score":                round(adv, 3),

@@ -72,3 +72,6 @@ jobs:
 
       - name: Run core param search tests
         run: python experiments/test_core_param_search.py
+
+      - name: Run attack plan tests
+        run: python experiments/test_attack_plan.py

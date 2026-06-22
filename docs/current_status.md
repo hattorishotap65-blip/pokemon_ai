@@ -142,9 +142,26 @@ Included PRs since v3: #88 (normalized state fix), #89 (card metadata),
 
 **Verdict: Ready for submission.**
 
+## Core Parameter Search (PR #100-#102)
+
+Externalized 5 core params to `configs/params/default_params.json`.
+Searched via `scripts/run_core_param_search.py` at 30g/50g/100g/200g.
+
+| Parameter | Tested Range | Best 30g | 50g | 100g | 200g | Result |
+|-----------|-------------|----------|-----|------|------|--------|
+| zero_damage_attack_penalty | 200-800 | 500 (=BL) | - | - | - | 500 confirmed |
+| ko_opponent_bonus | 10-40 | 20 (=BL) | - | - | - | 20 confirmed |
+| boss_can_ko | 15-50 | 30 (=BL) | - | - | - | 30 confirmed |
+| alt_attacker_ko_score | 400-1200 | 1200 (-7%) | 1200 (-4%) | 1200 (-10%) | 1200 (-0.6%) | 800 confirmed |
+| energy_ready_bonus | 100-400 | 100 (-11%) | 100 (+2%) | - | - | 200 confirmed |
+
+**Conclusion:** All 5 core params confirmed at current values.
+alt_attacker_ko_score=1200 showed improvement at 30g/100g but vanished at 200g.
+energy_ready_bonus=100 improved at 30g but reversed at 50g.
+
 ## Next PR Candidates
 
-1. Retreat-to-alternative when 0-damage + better attacker available (partially done in #91)
+1. Lightweight attack_plan implementation
 2. Deck-out risk awareness when deck_count is low
 
 ## Rejected/Confirmed Parameters
@@ -160,3 +177,8 @@ Included PRs since v3: #88 (normalized state fix), #89 (card metadata),
 | evolve_first_kilowattrel_bonus | 3.5-14 | 7.0 confirmed |
 | legal_attack_score | 75-250 | 250.0 adopted |
 | energy_attack_enablement_bonus | 150-500 | 200.0 adopted |
+| zero_damage_attack_penalty | 200-800 | 500 confirmed |
+| ko_opponent_bonus | 10-40 | 20 confirmed |
+| boss_can_ko | 15-50 | 30 confirmed |
+| alt_attacker_ko_score | 400-1200 | 800 confirmed |
+| energy_ready_bonus | 100-400 | 200 confirmed |

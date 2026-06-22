@@ -276,6 +276,13 @@ def run_one_game(
         return "error", sel_n
 
 
+_SCORE_MAP = {"p0": 10, "p1": -10, "timeout": -20, "error": -20}
+
+
+def _game_score(winner: str) -> int:
+    return _SCORE_MAP.get(winner, 0)
+
+
 # ---------------------------------------------------------------------------
 # Batch runner
 # ---------------------------------------------------------------------------
@@ -330,7 +337,8 @@ def run_batch(
 
         result_counts[winner] += 1
         total_sel += sels
-        rows.append({"game": i + 1, "winner": winner, "selections": sels})
+        game_score = _game_score(winner)
+        rows.append({"game": i + 1, "winner": winner, "selections": sels, "score": game_score})
 
         if (i + 1) % step == 0:
             elapsed = time.time() - t_start
@@ -341,7 +349,7 @@ def run_batch(
     # Write CSV
     os.makedirs(os.path.dirname(output_csv) or ".", exist_ok=True)
     with open(output_csv, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["game", "winner", "selections"])
+        writer = csv.DictWriter(f, fieldnames=["game", "winner", "selections", "score"])
         writer.writeheader()
         writer.writerows(rows)
 
@@ -351,6 +359,8 @@ def run_batch(
     p1_wins = result_counts.get("p1", 0)
     timeouts = result_counts.get("timeout", 0)
     errors   = result_counts.get("error", 0)
+    total_score = sum(r["score"] for r in rows)
+    score_per_game = total_score / n if n > 0 else 0
 
     print(f"\n{'='*46}")
     print(f"  Results  ({opp_label}-play)")
@@ -365,6 +375,9 @@ def run_batch(
     print(f"  Timeouts       : {timeouts:>4}  ({timeouts/n*100:5.1f}%)")
     print(f"  Errors         : {errors:>4}  ({errors/n*100:5.1f}%)")
     print(f"  Avg selections : {total_sel/n:.1f}")
+    print(f"  Total score    : {total_score}")
+    print(f"  Score/game     : {score_per_game:.2f}")
+    print(f"  score={total_score}")
     print(f"  Elapsed        : {elapsed:.1f}s  ({elapsed/n*1000:.0f}ms/game)")
     print(f"  Results CSV    : {output_csv}")
 

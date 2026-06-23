@@ -22,6 +22,8 @@ files = [
     ('agent/turn_rule_engine.py',  'agent/turn_rule_engine.py'),
     ('agent/card_metadata.py',    'agent/card_metadata.py'),
     ('agent/damage_predictor.py', 'agent/damage_predictor.py'),
+    ('agent/params.py',           'agent/params.py'),
+    ('configs/params/default_params.json', 'configs/params/default_params.json'),
     ('data/card_knowledge.csv',    'data/card_knowledge.csv'),
     ('data/deck_profile.json',     'data/deck_profile.json'),
     ('data/card_effects_iono_lightning_recommended_en_ja.json',

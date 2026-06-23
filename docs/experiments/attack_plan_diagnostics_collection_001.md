@@ -52,8 +52,18 @@ python experiments/collect_attack_plan_diagnostics.py \
 - Diagnostics only when runner is explicitly invoked
 - Generated JSON goes to artifacts/ (not committed)
 
+## Known Limitations
+
+- 現在の diagnostics は attack / end 系の検出を主目的とする
+- boss_ko / switch / retreat 系の missed 判定は、ログに raw option fields
+  (`area`, `index`, `playerIndex`, `attackId`, `inPlayArea`, `inPlayIndex`)
+  が不足しているため参考値
+- それらの精度向上は次 PR で candidate log に詳細フィールドを追加して対応する
+- このPRでは通常 policy 挙動・ログ形式・runtime default は変更しない
+
 ## Next Steps
 
 1. Collect 50g/100g diagnostics to measure baseline missed_ko rate
 2. Identify which plan types are most commonly missed
-3. Consider safe policy corrections in next PR
+3. Enrich candidate log with raw option fields for boss/switch/retreat accuracy
+4. Consider safe policy corrections in next PR

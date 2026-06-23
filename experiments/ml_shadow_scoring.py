@@ -38,10 +38,19 @@ _BOOL_FEATURES = [
 ]
 ALL_FEATURES = _NUMERIC_FEATURES + _BOOL_FEATURES
 
+_ENRICHED_NUMERIC = [
+    "active_energy_shortage", "damage_to_ko_gap", "prize_pressure",
+]
+_ENRICHED_BOOL = [
+    "active_can_attack_now", "best_attack_can_ko",
+    "is_behind_prizes", "is_ahead_prizes", "deck_low", "hand_low",
+]
+
 _RULE_SCORE_FEATURES = {"rule_score", "candidate_rank"}
 
 _NO_RULE_NUMERIC = [f for f in _NUMERIC_FEATURES if f not in _RULE_SCORE_FEATURES]
 _NO_RULE_FEATURES = _NO_RULE_NUMERIC + _BOOL_FEATURES
+_ENRICHED_FEATURES = _NO_RULE_NUMERIC + _ENRICHED_NUMERIC + _BOOL_FEATURES + _ENRICHED_BOOL
 
 
 def _to_feature_vec(row: dict) -> List[float]:
@@ -250,11 +259,20 @@ def main():
                         help="Exclude rule_score and candidate_rank from features")
     parser.add_argument("--outcome-weighted", action="store_true",
                         help="Weight selected actions by game outcome")
+    parser.add_argument("--enriched-features", action="store_true",
+                        help="Use enriched feature set (no rule_score)")
     args = parser.parse_args()
 
-    feature_list = _NO_RULE_FEATURES if args.no_rule_score else ALL_FEATURES
+    if args.enriched_features:
+        feature_list = _ENRICHED_FEATURES
+    elif args.no_rule_score:
+        feature_list = _NO_RULE_FEATURES
+    else:
+        feature_list = ALL_FEATURES
     parts = []
-    if args.no_rule_score:
+    if args.enriched_features:
+        parts.append("enriched")
+    elif args.no_rule_score:
         parts.append("no-rule")
     if args.outcome_weighted:
         parts.append("outcome-weighted")

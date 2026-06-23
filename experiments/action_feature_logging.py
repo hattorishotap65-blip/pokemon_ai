@@ -129,7 +129,29 @@ def extract_candidate_features(
         "is_end": is_end,
         "late_game": late_game,
         "game_result": game_result,
+        "reward": _REWARD_MAP.get(game_result, 0.0),
     }
+
+
+def _detect_game_result(entries: list) -> str:
+    """Detect game result from log entries."""
+    for e in reversed(entries):
+        r = e.get("result")
+        if r in ("win", "loss"):
+            return r
+        if e.get("error"):
+            return "error"
+    last = entries[-1] if entries else {}
+    prizes = (last.get("state_summary") or {}).get("prizes_remaining", 6)
+    opp_prizes = (last.get("state_summary") or {}).get("opp_prizes", 6)
+    if prizes == 0:
+        return "win"
+    if opp_prizes == 0:
+        return "loss"
+    return "unknown"
+
+
+_REWARD_MAP = {"win": 1.0, "loss": -1.0, "draw": 0.0, "error": -1.0, "timeout": -1.0}
 
 
 def process_logs(start_game: int, count: int, output: str) -> dict:
@@ -158,11 +180,11 @@ def process_logs(start_game: int, count: int, output: str) -> dict:
                     except Exception:
                         continue
 
-            last = entries[-1] if entries else {}
-            game_result = ""
-            if last.get("error"):
+            game_result = _detect_game_result(entries)
+            if game_result == "error":
                 stats["errors"] += 1
-                game_result = "error"
+            elif game_result == "timeout":
+                stats["timeouts"] += 1
 
             for entry in entries:
                 candidates = entry.get("top_candidates") or []

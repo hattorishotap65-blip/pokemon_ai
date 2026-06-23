@@ -98,9 +98,20 @@ python experiments/action_feature_logging.py \
 
 can_ko selection rate is 95-99%. The policy almost always attacks when KO is possible.
 
+Note: can_ko is currently detected from the `reason` string (contains "ko").
+Future improvement: use `predicted_damage >= opponent_hp` for more accurate detection.
+
 ### No zero-damage attacks, no attach-enables-attack misses
 
 Both metrics are 0, confirming the policy's safety guards work correctly.
+
+### Game result and reward
+
+game_result is detected from log entries (win/loss/error/timeout/unknown).
+reward: win=1.0, loss=-1.0, error/timeout=-1.0, unknown=0.0.
+Self-play logs show "unknown" because game result is determined externally
+by run_matches_real.py, not written into per-decision logs. For ML training
+with outcome labels, results CSV can be joined by game_id.
 
 ## Feature Coverage
 

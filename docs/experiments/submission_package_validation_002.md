@@ -91,6 +91,29 @@ wsl -d Ubuntu -e bash -c "cd /mnt/c/Users/shclo/projects/pokemon_card_ai && \
 
 Self-play のため score は 0 周辺で正常。errors=0, timeouts=0 を確認。
 
+### 100g Smoke
+
+```bash
+wsl -d Ubuntu -e bash -c "cd /mnt/c/Users/shclo/projects/pokemon_card_ai && \
+    PYTHONPATH=.../reference/extracted \
+    python3 experiments/run_matches_real.py --n 100 --start-game 111000"
+```
+
+| Metric | Value |
+|--------|-------|
+| Games | 100 |
+| Start game | 111000 |
+| P0 wins | 43 |
+| P1 wins | 57 |
+| Errors | **0** |
+| Timeouts | **0** |
+| Total score | -140 |
+| Score/game | -1.40 |
+| Avg ms/game | 4107 |
+
+Self-play のため P0/P1 非対称はゲームごとの分散。
+errors=0, timeouts=0 を 100g でも確認。
+
 ## 81461232 Regression Check
 
 - attack_plan.py は提出パッケージに含まれていない

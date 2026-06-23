@@ -63,6 +63,20 @@ def get_legal_attack_info(entry: dict, candidates: list) -> dict:
     }
 
 
+def classify_attack_decision(chosen_action: dict, entry: dict, candidates: list) -> dict:
+    """Classify whether this decision point has legal attack options."""
+    legal_info = get_legal_attack_info(entry or {}, candidates)
+    chosen_type = chosen_action.get("type")
+    return {
+        "has_legal_attack": legal_info["has_legal_attack"],
+        "legal_attack_count": legal_info["legal_attack_count"],
+        "selected_attack": chosen_type == 13,
+        "selected_end": chosen_type == 14,
+        "selected_non_attack": chosen_type not in (13, 14) and chosen_type is not None,
+        "attack_decision_relevant": legal_info["has_legal_attack"],
+    }
+
+
 def classify_end_with_plan(selected_cand: dict, candidates: list, diag: dict,
                            entry: dict = None) -> dict:
     """Classify an End decision with plan context."""
@@ -124,6 +138,13 @@ def init_summary() -> dict:
         "missed_ko_plan_energy_not_ready": 0,
         "ko_plan_energy_ready": 0,
         "ko_plan_energy_not_ready": 0,
+        "attack_decision_count": 0,
+        "attack_decision_missed_ko": 0,
+        "attack_decision_missed_ko_energy_ready": 0,
+        "attack_decision_missed_ko_energy_not_ready": 0,
+        "non_attack_decision_missed_ko_energy_ready": 0,
+        "selected_attack_count": 0,
+        "selected_non_attack_with_legal_attack": 0,
         "has_winning_ko": 0,
         "has_active_ko": 0,
         "has_boss_ko": 0,
@@ -133,7 +154,7 @@ def init_summary() -> dict:
 
 
 def add_diagnosis(summary: dict, diag: dict, plan_summary: dict,
-                  end_class: dict = None):
+                  end_class: dict = None, atk_class: dict = None):
     summary["decisions"] += 1
     if plan_summary.get("plan_count", 0) > 0:
         summary["plans_available"] += 1
@@ -181,6 +202,22 @@ def add_diagnosis(summary: dict, diag: dict, plan_summary: dict,
             summary["end_with_plan_no_legal_attack"] += 1
         if end_class.get("end_with_ko_plan_and_legal_attack"):
             summary["end_with_ko_plan_and_legal_attack"] += 1
+    if atk_class:
+        if atk_class.get("attack_decision_relevant"):
+            summary["attack_decision_count"] += 1
+            if diag.get("missed_ko_plan"):
+                summary["attack_decision_missed_ko"] += 1
+            if diag.get("missed_ko_plan_energy_ready"):
+                summary["attack_decision_missed_ko_energy_ready"] += 1
+            if diag.get("missed_ko_plan_energy_not_ready"):
+                summary["attack_decision_missed_ko_energy_not_ready"] += 1
+        else:
+            if diag.get("missed_ko_plan_energy_ready"):
+                summary["non_attack_decision_missed_ko_energy_ready"] += 1
+        if atk_class.get("selected_attack"):
+            summary["selected_attack_count"] += 1
+        if atk_class.get("selected_non_attack") and atk_class.get("has_legal_attack"):
+            summary["selected_non_attack_with_legal_attack"] += 1
 
 
 def compute_rates(summary: dict) -> dict:
@@ -197,6 +234,9 @@ def compute_rates(summary: dict) -> dict:
         "selected_end_with_legal_attack_rate": round(summary["selected_end_with_legal_attack"] / ec, 4) if ec else 0.0,
         "missed_ko_energy_ready_rate": round(summary["missed_ko_plan_energy_ready"] / pa, 4) if pa else 0.0,
         "missed_ko_energy_not_ready_rate": round(summary["missed_ko_plan_energy_not_ready"] / pa, 4) if pa else 0.0,
+        "attack_decision_missed_ko_rate": round(summary["attack_decision_missed_ko"] / adc, 4) if (adc := summary.get("attack_decision_count", 0)) else 0.0,
+        "attack_decision_missed_ko_energy_ready_rate": round(summary["attack_decision_missed_ko_energy_ready"] / adc, 4) if (adc := summary.get("attack_decision_count", 0)) else 0.0,
+        "attack_decision_missed_ko_energy_not_ready_rate": round(summary["attack_decision_missed_ko_energy_not_ready"] / adc, 4) if (adc := summary.get("attack_decision_count", 0)) else 0.0,
     }
 
 
@@ -304,13 +344,18 @@ def analyze_logs(start_game: int, count: int) -> dict:
                     ps = summarize_attack_plans(plans)
                     diag = diagnose_attack_plan_choice(plans, chosen_action, state)
                     end_class = classify_end_with_plan(selected_cand, candidates, diag, entry)
-                    add_diagnosis(summary, diag, ps, end_class)
+                    atk_class = classify_attack_decision(chosen_action, entry, candidates)
+                    add_diagnosis(summary, diag, ps, end_class, atk_class)
 
                     if diag.get("notes") and len(examples) < _MAX_EXAMPLES:
                         ex = build_example(gid, state_summary, diag, chosen_action)
                         ex["best_plan_energy_ready"] = diag.get("best_plan_energy_ready")
                         ex["best_plan_energy_required"] = diag.get("best_plan_energy_required")
                         ex["best_plan_energy_attached"] = diag.get("best_plan_energy_attached")
+                        ex["has_legal_attack"] = atk_class.get("has_legal_attack")
+                        ex["legal_attack_count"] = atk_class.get("legal_attack_count")
+                        ex["selected_attack"] = atk_class.get("selected_attack")
+                        ex["attack_decision_relevant"] = atk_class.get("attack_decision_relevant")
                         if end_class.get("is_end"):
                             ex["attack_available"] = end_class["attack_available"]
                             ex["attack_candidate_count"] = end_class["attack_candidate_count"]

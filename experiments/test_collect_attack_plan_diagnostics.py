@@ -11,6 +11,7 @@ from experiments.collect_attack_plan_diagnostics import (
     build_chosen_action, build_example,
     candidate_is_attack, selected_is_end, has_attack_candidate,
     classify_end_with_plan, get_legal_attack_info,
+    classify_attack_decision,
 )
 
 PASS = "[PASS]"
@@ -314,6 +315,67 @@ check("end_with_plan_and_attack_rate=1.0", r_end["end_with_plan_and_attack_rate"
 # Zero end count
 r_zero = compute_rates(init_summary())
 check("Zero end: no division error", r_zero["end_with_plan_and_attack_rate"] == 0.0)
+
+# ===================================================================
+print("\n--- classify_attack_decision ---")
+
+ad1 = classify_attack_decision({"type": 13}, {"legal_option_summary": {"attack": 2, "has_attack": True}}, [])
+check("AD: attack selected", ad1["selected_attack"])
+check("AD: has_legal_attack", ad1["has_legal_attack"])
+check("AD: attack_decision_relevant", ad1["attack_decision_relevant"])
+check("AD: not selected_end", not ad1["selected_end"])
+
+ad2 = classify_attack_decision({"type": 14}, {"legal_option_summary": {"attack": 0, "has_attack": False}}, [])
+check("AD: end selected", ad2["selected_end"])
+check("AD: no legal attack", not ad2["has_legal_attack"])
+check("AD: not attack_decision_relevant", not ad2["attack_decision_relevant"])
+
+ad3 = classify_attack_decision({"type": 10}, {"legal_option_summary": {"attack": 1, "has_attack": True}}, [])
+check("AD: ability is non_attack", ad3["selected_non_attack"])
+check("AD: ability with legal attack", ad3["has_legal_attack"])
+
+# Old log fallback
+ad4 = classify_attack_decision({"type": 13}, {}, [{"option_type": 13}])
+check("AD fallback: has_legal_attack from candidates", ad4["has_legal_attack"])
+
+ad5 = classify_attack_decision({"type": 14}, {}, [{"option_type": 14}])
+check("AD fallback: no legal attack", not ad5["has_legal_attack"])
+
+# ===================================================================
+print("\n--- add_diagnosis with atk_class ---")
+
+s_atk = init_summary()
+diag_atk = {"chosen_matches_best": False, "missed_ko_plan": True,
+            "missed_ko_plan_energy_ready": True, "missed_ko_plan_energy_not_ready": False,
+            "missed_high_value_plan": False, "notes": ["missed_active_ko"]}
+ps_atk = {"plan_count": 1, "has_active_ko": True, "ko_plan_energy_ready": 1, "ko_plan_energy_not_ready": 0}
+ec_atk = None
+atk_cls_y = {"attack_decision_relevant": True, "has_legal_attack": True,
+             "selected_attack": False, "selected_non_attack": True, "selected_end": False}
+add_diagnosis(s_atk, diag_atk, ps_atk, ec_atk, atk_cls_y)
+check("Atk: attack_decision_count=1", s_atk["attack_decision_count"] == 1)
+check("Atk: attack_decision_missed_ko=1", s_atk["attack_decision_missed_ko"] == 1)
+check("Atk: attack_decision_missed_ko_energy_ready=1", s_atk["attack_decision_missed_ko_energy_ready"] == 1)
+check("Atk: selected_non_attack_with_legal_attack=1", s_atk["selected_non_attack_with_legal_attack"] == 1)
+check("Atk: non_attack_decision=0", s_atk["non_attack_decision_missed_ko_energy_ready"] == 0)
+
+# Non-attack decision (no legal attack)
+atk_cls_n = {"attack_decision_relevant": False, "has_legal_attack": False,
+             "selected_attack": False, "selected_non_attack": True, "selected_end": False}
+add_diagnosis(s_atk, diag_atk, ps_atk, None, atk_cls_n)
+check("Non-atk: attack_decision_count still 1", s_atk["attack_decision_count"] == 1)
+check("Non-atk: non_attack_decision_missed_ko_energy_ready=1", s_atk["non_attack_decision_missed_ko_energy_ready"] == 1)
+
+# ===================================================================
+print("\n--- compute_rates with attack_decision ---")
+
+r_atk = compute_rates(s_atk)
+check("Has attack_decision_missed_ko_rate", "attack_decision_missed_ko_rate" in r_atk)
+check("Has attack_decision_missed_ko_energy_ready_rate", "attack_decision_missed_ko_energy_ready_rate" in r_atk)
+check("attack_decision_missed_ko_rate=1.0", r_atk["attack_decision_missed_ko_rate"] == 1.0)
+
+r_zero = compute_rates(init_summary())
+check("Zero attack decisions: no div error", r_zero["attack_decision_missed_ko_rate"] == 0.0)
 
 # ===================================================================
 print("\n--- diagnostic_errors ---")

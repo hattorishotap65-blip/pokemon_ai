@@ -122,7 +122,7 @@ class LinearRanker:
 def group_by_decision(rows: List[dict]) -> Dict[str, List[dict]]:
     groups: Dict[str, List[dict]] = {}
     for r in rows:
-        key = f"{r.get('game_id', 0)}-{r.get('turn', 0)}"
+        key = r.get("decision_id") or f"{r.get('game_id', 0)}-{r.get('turn', 0)}"
         groups.setdefault(key, []).append(r)
     return groups
 

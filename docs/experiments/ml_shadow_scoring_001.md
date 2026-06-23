@@ -47,14 +47,18 @@ python experiments/ml_shadow_scoring.py \
 | Metric | Value |
 |--------|-------|
 | Train candidates | 40,116 |
+| Train decisions | 8,817 |
 | Eval candidates | 87,337 |
-| Eval decisions | 2,291 |
-| **Top1 agreement** | **67.7%** |
-| **Top3 agreement** | **81.5%** |
-| ML End top1 | 233 |
+| Eval decisions | 19,068 |
+| **Top1 agreement** | **100.0%** |
+| **Top3 agreement** | **100.0%** |
+| ML End top1 | 1,017 |
 | ML End + legal_attack | **0** |
-| ML miss KO | 10 |
+| ML miss KO | 9 |
 | ML zero_damage top1 | **0** |
+
+Note: decision grouping uses `decision_id` (game_id + decision_seq),
+not `game_id + turn` which collapsed multiple per-turn decisions.
 
 ## Top Features (by |weight|)
 
@@ -86,32 +90,38 @@ miss KO は 10/2,291 で低い。
 
 ## Interpretation
 
-### Top1 agreement 67.7% は「まだ不十分」
+### Top1 agreement 100% — ML は rule_score の順位を完全に再現
 
-rule policy は多肢選択（平均 38 候補/decision）で、ML がまだ rule の判断を
-十分再現できていない。candidate_rank への依存が大きく、独自の判断力は弱い。
-
-### Top3 agreement 81.5% は「方向性は合っている」
-
-ML の top3 に rule の選択が含まれる率は高く、粗い合意はある。
+decision_id 単位で正しく grouping した結果、各 decision は平均 ~4.6 候補。
+ML の dominant feature は `candidate_rank` (-131.4) で、rule_score の順位を
+そのまま学習している。独自の判断はまだ弱いが、rule policy の模倣は完了。
 
 ### Unsafe decisions は非常に少ない
 
-End+legal_attack=0, zero_damage=0, miss_KO=10 は安全寄り。
+- End+legal_attack=0 (safe)
+- zero_damage=0 (safe)
+- miss_KO=9/19,068 (0.05%)
+
+### ML の独自判断力
+
+Top feature が candidate_rank であるため、ML は本質的に rule_score の
+proxy になっている。rule_score が含まれない feature set で再学習すれば、
+ML 独自の判断力を測定できる。
 
 ## Decision
 
-**ML を行動選択にはまだ使わない**
+**ML は rule policy imitation として機能している。**
+**Hybrid mode 検討は可能だが、rule_score proxy なので追加効果は限定的。**
 
-理由:
-1. Top1 agreement 67.7% は hybrid mode に入れるには低い
-2. candidate_rank 依存が大きく、ML 独自の判断が弱い
-3. feature 改善 or ラベル改善で agreement を上げてから再検討
+次に進むべきは:
+1. rule_score を feature から外して re-train → ML 独自の判断力を測定
+2. outcome-weighted training → 勝ちに寄与する action を学習
+3. 上記で agreement が維持 or 改善するなら hybrid mode 検討
 
 ## Next Steps
 
-1. **Feature 改善**: predicted_damage, opp_bench_hp, hand_composition を追加
-2. **Decision-level grouping**: pairwise ranking loss で学習（現在は pointwise）
-3. **Outcome-weighted training**: win/loss reward を学習に反映
-4. **90%+ agreement** に達したら hybrid 10% scoring を検討
+1. **rule_score 除外 re-train**: candidate_rank / rule_score を feature から外して ML 独自判断力を測定
+2. **Outcome-weighted training**: win/loss reward を学習に反映
+3. **Feature 改善**: predicted_damage, opp_bench_hp, hand_composition を追加
+4. **独自判断力が高ければ** hybrid 10% scoring を検討
 5. Runtime default はまだ変更しない

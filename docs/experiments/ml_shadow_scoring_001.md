@@ -83,10 +83,10 @@ candidate_rank が最大の特徴量 — ML は主に rule_score の順位を学
 |-------|--------|
 | ML End + legal_attack top1 | **0** (safe) |
 | ML zero_damage top1 | **0** (safe) |
-| ML miss KO | 10 (0.44% of decisions) |
+| ML miss KO | 9 (0.05% of 19,068 decisions) |
 
 ML は End+legal_attack や zero_damage attack を top1 に選んでいない。
-miss KO は 10/2,291 で低い。
+miss KO は 9/19,068 で非常に低い。
 
 ## Interpretation
 

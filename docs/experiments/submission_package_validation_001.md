@@ -29,40 +29,31 @@ PR #132 完了後の最初の提出候補として、submission package を検�
 | test_params | OK | 16/16 |
 | 50g smoke | OK | 0 errors, 0 timeouts, score=200 (4.0/g) |
 
-## Critical Finding: agent/params.py missing from submission
+## Finding and Fix: agent/params.py was missing from submission
 
-`build_submission.py` does NOT include `agent/params.py`.
-`policy.py` imports `from agent.params import get as _p` at lines 471, 481, 972
-**without try/except**. On Kaggle, this will crash with `ModuleNotFoundError`.
+Initial check found `agent/params.py` missing from `build_submission.py`.
+`policy.py` imported params without try/except — would crash on Kaggle.
 
-### Affected imports
+### Fix applied (same PR)
 
-| File | Line | In try/except? | Impact |
-|------|------|----------------|--------|
-| agent/policy.py | 471 | **NO** | **CRASH** on zero_damage_attack_penalty |
-| agent/policy.py | 481 | **NO** | **CRASH** on ko_opponent_bonus |
-| agent/policy.py | 972 | **NO** | **CRASH** on boss_can_ko |
-| agent/damage_predictor.py | 203 | YES | Safe (fallback to hardcoded) |
-| agent/attack_plan.py | N/A | Not in submission | N/A |
-| agent/ml_policy.py | N/A | Not in submission, try/except | N/A |
+1. Added `agent/params.py`, `agent/attack_plan.py`, `configs/params/default_params.json` to `build_submission.py`
+2. Wrapped policy.py params imports (lines 471, 484, 981) in try/except with hardcoded fallbacks (500/20/30)
+3. Rebuilt `submission.tar.gz` (567 KB)
 
-### Resolution options
+通常時は `agent.params` から値を読む。import 失敗時のみ hardcoded fallback を使う。
+通常の score/ranking 意図は変えない。
 
-1. **Add agent/params.py + configs/params/default_params.json to build_submission.py** — cleanest
-2. **Wrap policy.py params imports in try/except with hardcoded fallbacks** — safer fallback
-3. **Both** — recommended
+### Import safety summary (after fix)
 
-### Also not in submission (safe)
+| File | Import | Protected? | Fallback |
+|------|--------|-----------|----------|
+| agent/policy.py | agent.params | YES (try/except) | hardcoded 500/20/30 |
+| agent/policy.py | agent.attack_plan | YES (try/except) | bonus=0 |
+| agent/policy.py | agent.ml_policy | YES (try/except) | score=0 |
+| agent/damage_predictor.py | agent.params | YES (try/except) | hardcoded 800/200 |
+| agent/ml_policy.py | agent.ml_features | YES (try/except) | score=0 |
 
-| File | Used in submission? | Protected? |
-|------|--------------------| --------|
-| agent/attack_plan.py | policy.py imports it | try/except → bonus=0 |
-| agent/ml_policy.py | policy.py imports it | try/except → score=0 |
-| agent/ml_features.py | ml_policy imports it | ml_policy in try/except |
-| agent/params.py | policy.py imports it | **NOT protected** |
-| agent/policy_router.py | Not imported in submission | N/A |
-
-## Package Contents (build_submission.py)
+## Package Contents (build_submission.py, after fix)
 
 ### Included
 
@@ -72,17 +63,16 @@ PR #132 完了後の最初の提出候補として、submission package を検�
 - agent/opponent_model.py, planner.py, policy.py, rollout.py
 - agent/turn_plan.py, win_condition.py, effect_engine.py, turn_rule_engine.py
 - agent/card_metadata.py, damage_predictor.py
+- **agent/params.py** (added)
+- **agent/attack_plan.py** (added)
 - data/card_knowledge.csv, deck_profile.json, card_effects JSON, weights.json
+- **configs/params/default_params.json** (added)
 - cg/ (from reference/extracted/cg)
 
 ### Not included (correct)
 
 - docs/, experiments/, tests/, artifacts/, logs/, .git/, __pycache__/
-
-### Missing (needs fix)
-
-- **agent/params.py** — required by policy.py without fallback
-- **configs/params/default_params.json** — params.py reads this (has fallback to hardcoded)
+- agent/ml_policy.py, agent/ml_features.py, agent/policy_router.py (ML disabled)
 
 ## 50g Smoke Result
 
@@ -95,22 +85,24 @@ PR #132 完了後の最初の提出候補として、submission package を検�
 | Score/game | 4.0 |
 | Avg ms/game | 4465 |
 
+## Post-fix Verification
+
+| Check | Result |
+|-------|--------|
+| submission.tar.gz rebuilt | OK (567 KB) |
+| params.py included | OK |
+| attack_plan.py included | OK |
+| configs/params/default_params.json included | OK |
+| 30g smoke after fix | OK (0 errors, 0 timeouts) |
+| policy.py params fallback | OK (try/except + hardcoded) |
+
 ## Decision
 
-**Not submit yet** — agent/params.py missing from submission will cause crash on Kaggle.
-
-### Next action
-
-Create a fix PR to either:
-1. Add agent/params.py to build_submission.py
-2. Wrap policy.py params imports in try/except with hardcoded fallbacks
-3. Rebuild submission.tar.gz
-4. Re-verify with 50g smoke after fix
+**Submit candidate** — params.py 問題を修正済み。submission.tar.gz を意図的に更新。
 
 ## Runtime / Safety
 
-- policy behavior unchanged
-- score/ranking/action selection unchanged
+- 通常時は agent.params から値を読む（score/ranking 意図は変えない）
+- params import 失敗時のみ hardcoded fallback (500/20/30) を使用
 - ML default disabled
-- configs/default_params/weights/deck/submission 変更なし (this PR)
 - Generated artifacts/logs not committed

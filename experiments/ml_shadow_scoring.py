@@ -38,6 +38,11 @@ _BOOL_FEATURES = [
 ]
 ALL_FEATURES = _NUMERIC_FEATURES + _BOOL_FEATURES
 
+_RULE_SCORE_FEATURES = {"rule_score", "candidate_rank"}
+
+_NO_RULE_NUMERIC = [f for f in _NUMERIC_FEATURES if f not in _RULE_SCORE_FEATURES]
+_NO_RULE_FEATURES = _NO_RULE_NUMERIC + _BOOL_FEATURES
+
 
 def _to_feature_vec(row: dict) -> List[float]:
     vec = []
@@ -80,13 +85,14 @@ def _sigmoid(x: float) -> float:
 
 
 class LinearRanker:
-    def __init__(self):
+    def __init__(self, feature_list: List[str] = None):
+        self.feature_list = feature_list or ALL_FEATURES
         self.weights: List[float] = []
         self.bias: float = 0.0
 
     def train(self, data: List[dict], epochs: int = 5, lr: float = 0.01,
               l2: float = 0.001, seed: int = 42):
-        n_feat = len(ALL_FEATURES)
+        n_feat = len(self.feature_list)
         self.weights = [0.0] * n_feat
         self.bias = 0.0
         rng = random.Random(seed)
@@ -111,10 +117,18 @@ class LinearRanker:
         return sum(w * xi for w, xi in zip(self.weights, x)) + self.bias
 
     def _to_x(self, row: dict) -> List[float]:
-        return _to_feature_vec(row)
+        vec = []
+        for k in self.feature_list:
+            v = row.get(k, 0)
+            if v is None or v is False:
+                v = 0
+            elif v is True:
+                v = 1
+            vec.append(float(v))
+        return vec
 
     def top_features(self, n: int = 10) -> List[Tuple[str, float]]:
-        pairs = list(zip(ALL_FEATURES, self.weights))
+        pairs = list(zip(self.feature_list, self.weights))
         pairs.sort(key=lambda p: abs(p[1]), reverse=True)
         return [(k, round(v, 4)) for k, v in pairs[:n]]
 
@@ -219,14 +233,20 @@ def main():
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--max-train", type=int, default=200000)
+    parser.add_argument("--no-rule-score", action="store_true",
+                        help="Exclude rule_score and candidate_rank from features")
     args = parser.parse_args()
+
+    feature_list = _NO_RULE_FEATURES if args.no_rule_score else ALL_FEATURES
+    mode_label = "no-rule-score" if args.no_rule_score else "full"
+    print(f"Mode: {mode_label} ({len(feature_list)} features)")
 
     print(f"Loading train data from {args.train}...")
     train_data = load_jsonl(args.train, args.max_train)
     print(f"  {len(train_data)} rows")
 
-    print(f"\nTraining LinearRanker...")
-    model = LinearRanker()
+    print(f"\nTraining LinearRanker ({mode_label})...")
+    model = LinearRanker(feature_list=feature_list)
     model.train(train_data, epochs=args.epochs, lr=args.lr)
 
     print(f"\nTop features:")

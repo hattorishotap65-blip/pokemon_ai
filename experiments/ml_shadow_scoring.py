@@ -155,6 +155,128 @@ class LinearRanker:
         return [(k, round(v, 4)) for k, v in pairs[:n]]
 
 
+class _TreeNode:
+    __slots__ = ("feat_idx", "threshold", "left", "right", "value")
+    def __init__(self):
+        self.feat_idx = -1
+        self.threshold = 0.0
+        self.left = None
+        self.right = None
+        self.value = 0.0
+
+
+class DecisionTreeRanker:
+    """Pure-Python shallow decision tree for binary classification."""
+
+    def __init__(self, feature_list: List[str] = None,
+                 max_depth: int = 6, min_samples_leaf: int = 20):
+        self.feature_list = feature_list or ALL_FEATURES
+        self.max_depth = max_depth
+        self.min_leaf = min_samples_leaf
+        self.root = None
+
+    def train(self, data: List[dict], **kwargs):
+        import time as _time
+        t0 = _time.time()
+        samples = [(self._to_x(r), 1.0 if r.get("selected") else 0.0) for r in data]
+        xs = [s[0] for s in samples]
+        ys = [s[1] for s in samples]
+        self.root = self._build(xs, ys, 0)
+        elapsed = _time.time() - t0
+        print(f"  tree built in {elapsed:.1f}s  depth<={self.max_depth}  samples={len(data)}")
+
+    def score(self, row: dict) -> float:
+        x = self._to_x(row)
+        return self._predict(self.root, x) if self.root else 0.5
+
+    def _predict(self, node: _TreeNode, x: List[float]) -> float:
+        if node.feat_idx < 0:
+            return node.value
+        if x[node.feat_idx] <= node.threshold:
+            return self._predict(node.left, x)
+        return self._predict(node.right, x)
+
+    def _build(self, xs: List[List[float]], ys: List[float], depth: int) -> _TreeNode:
+        node = _TreeNode()
+        n = len(ys)
+        pos = sum(ys)
+        node.value = pos / n if n > 0 else 0.5
+
+        if depth >= self.max_depth or n < self.min_leaf * 2 or pos == 0 or pos == n:
+            node.feat_idx = -1
+            return node
+
+        best_gain = -1.0
+        best_feat = -1
+        best_thr = 0.0
+        parent_gini = self._gini(ys)
+        n_feat = len(xs[0]) if xs else 0
+
+        for fi in range(n_feat):
+            vals = sorted(set(x[fi] for x in xs))
+            if len(vals) <= 1:
+                continue
+            thresholds = [(vals[i] + vals[i+1]) / 2 for i in range(min(len(vals)-1, 20))]
+            for thr in thresholds:
+                left_y = [ys[i] for i in range(n) if xs[i][fi] <= thr]
+                right_y = [ys[i] for i in range(n) if xs[i][fi] > thr]
+                if len(left_y) < self.min_leaf or len(right_y) < self.min_leaf:
+                    continue
+                gain = parent_gini - (len(left_y)/n * self._gini(left_y) +
+                                      len(right_y)/n * self._gini(right_y))
+                if gain > best_gain:
+                    best_gain = gain
+                    best_feat = fi
+                    best_thr = thr
+
+        if best_feat < 0:
+            node.feat_idx = -1
+            return node
+
+        node.feat_idx = best_feat
+        node.threshold = best_thr
+        left_xs = [xs[i] for i in range(n) if xs[i][best_feat] <= best_thr]
+        left_ys = [ys[i] for i in range(n) if xs[i][best_feat] <= best_thr]
+        right_xs = [xs[i] for i in range(n) if xs[i][best_feat] > best_thr]
+        right_ys = [ys[i] for i in range(n) if xs[i][best_feat] > best_thr]
+        node.left = self._build(left_xs, left_ys, depth + 1)
+        node.right = self._build(right_xs, right_ys, depth + 1)
+        return node
+
+    @staticmethod
+    def _gini(ys: List[float]) -> float:
+        n = len(ys)
+        if n == 0:
+            return 0.0
+        p = sum(ys) / n
+        return 2 * p * (1 - p)
+
+    def _to_x(self, row: dict) -> List[float]:
+        vec = []
+        for k in self.feature_list:
+            v = row.get(k, 0)
+            if v is None or v is False:
+                v = 0
+            elif v is True:
+                v = 1
+            vec.append(float(v))
+        return vec
+
+    def top_features(self, n: int = 10) -> List[Tuple[str, float]]:
+        counts: Dict[str, int] = {}
+        self._count_features(self.root, counts)
+        pairs = sorted(counts.items(), key=lambda p: p[1], reverse=True)
+        return [(k, v) for k, v in pairs[:n]]
+
+    def _count_features(self, node, counts):
+        if node is None or node.feat_idx < 0:
+            return
+        name = self.feature_list[node.feat_idx] if node.feat_idx < len(self.feature_list) else "?"
+        counts[name] = counts.get(name, 0) + 1
+        self._count_features(node.left, counts)
+        self._count_features(node.right, counts)
+
+
 def group_by_decision(rows: List[dict]) -> Dict[str, List[dict]]:
     groups: Dict[str, List[dict]] = {}
     for r in rows:
@@ -261,6 +383,9 @@ def main():
                         help="Weight selected actions by game outcome")
     parser.add_argument("--enriched-features", action="store_true",
                         help="Use enriched feature set (no rule_score)")
+    parser.add_argument("--model", default="linear",
+                        choices=["linear", "decision-tree"],
+                        help="Model type")
     args = parser.parse_args()
 
     if args.enriched_features:
@@ -269,24 +394,28 @@ def main():
         feature_list = _NO_RULE_FEATURES
     else:
         feature_list = ALL_FEATURES
-    parts = []
+    parts = [args.model]
     if args.enriched_features:
         parts.append("enriched")
     elif args.no_rule_score:
         parts.append("no-rule")
     if args.outcome_weighted:
         parts.append("outcome-weighted")
-    mode_label = "+".join(parts) if parts else "full"
+    mode_label = "+".join(parts)
     print(f"Mode: {mode_label} ({len(feature_list)} features)")
 
     print(f"Loading train data from {args.train}...")
     train_data = load_jsonl(args.train, args.max_train)
     print(f"  {len(train_data)} rows")
 
-    print(f"\nTraining LinearRanker ({mode_label})...")
-    model = LinearRanker(feature_list=feature_list)
-    model.train(train_data, epochs=args.epochs, lr=args.lr,
-                outcome_weighted=args.outcome_weighted)
+    print(f"\nTraining {args.model} ({mode_label})...")
+    if args.model == "decision-tree":
+        model = DecisionTreeRanker(feature_list=feature_list, max_depth=6, min_samples_leaf=20)
+        model.train(train_data)
+    else:
+        model = LinearRanker(feature_list=feature_list)
+        model.train(train_data, epochs=args.epochs, lr=args.lr,
+                    outcome_weighted=args.outcome_weighted)
 
     print(f"\nTop features:")
     for name, w in model.top_features(10):

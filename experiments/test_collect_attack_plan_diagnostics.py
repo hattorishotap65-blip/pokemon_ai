@@ -9,6 +9,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from experiments.collect_attack_plan_diagnostics import (
     init_summary, add_diagnosis, compute_rates, save_result,
     build_chosen_action, build_example,
+    candidate_is_attack, selected_is_end, has_attack_candidate,
+    classify_end_with_plan,
 )
 
 PASS = "[PASS]"
@@ -179,6 +181,89 @@ check("Example: has chosen_action", "chosen_action" in ex)
 check("Example: chosen_action.attackId", ex["chosen_action"]["attackId"] == 1)
 check("Example: chosen_action.area", ex["chosen_action"]["area"] == 0)
 check("Example: JSON serializable", isinstance(json.dumps(ex), str))
+
+# ===================================================================
+print("\n--- candidate_is_attack ---")
+
+check("is_attack=True", candidate_is_attack({"is_attack": True, "option_type": 13}))
+check("option_type=13 fallback", candidate_is_attack({"option_type": 13}))
+check("option_type=14 not attack", not candidate_is_attack({"option_type": 14}))
+check("empty not attack", not candidate_is_attack({}))
+
+# ===================================================================
+print("\n--- selected_is_end ---")
+
+check("is_end=True", selected_is_end({"is_end": True, "option_type": 14}))
+check("option_type=14 fallback", selected_is_end({"option_type": 14}))
+check("option_type=13 not end", not selected_is_end({"option_type": 13}))
+
+# ===================================================================
+print("\n--- has_attack_candidate ---")
+
+check("Has attack", has_attack_candidate([{"option_type": 13}, {"option_type": 14}]))
+check("No attack", not has_attack_candidate([{"option_type": 14}, {"option_type": 10}]))
+check("Empty list", not has_attack_candidate([]))
+
+# ===================================================================
+print("\n--- classify_end_with_plan ---")
+
+end_cand = {"option_type": 14, "final_score": 5.0}
+atk_cand = {"option_type": 13, "is_attack": True, "final_score": 20.0,
+            "resolved_card_id": "269", "reason": "attack_best"}
+diag_ko = {"best_plan_score": 900, "missed_ko_plan": True, "missed_high_value_plan": True}
+ec = classify_end_with_plan(end_cand, [end_cand, atk_cand], diag_ko)
+check("End+plan+attack: end_with_plan_and_attack", ec["end_with_plan_and_attack"])
+check("End+plan+attack: not no_attack", not ec["end_with_plan_no_attack"])
+check("End+KO: end_with_ko_plan", ec["end_with_ko_plan"])
+check("End+HV: end_with_hv_plan", ec["end_with_hv_plan"])
+check("attack_candidate_count=1", ec["attack_candidate_count"] == 1)
+check("selected_final_score=5", ec["selected_final_score"] == 5.0)
+check("best_attack_final_score=20", ec["best_attack_final_score"] == 20.0)
+check("best_attack_reason", ec["best_attack_reason"] == "attack_best")
+
+# End with plan but no attack
+ec_no = classify_end_with_plan(end_cand, [end_cand, {"option_type": 10}],
+                               {"best_plan_score": 100, "missed_ko_plan": False})
+check("End+plan no attack: end_with_plan_no_attack", ec_no["end_with_plan_no_attack"])
+check("End+plan no attack: not and_attack", not ec_no["end_with_plan_and_attack"])
+
+# Not end
+not_end = {"option_type": 13, "final_score": 20.0}
+ec_ne = classify_end_with_plan(not_end, [not_end], {"best_plan_score": 100})
+check("Not end: is_end=False", not ec_ne["is_end"])
+
+# ===================================================================
+print("\n--- add_diagnosis with end_class ---")
+
+s_end = init_summary()
+diag_end = {"chosen_matches_best": False, "chosen_matches_any": False,
+            "missed_high_value_plan": True, "missed_ko_plan": True,
+            "notes": ["missed_active_ko", "end_with_plan_available"]}
+ps_end = {"plan_count": 1, "has_active_ko": True}
+ec_end = {"is_end": True, "end_with_plan_and_attack": True,
+          "end_with_plan_no_attack": False, "end_with_ko_plan": True,
+          "end_with_hv_plan": True}
+add_diagnosis(s_end, diag_end, ps_end, ec_end)
+check("End summary: selected_end_count=1", s_end["selected_end_count"] == 1)
+check("End summary: end_with_plan_and_attack=1", s_end["end_with_plan_and_attack_available"] == 1)
+check("End summary: end_with_ko_plan=1", s_end["end_with_ko_plan_available"] == 1)
+check("End summary: end_with_hv_plan=1", s_end["end_with_high_value_plan_available"] == 1)
+
+# Without end_class (backward compat)
+add_diagnosis(s_end, diag_end, ps_end)
+check("No end_class: selected_end_count unchanged", s_end["selected_end_count"] == 1)
+
+# ===================================================================
+print("\n--- compute_rates with end metrics ---")
+
+r_end = compute_rates(s_end)
+check("Has end_with_plan_and_attack_rate", "end_with_plan_and_attack_rate" in r_end)
+check("Has end_with_ko_plan_rate", "end_with_ko_plan_rate" in r_end)
+check("end_with_plan_and_attack_rate=1.0", r_end["end_with_plan_and_attack_rate"] == 1.0)
+
+# Zero end count
+r_zero = compute_rates(init_summary())
+check("Zero end: no division error", r_zero["end_with_plan_and_attack_rate"] == 0.0)
 
 # ===================================================================
 print("\n--- diagnostic_errors ---")

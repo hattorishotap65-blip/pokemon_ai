@@ -91,21 +91,34 @@ class LinearRanker:
         self.bias: float = 0.0
 
     def train(self, data: List[dict], epochs: int = 5, lr: float = 0.01,
-              l2: float = 0.001, seed: int = 42):
+              l2: float = 0.001, seed: int = 42,
+              outcome_weighted: bool = False):
         n_feat = len(self.feature_list)
         self.weights = [0.0] * n_feat
         self.bias = 0.0
         rng = random.Random(seed)
 
-        samples = [(self._to_x(r), 1.0 if r.get("selected") else 0.0) for r in data]
+        samples = []
+        for r in data:
+            x = self._to_x(r)
+            y = 1.0 if r.get("selected") else 0.0
+            w = 1.0
+            if outcome_weighted and y == 1.0:
+                reward = r.get("reward", 0.0) or 0.0
+                if reward > 0:
+                    w = 2.0
+                elif reward < 0:
+                    w = 0.5
+            samples.append((x, y, w))
+
         for epoch in range(epochs):
             rng.shuffle(samples)
             total_loss = 0.0
-            for x, y in samples:
-                z = sum(w * xi for w, xi in zip(self.weights, x)) + self.bias
+            for x, y, sw in samples:
+                z = sum(wi * xi for wi, xi in zip(self.weights, x)) + self.bias
                 p = _sigmoid(z)
-                err = p - y
-                total_loss += -y * math.log(max(p, 1e-12)) - (1 - y) * math.log(max(1 - p, 1e-12))
+                err = (p - y) * sw
+                total_loss += (-y * math.log(max(p, 1e-12)) - (1 - y) * math.log(max(1 - p, 1e-12))) * sw
                 for i in range(n_feat):
                     self.weights[i] -= lr * (err * x[i] + l2 * self.weights[i])
                 self.bias -= lr * err
@@ -235,10 +248,17 @@ def main():
     parser.add_argument("--max-train", type=int, default=200000)
     parser.add_argument("--no-rule-score", action="store_true",
                         help="Exclude rule_score and candidate_rank from features")
+    parser.add_argument("--outcome-weighted", action="store_true",
+                        help="Weight selected actions by game outcome")
     args = parser.parse_args()
 
     feature_list = _NO_RULE_FEATURES if args.no_rule_score else ALL_FEATURES
-    mode_label = "no-rule-score" if args.no_rule_score else "full"
+    parts = []
+    if args.no_rule_score:
+        parts.append("no-rule")
+    if args.outcome_weighted:
+        parts.append("outcome-weighted")
+    mode_label = "+".join(parts) if parts else "full"
     print(f"Mode: {mode_label} ({len(feature_list)} features)")
 
     print(f"Loading train data from {args.train}...")
@@ -247,7 +267,8 @@ def main():
 
     print(f"\nTraining LinearRanker ({mode_label})...")
     model = LinearRanker(feature_list=feature_list)
-    model.train(train_data, epochs=args.epochs, lr=args.lr)
+    model.train(train_data, epochs=args.epochs, lr=args.lr,
+                outcome_weighted=args.outcome_weighted)
 
     print(f"\nTop features:")
     for name, w in model.top_features(10):

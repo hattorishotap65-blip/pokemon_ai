@@ -34,7 +34,7 @@ def _energy_needed(card_id: str, current_energy: int) -> int:
 
 def extract_candidate_features(
     cand: dict, entry: dict, state: dict, all_cands: list,
-    game_result: str, game_id: int,
+    game_result: str, game_id: int, decision_id: str = "",
 ) -> dict:
     """Extract features for one candidate action."""
     opt_type = cand.get("option_type")
@@ -88,6 +88,7 @@ def extract_candidate_features(
 
     return {
         "game_id": game_id,
+        "decision_id": decision_id,
         "turn": ss.get("turn", 0),
         "action_index": cand.get("option_index", 0),
         "action_type": opt_type,
@@ -186,18 +187,21 @@ def process_logs(start_game: int, count: int, output: str) -> dict:
             elif game_result == "timeout":
                 stats["timeouts"] += 1
 
+            decision_seq = 0
             for entry in entries:
                 candidates = entry.get("top_candidates") or []
                 if not candidates:
                     continue
 
+                decision_seq += 1
+                did = f"{gid}-{decision_seq}"
                 stats["decisions"] += 1
                 ss = entry.get("state_summary") or {}
 
                 for cand in candidates:
                     stats["candidates"] += 1
                     feat = extract_candidate_features(
-                        cand, entry, ss, candidates, game_result, gid,
+                        cand, entry, ss, candidates, game_result, gid, did,
                     )
                     out_f.write(json.dumps(feat, ensure_ascii=False) + "\n")
 

@@ -796,6 +796,10 @@ def agent(obs_dict, config=None):
             "playerIndex":        o.get("playerIndex"),
             "inPlayArea":         o.get("inPlayArea"),
             "inPlayIndex":        o.get("inPlayIndex"),
+            "count":              o.get("count"),
+            "number":             o.get("number"),
+            "toolIndex":          o.get("toolIndex"),
+            "energyIndex":        o.get("energyIndex"),
             # Score breakdown
             "raw_score":          round(_pre_sup[i], 3) if i < len(_pre_sup) else 0.0,
             "type_score":         _breakdowns[i].get("type_score",      0.0) if i < len(_breakdowns) else 0.0,

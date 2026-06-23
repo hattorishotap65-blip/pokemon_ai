@@ -98,6 +98,10 @@ def build_chosen_action(cand: dict) -> dict:
         "playerIndex": cand.get("playerIndex"),
         "inPlayArea": cand.get("inPlayArea"),
         "inPlayIndex": cand.get("inPlayIndex"),
+        "count": cand.get("count"),
+        "number": cand.get("number"),
+        "toolIndex": cand.get("toolIndex"),
+        "energyIndex": cand.get("energyIndex"),
     }
 
 

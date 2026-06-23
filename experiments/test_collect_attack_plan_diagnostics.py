@@ -149,11 +149,24 @@ check("Old: cardId fallback to resolved", ca_old["cardId"] == "269")
 check("Old: attackId=None", ca_old["attackId"] is None)
 check("Old: area=None", ca_old["area"] is None)
 
+# Extra fields
+cand_extra = {
+    "option_type": 8, "resolved_card_id": "4",
+    "cardId": "4", "count": 1, "number": 3,
+    "toolIndex": 0, "energyIndex": 2,
+}
+ca_extra = build_chosen_action(cand_extra)
+check("Extra: count", ca_extra["count"] == 1)
+check("Extra: number", ca_extra["number"] == 3)
+check("Extra: toolIndex", ca_extra["toolIndex"] == 0)
+check("Extra: energyIndex", ca_extra["energyIndex"] == 2)
+
 # No cardId, no resolved
 cand_empty = {"option_type": 14}
 ca_empty = build_chosen_action(cand_empty)
 check("Empty: cardId=None", ca_empty["cardId"] is None)
 check("Empty: no crash", isinstance(ca_empty, dict))
+check("Empty: count=None", ca_empty.get("count") is None)
 
 # ===================================================================
 print("\n--- build_example ---")

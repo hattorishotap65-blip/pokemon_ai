@@ -60,6 +60,7 @@ class GameLogger:
             "game_turn":           state.get("turn", 0),
             "state_summary":       self._summarize(state),
             "legal_actions_count": len(legal_actions),
+            "legal_option_summary": self._legal_option_summary(legal_actions),
             "selected_action":     selected_action,
             "selected_score":      round(float(selected_score), 4),
             "reason":              reason,
@@ -132,6 +133,34 @@ class GameLogger:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except OSError:
             pass  # Silently skip if filesystem is read-only
+
+    @staticmethod
+    def _legal_option_summary(legal_actions: list) -> dict:
+        counts = {"attack": 0, "end": 0, "attach": 0, "ability": 0, "play": 0, "other": 0}
+        for a in legal_actions:
+            t = a.get("type")
+            if t == 13:
+                counts["attack"] += 1
+            elif t == 14:
+                counts["end"] += 1
+            elif t == 8:
+                counts["attach"] += 1
+            elif t == 10:
+                counts["ability"] += 1
+            elif t in (3, 7):
+                counts["play"] += 1
+            else:
+                counts["other"] += 1
+        return {
+            "total": len(legal_actions),
+            "attack": counts["attack"],
+            "end": counts["end"],
+            "attach": counts["attach"],
+            "ability": counts["ability"],
+            "play": counts["play"],
+            "has_attack": counts["attack"] > 0,
+            "has_end": counts["end"] > 0,
+        }
 
     @staticmethod
     def _summarize(state: dict) -> dict:

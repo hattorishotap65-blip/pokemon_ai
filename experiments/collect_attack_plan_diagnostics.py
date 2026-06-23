@@ -45,13 +45,35 @@ def has_attack_candidate(candidates: list) -> bool:
     return any(candidate_is_attack(c) for c in candidates if isinstance(c, dict))
 
 
-def classify_end_with_plan(selected_cand: dict, candidates: list, diag: dict) -> dict:
+def get_legal_attack_info(entry: dict, candidates: list) -> dict:
+    """Get legal attack info from log entry, fallback to top_candidates."""
+    los = entry.get("legal_option_summary") or {}
+    if los:
+        return {
+            "has_legal_attack": los.get("has_attack", False),
+            "legal_attack_count": los.get("attack", 0),
+            "legal_option_count": los.get("total", 0),
+            "source": "legal_option_summary",
+        }
+    return {
+        "has_legal_attack": has_attack_candidate(candidates),
+        "legal_attack_count": sum(1 for c in candidates if isinstance(c, dict) and candidate_is_attack(c)),
+        "legal_option_count": entry.get("legal_actions_count", len(candidates)),
+        "source": "top_candidates_fallback",
+    }
+
+
+def classify_end_with_plan(selected_cand: dict, candidates: list, diag: dict,
+                           entry: dict = None) -> dict:
     """Classify an End decision with plan context."""
     is_end = selected_is_end(selected_cand)
     has_plan = diag.get("best_plan_score", 0) > 0
-    has_atk = has_attack_candidate(candidates)
+    has_atk_tc = has_attack_candidate(candidates)
     missed_ko = diag.get("missed_ko_plan", False)
     missed_hv = diag.get("missed_high_value_plan", False)
+
+    legal_info = get_legal_attack_info(entry or {}, candidates)
+    has_legal_atk = legal_info["has_legal_attack"]
 
     atk_candidates = [c for c in candidates if isinstance(c, dict) and candidate_is_attack(c)]
     best_atk = max(atk_candidates, key=lambda c: c.get("final_score", 0)) if atk_candidates else None
@@ -59,11 +81,18 @@ def classify_end_with_plan(selected_cand: dict, candidates: list, diag: dict) ->
     return {
         "is_end": is_end,
         "has_plan": has_plan,
-        "attack_available": has_atk,
+        "attack_available": has_atk_tc,
         "attack_candidate_count": len(atk_candidates),
-        "end_with_plan_and_attack": is_end and has_plan and has_atk,
-        "end_with_plan_no_attack": is_end and has_plan and not has_atk,
+        "has_legal_attack": has_legal_atk,
+        "legal_attack_count": legal_info["legal_attack_count"],
+        "legal_option_count": legal_info["legal_option_count"],
+        "legal_source": legal_info["source"],
+        "end_with_plan_and_attack": is_end and has_plan and has_atk_tc,
+        "end_with_plan_no_attack": is_end and has_plan and not has_atk_tc,
+        "end_with_plan_and_legal_attack": is_end and has_plan and has_legal_atk,
+        "end_with_plan_no_legal_attack": is_end and has_plan and not has_legal_atk,
         "end_with_ko_plan": is_end and missed_ko,
+        "end_with_ko_plan_and_legal_attack": is_end and missed_ko and has_legal_atk,
         "end_with_hv_plan": is_end and missed_hv,
         "selected_final_score": selected_cand.get("final_score"),
         "best_attack_final_score": best_atk.get("final_score") if best_atk else None,
@@ -87,6 +116,10 @@ def init_summary() -> dict:
         "end_with_plan_no_attack_available": 0,
         "end_with_ko_plan_available": 0,
         "end_with_high_value_plan_available": 0,
+        "end_with_plan_and_legal_attack": 0,
+        "end_with_plan_no_legal_attack": 0,
+        "end_with_ko_plan_and_legal_attack": 0,
+        "selected_end_with_legal_attack": 0,
         "has_winning_ko": 0,
         "has_active_ko": 0,
         "has_boss_ko": 0,
@@ -130,6 +163,14 @@ def add_diagnosis(summary: dict, diag: dict, plan_summary: dict,
             summary["end_with_ko_plan_available"] += 1
         if end_class.get("end_with_hv_plan"):
             summary["end_with_high_value_plan_available"] += 1
+        if end_class.get("is_end") and end_class.get("has_legal_attack"):
+            summary["selected_end_with_legal_attack"] += 1
+        if end_class.get("end_with_plan_and_legal_attack"):
+            summary["end_with_plan_and_legal_attack"] += 1
+        if end_class.get("end_with_plan_no_legal_attack"):
+            summary["end_with_plan_no_legal_attack"] += 1
+        if end_class.get("end_with_ko_plan_and_legal_attack"):
+            summary["end_with_ko_plan_and_legal_attack"] += 1
 
 
 def compute_rates(summary: dict) -> dict:
@@ -142,6 +183,8 @@ def compute_rates(summary: dict) -> dict:
         "end_with_plan_rate": round(summary["end_with_plan_available"] / pa, 4) if pa else 0.0,
         "end_with_plan_and_attack_rate": round(summary["end_with_plan_and_attack_available"] / ec, 4) if ec else 0.0,
         "end_with_ko_plan_rate": round(summary["end_with_ko_plan_available"] / ec, 4) if ec else 0.0,
+        "end_with_plan_and_legal_attack_rate": round(summary["end_with_plan_and_legal_attack"] / ec, 4) if ec else 0.0,
+        "selected_end_with_legal_attack_rate": round(summary["selected_end_with_legal_attack"] / ec, 4) if ec else 0.0,
     }
 
 
@@ -248,7 +291,7 @@ def analyze_logs(start_game: int, count: int) -> dict:
                     plans = generate_attack_plans(state)
                     ps = summarize_attack_plans(plans)
                     diag = diagnose_attack_plan_choice(plans, chosen_action, state)
-                    end_class = classify_end_with_plan(selected_cand, candidates, diag)
+                    end_class = classify_end_with_plan(selected_cand, candidates, diag, entry)
                     add_diagnosis(summary, diag, ps, end_class)
 
                     if diag.get("notes") and len(examples) < _MAX_EXAMPLES:
@@ -256,6 +299,9 @@ def analyze_logs(start_game: int, count: int) -> dict:
                         if end_class.get("is_end"):
                             ex["attack_available"] = end_class["attack_available"]
                             ex["attack_candidate_count"] = end_class["attack_candidate_count"]
+                            ex["has_legal_attack"] = end_class["has_legal_attack"]
+                            ex["legal_attack_count"] = end_class["legal_attack_count"]
+                            ex["legal_option_count"] = end_class["legal_option_count"]
                             ex["selected_final_score"] = end_class["selected_final_score"]
                             ex["best_attack_final_score"] = end_class["best_attack_final_score"]
                         examples.append(ex)

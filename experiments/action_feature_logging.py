@@ -82,6 +82,26 @@ def extract_candidate_features(
 
     late_game = prizes <= 2 or opp_prizes <= 2
 
+    # --- Enriched features ---
+    active_req = _IONO_ENERGY_REQ.get(active_cid, 0)
+    active_can_attack_now = active_energy >= active_req if active_req > 0 else False
+    active_energy_shortage = max(0, active_req - active_energy) if active_req > 0 else 0
+
+    best_atk_dmg = 0
+    best_atk_ko = False
+    for c in all_cands:
+        if (bool(c.get("is_attack")) or c.get("option_type") == 13):
+            r = str(c.get("reason", ""))
+            if "ko" in r.lower():
+                best_atk_ko = True
+
+    damage_to_ko_gap = opp_hp  # simplified: how much more damage needed
+    prize_pressure = max(0, opp_prizes - prizes)
+    is_behind = prizes > opp_prizes
+    is_ahead = prizes < opp_prizes
+    deck_low = deck_count <= 10
+    hand_low = hand_count <= 2
+
     scores = sorted([c.get("final_score", 0) for c in all_cands], reverse=True)
     my_score = cand.get("final_score", 0)
     rank = scores.index(my_score) + 1 if my_score in scores else len(scores)
@@ -129,6 +149,16 @@ def extract_candidate_features(
         "is_retreat": is_retreat,
         "is_end": is_end,
         "late_game": late_game,
+        # Enriched features
+        "active_can_attack_now": active_can_attack_now,
+        "active_energy_shortage": active_energy_shortage,
+        "best_attack_can_ko": best_atk_ko,
+        "damage_to_ko_gap": damage_to_ko_gap,
+        "prize_pressure": prize_pressure,
+        "is_behind_prizes": is_behind,
+        "is_ahead_prizes": is_ahead,
+        "deck_low": deck_low,
+        "hand_low": hand_low,
         "game_result": game_result,
         "reward": _REWARD_MAP.get(game_result, 0.0),
     }

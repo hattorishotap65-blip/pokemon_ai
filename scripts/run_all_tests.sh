@@ -106,4 +106,8 @@ echo "=== ML weight search ==="
 python experiments/test_ml_weight_search.py
 
 echo ""
+echo "=== Attack plan diagnostics ==="
+python experiments/test_attack_plan_diagnostics.py
+
+echo ""
 echo "All tests passed."

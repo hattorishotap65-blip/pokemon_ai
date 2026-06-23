@@ -351,3 +351,72 @@ def plan_matches_action(plan: AttackPlan, action: dict, state: dict) -> float:
         return min(plan.plan_score * 0.02, 5.0)
 
     return 0.0
+
+
+# ---------------------------------------------------------------------------
+# Diagnostics (for tests and evaluation, not runtime stdout)
+# ---------------------------------------------------------------------------
+
+_KO_PLAN_TYPES = {"winning_ko", "active_ko", "boss_ko"}
+_HIGH_VALUE_THRESHOLD = 800.0
+
+
+def summarize_attack_plans(plans: List[AttackPlan]) -> dict:
+    if not plans:
+        return {
+            "plan_count": 0, "best_plan_type": "", "best_plan_score": 0,
+            "has_winning_ko": False, "has_active_ko": False, "has_boss_ko": False,
+            "has_zero_damage_escape": False, "has_bench_attacker": False,
+            "top_plan_types": [],
+        }
+    types = {p.plan_type for p in plans}
+    return {
+        "plan_count": len(plans),
+        "best_plan_type": plans[0].plan_type,
+        "best_plan_score": plans[0].plan_score,
+        "has_winning_ko": "winning_ko" in types,
+        "has_active_ko": "active_ko" in types,
+        "has_boss_ko": "boss_ko" in types,
+        "has_zero_damage_escape": "zero_damage_escape" in types,
+        "has_bench_attacker": any(t in types for t in
+            ("bench_attacker", "voltorb_charge", "bellibolt_self_attack", "kilowattrel_sub_attacker")),
+        "top_plan_types": [p.plan_type for p in plans[:3]],
+    }
+
+
+def diagnose_attack_plan_choice(
+    plans: List[AttackPlan],
+    chosen_action: dict,
+    state: dict,
+) -> dict:
+    if not plans or not isinstance(chosen_action, dict):
+        return {
+            "best_plan_type": "", "best_plan_score": 0,
+            "chosen_matches_best": False, "chosen_matches_any": False,
+            "missed_high_value_plan": False, "missed_ko_plan": False,
+            "notes": [],
+        }
+    best = plans[0]
+    best_bonus = plan_matches_action(best, chosen_action, state or {})
+    any_bonus = max((plan_matches_action(p, chosen_action, state or {}) for p in plans), default=0.0)
+
+    missed_hv = best.plan_score >= _HIGH_VALUE_THRESHOLD and best_bonus == 0
+    missed_ko = best.plan_type in _KO_PLAN_TYPES and best_bonus == 0
+
+    notes = []
+    if missed_ko:
+        notes.append(f"missed_{best.plan_type}")
+    if missed_hv and not missed_ko:
+        notes.append("missed_high_value_plan")
+    if chosen_action.get("type") == 14 and best.plan_score > 0:
+        notes.append("end_with_plan_available")
+
+    return {
+        "best_plan_type": best.plan_type,
+        "best_plan_score": best.plan_score,
+        "chosen_matches_best": best_bonus > 0,
+        "chosen_matches_any": any_bonus > 0,
+        "missed_high_value_plan": missed_hv,
+        "missed_ko_plan": missed_ko,
+        "notes": notes,
+    }

@@ -93,3 +93,6 @@ jobs:
 
       - name: Run ML weight search tests
         run: python experiments/test_ml_weight_search.py
+
+      - name: Run attack plan diagnostics tests
+        run: python experiments/test_attack_plan_diagnostics.py

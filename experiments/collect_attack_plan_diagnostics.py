@@ -120,6 +120,10 @@ def init_summary() -> dict:
         "end_with_plan_no_legal_attack": 0,
         "end_with_ko_plan_and_legal_attack": 0,
         "selected_end_with_legal_attack": 0,
+        "missed_ko_plan_energy_ready": 0,
+        "missed_ko_plan_energy_not_ready": 0,
+        "ko_plan_energy_ready": 0,
+        "ko_plan_energy_not_ready": 0,
         "has_winning_ko": 0,
         "has_active_ko": 0,
         "has_boss_ko": 0,
@@ -141,6 +145,10 @@ def add_diagnosis(summary: dict, diag: dict, plan_summary: dict,
         summary["missed_high_value_plan"] += 1
     if diag.get("missed_ko_plan"):
         summary["missed_ko_plan"] += 1
+    if diag.get("missed_ko_plan_energy_ready"):
+        summary["missed_ko_plan_energy_ready"] += 1
+    if diag.get("missed_ko_plan_energy_not_ready"):
+        summary["missed_ko_plan_energy_not_ready"] += 1
     for note in diag.get("notes", []):
         if note == "end_with_plan_available":
             summary["end_with_plan_available"] += 1
@@ -152,6 +160,8 @@ def add_diagnosis(summary: dict, diag: dict, plan_summary: dict,
         summary["has_boss_ko"] += 1
     if plan_summary.get("has_zero_damage_escape"):
         summary["has_zero_damage_escape"] += 1
+    summary["ko_plan_energy_ready"] += plan_summary.get("ko_plan_energy_ready", 0)
+    summary["ko_plan_energy_not_ready"] += plan_summary.get("ko_plan_energy_not_ready", 0)
     if end_class:
         if end_class.get("is_end"):
             summary["selected_end_count"] += 1
@@ -185,6 +195,8 @@ def compute_rates(summary: dict) -> dict:
         "end_with_ko_plan_rate": round(summary["end_with_ko_plan_available"] / ec, 4) if ec else 0.0,
         "end_with_plan_and_legal_attack_rate": round(summary["end_with_plan_and_legal_attack"] / ec, 4) if ec else 0.0,
         "selected_end_with_legal_attack_rate": round(summary["selected_end_with_legal_attack"] / ec, 4) if ec else 0.0,
+        "missed_ko_energy_ready_rate": round(summary["missed_ko_plan_energy_ready"] / pa, 4) if pa else 0.0,
+        "missed_ko_energy_not_ready_rate": round(summary["missed_ko_plan_energy_not_ready"] / pa, 4) if pa else 0.0,
     }
 
 
@@ -296,6 +308,9 @@ def analyze_logs(start_game: int, count: int) -> dict:
 
                     if diag.get("notes") and len(examples) < _MAX_EXAMPLES:
                         ex = build_example(gid, state_summary, diag, chosen_action)
+                        ex["best_plan_energy_ready"] = diag.get("best_plan_energy_ready")
+                        ex["best_plan_energy_required"] = diag.get("best_plan_energy_required")
+                        ex["best_plan_energy_attached"] = diag.get("best_plan_energy_attached")
                         if end_class.get("is_end"):
                             ex["attack_available"] = end_class["attack_available"]
                             ex["attack_candidate_count"] = end_class["attack_candidate_count"]

@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from agent.attack_plan import (
     AttackPlan, summarize_attack_plans, diagnose_attack_plan_choice,
     plan_matches_action,
+    get_attached_energy_count, get_attack_energy_requirement, has_attack_energy,
 )
 
 PASS = "[PASS]"
@@ -125,6 +126,46 @@ check("None action: no crash", isinstance(d_none, dict))
 # plan_matches_action still works
 bonus = plan_matches_action(plans_match[0], atk_action, state)
 check("plan_matches_action still works", bonus > 0)
+
+# ===================================================================
+print("\n--- energy readiness helpers ---")
+
+check("energy count from dict", get_attached_energy_count({"energy_count": 3}) == 3)
+check("energy count default 0", get_attached_energy_count({}) == 0)
+check("energy req Voltorb=2", get_attack_energy_requirement("265") == 2)
+check("energy req Bellibolt=4", get_attack_energy_requirement("269") == 4)
+check("energy req Kilowattrel=3", get_attack_energy_requirement("271") == 3)
+check("energy req unknown=None", get_attack_energy_requirement("999") is None)
+
+check("has energy: 2/2=True", has_attack_energy({"card_id": "265", "energy_count": 2}) is True)
+check("has energy: 1/2=False", has_attack_energy({"card_id": "265", "energy_count": 1}) is False)
+check("has energy: unknown=None", has_attack_energy({"card_id": "999", "energy_count": 5}) is None)
+
+# ===================================================================
+print("\n--- energy readiness in plans ---")
+
+plans_er = [
+    AttackPlan(plan_type="active_ko", plan_score=250, energy_ready=True, energy_required=2, energy_attached=3),
+    AttackPlan(plan_type="winning_ko", plan_score=1050, energy_ready=False, energy_required=4, energy_attached=2),
+]
+s_er = summarize_attack_plans(plans_er)
+check("energy_ready_plans=1", s_er["energy_ready_plans"] == 1)
+check("energy_not_ready_plans=1", s_er["energy_not_ready_plans"] == 1)
+check("ko_plan_energy_ready=1", s_er["ko_plan_energy_ready"] == 1)
+check("ko_plan_energy_not_ready=1", s_er["ko_plan_energy_not_ready"] == 1)
+
+# diagnose with energy
+plan_ko_ready = [AttackPlan(plan_type="active_ko", attacker_cid="269", plan_score=250, energy_ready=True)]
+d_er = diagnose_attack_plan_choice(plan_ko_ready, {"type": 14}, state)
+check("Missed KO energy ready", d_er["missed_ko_plan_energy_ready"])
+check("Not missed KO energy not ready", not d_er["missed_ko_plan_energy_not_ready"])
+check("best_plan_energy_ready=True", d_er["best_plan_energy_ready"] is True)
+
+plan_ko_not = [AttackPlan(plan_type="active_ko", attacker_cid="269", plan_score=250, energy_ready=False)]
+d_enr = diagnose_attack_plan_choice(plan_ko_not, {"type": 14}, state)
+check("Not missed KO energy ready", not d_enr["missed_ko_plan_energy_ready"])
+check("Missed KO energy not ready", d_enr["missed_ko_plan_energy_not_ready"])
+check("best_plan_energy_ready=False", d_enr["best_plan_energy_ready"] is False)
 
 # ===================================================================
 print(f"\n{'='*50}")

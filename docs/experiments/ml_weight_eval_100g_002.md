@@ -10,7 +10,7 @@ PR #120 で改善が確認された candidate_0001 を、別 start_game で 100g
 - Base branch: main (PR #120 merged)
 - Base weights: `artifacts/ml_policy_weights_outcome_weighted.json`
 - Candidate: `artifacts/ml_weight_search_score_5g/candidate_0001.json`
-- Candidate source: ML Weight Search 002 (mutation_rate=0.2, scale=0.1, seed=43)
+- Candidate source: ML Weight Search 002 (mutation_rate=0.2, scale=0.1, search seed=42, candidate seed=43)
 - Evaluation runner: `experiments/evaluate_ml_weights.py`
 - Date: 2026-06-23
 
@@ -43,7 +43,7 @@ PR #120 で改善が確認された candidate_0001 を、別 start_game で 100g
 
 - 3回の100gで2/3が candidate_better。改善傾向は概ね再現した。
 - ただし recheck 2 (start=96000) では改善が消失し、100g 単位での分散は大きい。
-- 合計 300g で wins +17 は統計的に有意な傾向（p<0.05 近辺）。
+- 合計 300g で wins +17 は改善傾向だが、統計的有意性は未確認。
 - 全回で errors=0, timeouts=0, safety_total_diff=0。安全性は維持。
 - avg_ms は +770〜+1073 のオーバーヘッド（ML scoring コスト）。
 

@@ -155,14 +155,49 @@ def _detect_game_result(entries: list) -> str:
 _REWARD_MAP = {"win": 1.0, "loss": -1.0, "draw": 0.0, "error": -1.0, "timeout": -1.0}
 
 
-def process_logs(start_game: int, count: int, output: str) -> dict:
+def load_results_csv(csv_path: str, start_game: int) -> Dict[int, str]:
+    """Load results CSV and return {game_id: winner} mapping."""
+    import csv as csv_mod
+    result_map: Dict[int, str] = {}
+    if not csv_path or not os.path.exists(csv_path):
+        return result_map
+    try:
+        with open(csv_path, encoding="utf-8") as f:
+            reader = csv_mod.DictReader(f)
+            for row in reader:
+                game_idx = int(row.get("game", 0))
+                winner = (row.get("winner") or "").strip()
+                gid = start_game + game_idx - 1
+                result_map[gid] = winner
+    except Exception:
+        pass
+    return result_map
+
+
+def game_result_from_winner(winner: str) -> str:
+    if winner == "p0":
+        return "win"
+    elif winner == "p1":
+        return "loss"
+    elif winner in ("timeout", "error"):
+        return winner
+    elif winner == "":
+        return "draw"
+    return "unknown"
+
+
+def process_logs(start_game: int, count: int, output: str,
+                 results_csv: str = "") -> dict:
     logs_dir = os.path.join(_REPO_ROOT, "logs")
+    csv_results = load_results_csv(results_csv, start_game) if results_csv else {}
     stats = {
         "games": 0, "decisions": 0, "candidates": 0,
         "selected_by_type": {}, "errors": 0, "timeouts": 0,
         "can_ko_candidates": 0, "selected_can_ko": 0,
         "attach_enables_attack": 0, "selected_attach_enables": 0,
         "zero_damage_candidates": 0, "selected_zero_damage": 0,
+        "matched_games": 0, "unmatched_games": 0,
+        "reward_dist": {"win": 0, "loss": 0, "draw": 0, "error": 0, "timeout": 0, "unknown": 0},
     }
 
     os.makedirs(os.path.dirname(output) or ".", exist_ok=True)
@@ -181,7 +216,13 @@ def process_logs(start_game: int, count: int, output: str) -> dict:
                     except Exception:
                         continue
 
-            game_result = _detect_game_result(entries)
+            if gid in csv_results:
+                game_result = game_result_from_winner(csv_results[gid])
+                stats["matched_games"] += 1
+            else:
+                game_result = _detect_game_result(entries)
+                stats["unmatched_games"] += 1
+            stats["reward_dist"][game_result] = stats["reward_dist"].get(game_result, 0) + 1
             if game_result == "error":
                 stats["errors"] += 1
             elif game_result == "timeout":
@@ -249,6 +290,8 @@ def main():
     parser.add_argument("--output", default="artifacts/action_features.jsonl")
     parser.add_argument("--run-games", action="store_true")
     parser.add_argument("--use-wsl", action="store_true")
+    parser.add_argument("--results-csv", default="",
+                        help="Results CSV from run_matches_real.py for reward labels")
     args = parser.parse_args()
 
     if args.run_games:
@@ -258,7 +301,7 @@ def main():
             print("WARNING: game execution failed or timed out")
 
     print(f"Processing logs {args.start_game}-{args.start_game + args.n - 1}...")
-    stats = process_logs(args.start_game, args.n, args.output)
+    stats = process_logs(args.start_game, args.n, args.output, args.results_csv)
 
     print(f"\nAction Feature Summary ({stats['games']} games):")
     print(f"  Decisions: {stats['decisions']}")
@@ -268,6 +311,8 @@ def main():
     print(f"  can_ko candidates: {stats['can_ko_candidates']}, selected: {stats['selected_can_ko']}")
     print(f"  attach_enables_attack: {stats['attach_enables_attack']}, selected: {stats['selected_attach_enables']}")
     print(f"  zero_damage candidates: {stats['zero_damage_candidates']}, selected: {stats['selected_zero_damage']}")
+    print(f"  Matched games: {stats.get('matched_games', 0)}, Unmatched: {stats.get('unmatched_games', 0)}")
+    print(f"  Reward dist: {stats.get('reward_dist', {})}")
     print(f"Saved to {args.output}")
 
 

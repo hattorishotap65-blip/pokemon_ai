@@ -18,6 +18,29 @@ _BELLIBOLT_ENERGY_REQ = 4
 _KILOWATTREL_ENERGY_REQ = 3
 
 
+_ENERGY_REQUIREMENTS = {
+    _VOLTORB: _VOLTORB_ENERGY_REQ,
+    _BELLIBOLT_EX: _BELLIBOLT_ENERGY_REQ,
+    _KILOWATTREL: _KILOWATTREL_ENERGY_REQ,
+}
+
+
+def get_attached_energy_count(pokemon: dict) -> int:
+    return int(pokemon.get("energy_count", 0) or 0)
+
+
+def get_attack_energy_requirement(card_id: str) -> Optional[int]:
+    return _ENERGY_REQUIREMENTS.get(str(card_id))
+
+
+def has_attack_energy(pokemon: dict, card_id: str = "") -> Optional[bool]:
+    cid = card_id or str(pokemon.get("card_id", ""))
+    req = get_attack_energy_requirement(cid)
+    if req is None:
+        return None
+    return get_attached_energy_count(pokemon) >= req
+
+
 @dataclass
 class AttackPlan:
     plan_type: str
@@ -35,6 +58,9 @@ class AttackPlan:
     needs_energy: bool = False
     plan_score: float = 0.0
     reasons: list = field(default_factory=list)
+    energy_ready: Optional[bool] = None
+    energy_required: Optional[int] = None
+    energy_attached: Optional[int] = None
 
 
 def _bellibolt_on_field(state: dict) -> bool:
@@ -202,8 +228,32 @@ def generate_attack_plans(state: dict) -> List[AttackPlan]:
                 reasons=["bench_attacker"],
             ))
 
+    _annotate_energy_readiness(plans, state)
     plans.sort(key=lambda p: p.plan_score, reverse=True)
     return plans
+
+
+def _annotate_energy_readiness(plans: List[AttackPlan], state: dict):
+    """Annotate each plan with energy readiness info."""
+    all_mons = {}
+    active = state.get("active_pokemon") or {}
+    if active:
+        all_mons[str(active.get("card_id", ""))] = active
+    for b in (state.get("bench") or []):
+        if isinstance(b, dict):
+            all_mons[str(b.get("card_id", ""))] = b
+
+    for p in plans:
+        cid = p.attacker_cid
+        req = get_attack_energy_requirement(cid)
+        p.energy_required = req
+        mon = all_mons.get(cid) or {}
+        attached = get_attached_energy_count(mon)
+        p.energy_attached = attached
+        if req is not None:
+            p.energy_ready = attached >= req
+        else:
+            p.energy_ready = None
 
 
 def select_best_plan(state: dict) -> Optional[AttackPlan]:
@@ -368,8 +418,14 @@ def summarize_attack_plans(plans: List[AttackPlan]) -> dict:
             "has_winning_ko": False, "has_active_ko": False, "has_boss_ko": False,
             "has_zero_damage_escape": False, "has_bench_attacker": False,
             "top_plan_types": [],
+            "energy_ready_plans": 0, "energy_not_ready_plans": 0,
+            "ko_plan_energy_ready": 0, "ko_plan_energy_not_ready": 0,
         }
     types = {p.plan_type for p in plans}
+    e_ready = sum(1 for p in plans if p.energy_ready is True)
+    e_not = sum(1 for p in plans if p.energy_ready is False)
+    ko_ready = sum(1 for p in plans if p.plan_type in _KO_PLAN_TYPES and p.energy_ready is True)
+    ko_not = sum(1 for p in plans if p.plan_type in _KO_PLAN_TYPES and p.energy_ready is False)
     return {
         "plan_count": len(plans),
         "best_plan_type": plans[0].plan_type,
@@ -381,6 +437,10 @@ def summarize_attack_plans(plans: List[AttackPlan]) -> dict:
         "has_bench_attacker": any(t in types for t in
             ("bench_attacker", "voltorb_charge", "bellibolt_self_attack", "kilowattrel_sub_attacker")),
         "top_plan_types": [p.plan_type for p in plans[:3]],
+        "energy_ready_plans": e_ready,
+        "energy_not_ready_plans": e_not,
+        "ko_plan_energy_ready": ko_ready,
+        "ko_plan_energy_not_ready": ko_not,
     }
 
 
@@ -411,6 +471,9 @@ def diagnose_attack_plan_choice(
     if chosen_action.get("type") == 14 and best.plan_score > 0:
         notes.append("end_with_plan_available")
 
+    missed_ko_energy_ready = missed_ko and best.energy_ready is True
+    missed_ko_energy_not_ready = missed_ko and best.energy_ready is False
+
     return {
         "best_plan_type": best.plan_type,
         "best_plan_score": best.plan_score,
@@ -418,5 +481,10 @@ def diagnose_attack_plan_choice(
         "chosen_matches_any": any_bonus > 0,
         "missed_high_value_plan": missed_hv,
         "missed_ko_plan": missed_ko,
+        "missed_ko_plan_energy_ready": missed_ko_energy_ready,
+        "missed_ko_plan_energy_not_ready": missed_ko_energy_not_ready,
+        "best_plan_energy_ready": best.energy_ready,
+        "best_plan_energy_required": best.energy_required,
+        "best_plan_energy_attached": best.energy_attached,
         "notes": notes,
     }

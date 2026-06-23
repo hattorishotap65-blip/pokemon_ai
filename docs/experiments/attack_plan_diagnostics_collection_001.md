@@ -54,12 +54,11 @@ python experiments/collect_attack_plan_diagnostics.py \
 
 ## Known Limitations
 
-- 現在の diagnostics は attack / end 系の検出を主目的とする
-- boss_ko / switch / retreat 系の missed 判定は、ログに raw option fields
-  (`area`, `index`, `playerIndex`, `attackId`, `inPlayArea`, `inPlayIndex`)
-  が不足しているため参考値
-- それらの精度向上は次 PR で candidate log に詳細フィールドを追加して対応する
-- このPRでは通常 policy 挙動・ログ形式・runtime default は変更しない
+- PR #124 以降のログでは raw option fields (`cardId`, `attackId`, `area`,
+  `index`, `playerIndex`, `inPlayArea`, `inPlayIndex`) を使って
+  boss_ko / switch / retreat 系の一致判定精度を改善
+- PR #123 以前の古いログでは raw option fields が不足するため参考値
+- 既存ログ互換のため、fields がない場合は None として扱う
 
 ## Next Steps
 

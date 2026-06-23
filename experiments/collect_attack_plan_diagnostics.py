@@ -86,6 +86,41 @@ def compute_rates(summary: dict) -> dict:
     }
 
 
+def build_chosen_action(cand: dict) -> dict:
+    """Reconstruct chosen action from candidate log entry."""
+    return {
+        "type": cand.get("option_type"),
+        "cardId": cand.get("cardId") or cand.get("resolved_card_id"),
+        "resolved_card_id": cand.get("resolved_card_id"),
+        "attackId": cand.get("attackId"),
+        "area": cand.get("area"),
+        "index": cand.get("index"),
+        "playerIndex": cand.get("playerIndex"),
+        "inPlayArea": cand.get("inPlayArea"),
+        "inPlayIndex": cand.get("inPlayIndex"),
+    }
+
+
+def build_example(gid: int, state_summary: dict, diag: dict, chosen_action: dict) -> dict:
+    return {
+        "game_id": gid,
+        "turn": state_summary.get("turn", 0),
+        "best_plan_type": diag["best_plan_type"],
+        "best_plan_score": diag["best_plan_score"],
+        "chosen_action_type": chosen_action.get("type"),
+        "chosen_action": {
+            "type": chosen_action.get("type"),
+            "cardId": chosen_action.get("cardId"),
+            "resolved_card_id": chosen_action.get("resolved_card_id"),
+            "attackId": chosen_action.get("attackId"),
+            "area": chosen_action.get("area"),
+            "index": chosen_action.get("index"),
+            "playerIndex": chosen_action.get("playerIndex"),
+        },
+        "notes": diag["notes"],
+    }
+
+
 def analyze_logs(start_game: int, count: int) -> dict:
     """Analyze game logs and collect attack_plan diagnostics."""
     from agent.attack_plan import (
@@ -143,10 +178,7 @@ def analyze_logs(start_game: int, count: int) -> dict:
                 if not selected_cand:
                     selected_cand = candidates[0]
 
-                chosen_action = {
-                    "type": selected_cand.get("option_type"),
-                    "cardId": selected_cand.get("resolved_card_id"),
-                }
+                chosen_action = build_chosen_action(selected_cand)
 
                 try:
                     clear_attack_plan_cache()
@@ -156,14 +188,9 @@ def analyze_logs(start_game: int, count: int) -> dict:
                     add_diagnosis(summary, diag, ps)
 
                     if diag.get("notes") and len(examples) < _MAX_EXAMPLES:
-                        examples.append({
-                            "game_id": gid,
-                            "turn": state_summary.get("turn", 0),
-                            "best_plan_type": diag["best_plan_type"],
-                            "best_plan_score": diag["best_plan_score"],
-                            "chosen_action_type": chosen_action.get("type"),
-                            "notes": diag["notes"],
-                        })
+                        examples.append(build_example(
+                            gid, state_summary, diag, chosen_action,
+                        ))
                 except Exception:
                     summary["diagnostic_errors"] += 1
 

@@ -788,6 +788,14 @@ def agent(obs_dict, config=None):
             "select_context":     select_ctx,
             "resolved_card_id":   o.get("resolved_card_id"),
             "resolved_card_name": o.get("resolved_card_name"),
+            # Raw option fields for diagnostics
+            "cardId":             o.get("cardId"),
+            "attackId":           o.get("attackId"),
+            "area":               o.get("area"),
+            "index":              o.get("index"),
+            "playerIndex":        o.get("playerIndex"),
+            "inPlayArea":         o.get("inPlayArea"),
+            "inPlayIndex":        o.get("inPlayIndex"),
             # Score breakdown
             "raw_score":          round(_pre_sup[i], 3) if i < len(_pre_sup) else 0.0,
             "type_score":         _breakdowns[i].get("type_score",      0.0) if i < len(_breakdowns) else 0.0,

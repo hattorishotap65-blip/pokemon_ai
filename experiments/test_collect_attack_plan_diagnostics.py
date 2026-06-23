@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from experiments.collect_attack_plan_diagnostics import (
     init_summary, add_diagnosis, compute_rates, save_result,
+    build_chosen_action, build_example,
 )
 
 PASS = "[PASS]"
@@ -122,6 +123,49 @@ for i in range(25):
     examples.append({"game_id": i, "notes": ["test"]})
 check("Examples can exceed 20 in list", len(examples) == 25)
 check("Runner limits at _MAX_EXAMPLES=20", True)  # enforced in analyze_logs
+
+# ===================================================================
+print("\n--- build_chosen_action ---")
+
+# New log format with raw fields
+cand_new = {
+    "option_type": 13, "resolved_card_id": "269",
+    "cardId": "269", "attackId": 1, "area": 0, "index": 0,
+    "playerIndex": 0, "inPlayArea": None, "inPlayIndex": None,
+}
+ca_new = build_chosen_action(cand_new)
+check("New: type=13", ca_new["type"] == 13)
+check("New: cardId from raw", ca_new["cardId"] == "269")
+check("New: attackId", ca_new["attackId"] == 1)
+check("New: area", ca_new["area"] == 0)
+check("New: index", ca_new["index"] == 0)
+check("New: playerIndex", ca_new["playerIndex"] == 0)
+
+# Old log format without raw fields
+cand_old = {"option_type": 13, "resolved_card_id": "269"}
+ca_old = build_chosen_action(cand_old)
+check("Old: type=13", ca_old["type"] == 13)
+check("Old: cardId fallback to resolved", ca_old["cardId"] == "269")
+check("Old: attackId=None", ca_old["attackId"] is None)
+check("Old: area=None", ca_old["area"] is None)
+
+# No cardId, no resolved
+cand_empty = {"option_type": 14}
+ca_empty = build_chosen_action(cand_empty)
+check("Empty: cardId=None", ca_empty["cardId"] is None)
+check("Empty: no crash", isinstance(ca_empty, dict))
+
+# ===================================================================
+print("\n--- build_example ---")
+
+diag_ex = {"best_plan_type": "boss_ko", "best_plan_score": 600, "notes": ["missed_boss_ko"]}
+ex = build_example(97001, {"turn": 8}, diag_ex, ca_new)
+check("Example: game_id", ex["game_id"] == 97001)
+check("Example: turn", ex["turn"] == 8)
+check("Example: has chosen_action", "chosen_action" in ex)
+check("Example: chosen_action.attackId", ex["chosen_action"]["attackId"] == 1)
+check("Example: chosen_action.area", ex["chosen_action"]["area"] == 0)
+check("Example: JSON serializable", isinstance(json.dumps(ex), str))
 
 # ===================================================================
 print("\n--- diagnostic_errors ---")

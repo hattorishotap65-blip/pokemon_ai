@@ -10,7 +10,7 @@ from experiments.collect_attack_plan_diagnostics import (
     init_summary, add_diagnosis, compute_rates, save_result,
     build_chosen_action, build_example,
     candidate_is_attack, selected_is_end, has_attack_candidate,
-    classify_end_with_plan,
+    classify_end_with_plan, get_legal_attack_info,
 )
 
 PASS = "[PASS]"
@@ -233,6 +233,49 @@ ec_ne = classify_end_with_plan(not_end, [not_end], {"best_plan_score": 100})
 check("Not end: is_end=False", not ec_ne["is_end"])
 
 # ===================================================================
+print("\n--- get_legal_attack_info ---")
+
+# With legal_option_summary
+entry_los = {"legal_option_summary": {"total": 5, "attack": 2, "has_attack": True, "has_end": True}}
+lai = get_legal_attack_info(entry_los, [])
+check("LOS: has_legal_attack=True", lai["has_legal_attack"])
+check("LOS: legal_attack_count=2", lai["legal_attack_count"] == 2)
+check("LOS: source=legal_option_summary", lai["source"] == "legal_option_summary")
+
+# Without legal_option_summary (fallback)
+entry_old = {}
+cands_fb = [{"option_type": 13}, {"option_type": 14}]
+lai_fb = get_legal_attack_info(entry_old, cands_fb)
+check("Fallback: has_legal_attack=True", lai_fb["has_legal_attack"])
+check("Fallback: source=top_candidates_fallback", lai_fb["source"] == "top_candidates_fallback")
+
+lai_no = get_legal_attack_info({}, [{"option_type": 14}])
+check("Fallback no attack: has_legal_attack=False", not lai_no["has_legal_attack"])
+
+# ===================================================================
+print("\n--- classify_end_with_plan with legal info ---")
+
+entry_with_los = {"legal_option_summary": {"total": 8, "attack": 1, "has_attack": True, "has_end": True}}
+end_c2 = {"option_type": 14, "final_score": 5.0}
+atk_c2 = {"option_type": 13, "is_attack": True, "final_score": 20.0, "resolved_card_id": "269"}
+diag_c2 = {"best_plan_score": 900, "missed_ko_plan": True, "missed_high_value_plan": True}
+ec2 = classify_end_with_plan(end_c2, [end_c2, atk_c2], diag_c2, entry_with_los)
+check("LOS: has_legal_attack=True", ec2["has_legal_attack"])
+check("LOS: end_with_plan_and_legal_attack=True", ec2["end_with_plan_and_legal_attack"])
+check("LOS: end_with_ko_plan_and_legal_attack=True", ec2["end_with_ko_plan_and_legal_attack"])
+check("LOS: legal_source", ec2["legal_source"] == "legal_option_summary")
+
+# No legal attack
+entry_no_la = {"legal_option_summary": {"total": 3, "attack": 0, "has_attack": False, "has_end": True}}
+ec3 = classify_end_with_plan(end_c2, [end_c2], {"best_plan_score": 100, "missed_ko_plan": True}, entry_no_la)
+check("No legal attack: end_with_plan_no_legal_attack=True", ec3["end_with_plan_no_legal_attack"])
+check("No legal attack: end_with_plan_and_legal_attack=False", not ec3["end_with_plan_and_legal_attack"])
+
+# Old log (no entry)
+ec4 = classify_end_with_plan(end_c2, [end_c2, atk_c2], diag_c2)
+check("Old log: fallback works", ec4["legal_source"] == "top_candidates_fallback")
+
+# ===================================================================
 print("\n--- add_diagnosis with end_class ---")
 
 s_end = init_summary()
@@ -242,12 +285,17 @@ diag_end = {"chosen_matches_best": False, "chosen_matches_any": False,
 ps_end = {"plan_count": 1, "has_active_ko": True}
 ec_end = {"is_end": True, "end_with_plan_and_attack": True,
           "end_with_plan_no_attack": False, "end_with_ko_plan": True,
-          "end_with_hv_plan": True}
+          "end_with_hv_plan": True, "has_legal_attack": True,
+          "end_with_plan_and_legal_attack": True, "end_with_plan_no_legal_attack": False,
+          "end_with_ko_plan_and_legal_attack": True}
 add_diagnosis(s_end, diag_end, ps_end, ec_end)
 check("End summary: selected_end_count=1", s_end["selected_end_count"] == 1)
 check("End summary: end_with_plan_and_attack=1", s_end["end_with_plan_and_attack_available"] == 1)
 check("End summary: end_with_ko_plan=1", s_end["end_with_ko_plan_available"] == 1)
 check("End summary: end_with_hv_plan=1", s_end["end_with_high_value_plan_available"] == 1)
+check("End summary: selected_end_with_legal_attack=1", s_end["selected_end_with_legal_attack"] == 1)
+check("End summary: end_with_plan_and_legal_attack=1", s_end["end_with_plan_and_legal_attack"] == 1)
+check("End summary: end_with_ko_plan_and_legal_attack=1", s_end["end_with_ko_plan_and_legal_attack"] == 1)
 
 # Without end_class (backward compat)
 add_diagnosis(s_end, diag_end, ps_end)
@@ -259,6 +307,8 @@ print("\n--- compute_rates with end metrics ---")
 r_end = compute_rates(s_end)
 check("Has end_with_plan_and_attack_rate", "end_with_plan_and_attack_rate" in r_end)
 check("Has end_with_ko_plan_rate", "end_with_ko_plan_rate" in r_end)
+check("Has end_with_plan_and_legal_attack_rate", "end_with_plan_and_legal_attack_rate" in r_end)
+check("Has selected_end_with_legal_attack_rate", "selected_end_with_legal_attack_rate" in r_end)
 check("end_with_plan_and_attack_rate=1.0", r_end["end_with_plan_and_attack_rate"] == 1.0)
 
 # Zero end count

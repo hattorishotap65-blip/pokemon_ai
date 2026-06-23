@@ -538,6 +538,14 @@ def _select_indices(
         except Exception:
             pass
 
+    # --- ML hybrid bonus (env-gated, default OFF) ---
+    try:
+        from agent.ml_hybrid import is_hybrid_enabled, apply_hybrid_bonus
+        if is_hybrid_enabled():
+            immediate_scores = apply_hybrid_bonus(opt_dicts, state, immediate_scores)
+    except Exception:
+        pass
+
     # --- optional-selection threshold (min_count=0 = agent may choose nothing) ---
     # If the best option scores below the context threshold, return [] explicitly
     # rather than forcing a low-value pick.  Options below threshold are nulled

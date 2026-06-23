@@ -96,3 +96,6 @@ jobs:
 
       - name: Run attack plan diagnostics tests
         run: python experiments/test_attack_plan_diagnostics.py
+
+      - name: Run collect attack plan diagnostics tests
+        run: python experiments/test_collect_attack_plan_diagnostics.py

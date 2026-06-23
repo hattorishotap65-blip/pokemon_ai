@@ -110,4 +110,8 @@ echo "=== Attack plan diagnostics ==="
 python experiments/test_attack_plan_diagnostics.py
 
 echo ""
+echo "=== Collect attack plan diagnostics ==="
+python experiments/test_collect_attack_plan_diagnostics.py
+
+echo ""
 echo "All tests passed."

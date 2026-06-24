@@ -26,6 +26,9 @@ _AREA_BENCH = 5
 #   "baseline"                       = original broken inPlayArea (0/1), experiment only
 _AREA_FIX_MODE = os.environ.get("POKEMON_AI_AREA_FIX_MODE", "area_fix_only")
 
+_ACTIVE_ATTACH_BONUS = float(os.environ.get("POKEMON_AI_ACTIVE_ATTACH_BONUS", "0.0"))
+_BENCH_ATTACH_PENALTY = float(os.environ.get("POKEMON_AI_BENCH_ATTACH_PENALTY", "0.0"))
+
 
 def is_hybrid_enabled() -> bool:
     return _ENABLED
@@ -123,6 +126,20 @@ def _heuristic_ml_score(features: Dict[str, float]) -> float:
     if _AREA_FIX_MODE == "area_fix_attack_comp":
         if features["is_attack"] > 0 and features["has_legal_attack"] > 0:
             score += 0.15
+
+    # --- Active energy priority tuning (#159 top episode comparison) ---
+    # Top agents: attach_to_active 81.3% vs our 49.7%.
+    # Defaults are 0.0 — no effect unless env var is set.
+    if _ACTIVE_ATTACH_BONUS > 0:
+        if (features["attach_to_active"] > 0
+                and features["active_energy_needed"] > 0
+                and features["active_is_main_attacker"] > 0):
+            score += _ACTIVE_ATTACH_BONUS
+    if _BENCH_ATTACH_PENALTY > 0:
+        if (features["attach_to_bench"] > 0
+                and features["active_energy_needed"] > 0
+                and features["active_is_main_attacker"] > 0):
+            score -= _BENCH_ATTACH_PENALTY
 
     return max(0.0, min(1.0, score))
 

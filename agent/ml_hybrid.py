@@ -16,6 +16,9 @@ _ENABLED = os.environ.get("POKEMON_AI_ML_HYBRID", "1" if _HYBRID_DEFAULT else "0
 _BONUS_RATIO = float(os.environ.get("POKEMON_AI_ML_BONUS_RATIO", "10.0"))
 
 _IONO_ENERGY_REQ = {"265": 2, "268": 1, "269": 4, "270": 1, "271": 3}
+_MAIN_ATTACKERS = {"265", "269", "271"}
+_AREA_ACTIVE = 4
+_AREA_BENCH = 5
 
 
 def is_hybrid_enabled() -> bool:
@@ -43,13 +46,20 @@ def _extract_features(action: dict, state: dict) -> Dict[str, float]:
     hand_count = state.get("hand_count", 0) or 0
     deck_count = state.get("deck_count", 0) or 0
 
+    is_attach = opt_type == 8
+    attach_area = action.get("inPlayArea")
+    attach_to_active = is_attach and attach_area == _AREA_ACTIVE
+    attach_to_bench = is_attach and attach_area == _AREA_BENCH
+    active_e_needed = _energy_needed(active_cid, active_energy)
+    is_main_attacker = active_cid in _MAIN_ATTACKERS
+
     return {
         "action_type": float(opt_type),
         "legal_action_count": 0.0,
         "has_legal_attack": 0.0,
         "active_hp": float(active_hp),
         "active_energy": float(active_energy),
-        "active_energy_needed": float(_energy_needed(active_cid, active_energy)),
+        "active_energy_needed": float(active_e_needed),
         "opponent_active_hp": float(opp_hp),
         "bench_size": float(len(bench)),
         "prize_remaining": float(prizes),
@@ -60,12 +70,13 @@ def _extract_features(action: dict, state: dict) -> Dict[str, float]:
         "is_attack": 1.0 if opt_type == 13 else 0.0,
         "can_ko": 0.0,
         "is_zero_damage_attack": 0.0,
-        "attack_energy_ready": 1.0 if _energy_needed(active_cid, active_energy) <= 0 else 0.0,
-        "is_attach": 1.0 if opt_type == 8 else 0.0,
-        "attach_to_active": 1.0 if opt_type == 8 and action.get("inPlayArea") == 0 else 0.0,
-        "attach_to_bench": 1.0 if opt_type == 8 and action.get("inPlayArea") == 1 else 0.0,
-        "attach_enables_attack": 0.0,
-        "active_attach_would_enable": 1.0 if _energy_needed(active_cid, active_energy) == 1 else 0.0,
+        "attack_energy_ready": 1.0 if active_e_needed <= 0 else 0.0,
+        "is_attach": 1.0 if is_attach else 0.0,
+        "attach_to_active": 1.0 if attach_to_active else 0.0,
+        "attach_to_bench": 1.0 if attach_to_bench else 0.0,
+        "attach_enables_attack": 1.0 if attach_to_active and active_e_needed == 1 else 0.0,
+        "active_attach_would_enable": 1.0 if active_e_needed == 1 else 0.0,
+        "active_is_main_attacker": 1.0 if is_main_attacker else 0.0,
         "is_evolve": 1.0 if opt_type == 9 else 0.0,
         "evolve_to_main_attacker": 0.0,
         "evolve_to_engine": 0.0,
@@ -96,6 +107,14 @@ def _heuristic_ml_score(features: Dict[str, float]) -> float:
         score += 0.1
     if features["prize_diff"] < 0:
         score += 0.05
+
+    # --- Active energy priority (#152 loss diagnostics) ---
+    # The inPlayArea fix (0→4, 1→5) makes attach_to_active fire correctly.
+    # Compensate: the fix activates +0.15 for attach_enables, which shifts the
+    # relative score balance. Strengthen attack bonus to maintain KO capture.
+    if features["is_attack"] > 0 and features["has_legal_attack"] > 0:
+        score += 0.15
+
     return max(0.0, min(1.0, score))
 
 

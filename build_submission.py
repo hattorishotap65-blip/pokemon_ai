@@ -23,6 +23,7 @@ files = [
     ('agent/card_metadata.py',    'agent/card_metadata.py'),
     ('agent/damage_predictor.py', 'agent/damage_predictor.py'),
     ('agent/params.py',           'agent/params.py'),
+    ('agent/ml_hybrid.py',        'agent/ml_hybrid.py'),
     ('configs/params/default_params.json', 'configs/params/default_params.json'),
     ('data/card_knowledge.csv',    'data/card_knowledge.csv'),
     ('data/deck_profile.json',     'data/deck_profile.json'),

@@ -11,7 +11,8 @@ from __future__ import annotations
 import os
 from typing import List, Dict, Optional
 
-_ENABLED = os.environ.get("POKEMON_AI_ML_HYBRID") == "1"
+_HYBRID_DEFAULT = True  # submission candidate: ON by default
+_ENABLED = os.environ.get("POKEMON_AI_ML_HYBRID", "1" if _HYBRID_DEFAULT else "0") != "0"
 _BONUS_RATIO = float(os.environ.get("POKEMON_AI_ML_BONUS_RATIO", "10.0"))
 
 _IONO_ENERGY_REQ = {"265": 2, "268": 1, "269": 4, "270": 1, "271": 3}

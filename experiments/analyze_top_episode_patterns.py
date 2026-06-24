@@ -406,8 +406,13 @@ def main():
                 s = analyze_game(game_entries)
                 all_stats.append(s)
         elif "top_candidates" in first:
-            s = analyze_game(entries)
-            all_stats.append(s)
+            games_grouped: Dict[str, List[dict]] = defaultdict(list)
+            for e in entries:
+                gid = str(e.get("game_id", "0"))
+                games_grouped[gid].append(e)
+            for gid, game_entries in games_grouped.items():
+                s = analyze_game(game_entries)
+                all_stats.append(s)
         else:
             games: Dict[int, List[dict]] = defaultdict(list)
             for e in entries:

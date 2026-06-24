@@ -29,7 +29,8 @@ _AREA_FIX_MODE = os.environ.get("POKEMON_AI_AREA_FIX_MODE", "area_fix_only")
 _ACTIVE_ATTACH_BONUS = float(os.environ.get("POKEMON_AI_ACTIVE_ATTACH_BONUS", "0.0"))
 _BENCH_ATTACH_PENALTY = float(os.environ.get("POKEMON_AI_BENCH_ATTACH_PENALTY", "0.0"))
 
-_ATTACK_PLAN_ENABLED = os.environ.get("POKEMON_AI_ATTACK_PLAN", "0") != "0"
+# #163 attack_plan ablation improved 300g, selected for submission candidate
+_ATTACK_PLAN_ENABLED = os.environ.get("POKEMON_AI_ATTACK_PLAN", "1") != "0"
 
 
 def is_hybrid_enabled() -> bool:

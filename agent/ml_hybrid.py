@@ -32,6 +32,9 @@ _BENCH_ATTACH_PENALTY = float(os.environ.get("POKEMON_AI_BENCH_ATTACH_PENALTY", 
 # #163 attack_plan ablation improved 300g, selected for submission candidate
 _ATTACK_PLAN_ENABLED = os.environ.get("POKEMON_AI_ATTACK_PLAN", "1") != "0"
 
+_PLAY_BEFORE_ATTACK = os.environ.get("POKEMON_AI_PLAY_BEFORE_ATTACK", "0") != "0"
+_PLAY_BEFORE_ATTACK_BONUS = float(os.environ.get("POKEMON_AI_PLAY_BEFORE_ATTACK_BONUS", "0.0"))
+
 
 def is_hybrid_enabled() -> bool:
     return _ENABLED
@@ -143,6 +146,18 @@ def _heuristic_ml_score(features: Dict[str, float]) -> float:
                 and features["active_energy_needed"] > 0
                 and features["active_is_main_attacker"] > 0):
             score -= _BENCH_ATTACH_PENALTY
+
+    # --- Play before attack (env-gated, default OFF) ---
+    if _PLAY_BEFORE_ATTACK and _PLAY_BEFORE_ATTACK_BONUS > 0:
+        is_useful_play = (
+            features["is_play"] > 0
+            or features["is_evolve"] > 0
+            or features["is_ability"] > 0
+        )
+        if (is_useful_play
+                and features["has_legal_attack"] > 0
+                and features["hand_count"] >= 4):
+            score += _PLAY_BEFORE_ATTACK_BONUS
 
     return max(0.0, min(1.0, score))
 

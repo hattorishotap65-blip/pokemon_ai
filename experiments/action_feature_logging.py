@@ -303,7 +303,8 @@ def run_games(n: int, start_game: int, use_wsl: bool) -> bool:
         for key in ("POKEMON_AI_ML_HYBRID", "POKEMON_AI_ML_BONUS_RATIO", "POKEMON_AI_AREA_FIX_MODE",
                     "POKEMON_AI_ACTIVE_ATTACH_BONUS", "POKEMON_AI_BENCH_ATTACH_PENALTY",
                     "POKEMON_AI_IONOS_ACTIVE_ATTACH_BONUS", "POKEMON_AI_IONOS_BENCH_ATTACH_PENALTY",
-                    "POKEMON_AI_ATTACK_PLAN"):
+                    "POKEMON_AI_ATTACK_PLAN",
+                    "POKEMON_AI_PLAY_BEFORE_ATTACK", "POKEMON_AI_PLAY_BEFORE_ATTACK_BONUS"):
             val = os.environ.get(key)
             if val is not None:
                 env_fwd += f"{key}={val} "

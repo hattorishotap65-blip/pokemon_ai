@@ -105,24 +105,53 @@ All three pass safety baseline: errors=0, timeouts=0, End+legal_attack=0, zero_d
 
 No extreme skew across configs. B has slightly more ATTACKs (1276 vs 1216/1227) but also more miss_KOs — the extra attacks may be non-KO attacks.
 
+## 300g Re-Comparison
+
+Per PR comment feedback, re-ran A/B/C at 300g to reduce variance.
+
+### 300g KO Capture Rate
+
+| Config | Games | KO Candidates | KO Selected | Capture Rate | miss_KO |
+|--------|-------|---------------|-------------|--------------|---------|
+| A baseline | 300 | 622 | 600 | 96.5% | 22 |
+| **B fix_only** | **300** | **653** | **632** | **96.8%** | **21** |
+| C fix_comp | 300 | 666 | 636 | 95.5% | 30 |
+
+### 300g Safety Metrics
+
+| Config | Errors | Timeouts | End+legal_attack | zero_damage |
+|--------|--------|----------|------------------|-------------|
+| A | 0 | 0 | 0 | 0 |
+| B | 0 | 0 | 0 | 0 |
+| C | 0 | 0 | 0 | 0 |
+
+### 300g Action Type Distribution
+
+| Config | ATTACK | ATTACH | END | RETREAT | Decisions |
+|--------|--------|--------|-----|---------|-----------|
+| A | 3714 | 3824 | 3205 | 1084 | 61595 |
+| B | 3583 | 3690 | 2851 | 1002 | 57551 |
+| C | 3744 | 3765 | 3159 | 1049 | 60562 |
+
+### 300g Analysis
+
+1. **B (area fix only) matches baseline**: miss_KO=21 vs A's 22, KO capture 96.8% vs 96.5%. Within noise — effectively equivalent.
+2. **C (attack compensation) is worst**: miss_KO=30, KO capture 95.5%. The +0.15 attack bonus backfires at 300g scale.
+3. **100g results were misleading**: At 100g, A looked best (miss_KO=6) and B worst (11). At 300g, they converge. This confirms 100g variance was too high for reliable comparison.
+4. **All configs pass safety**: errors=0, timeouts=0, End+legal_attack=0, zero_damage=0.
+
 ## Conclusion
 
-**The area fix (B, C) worsens miss_KO compared to baseline (A) in self-play.** The attack compensation (C) partially mitigates but does not eliminate the regression.
+**300g confirms: B (area fix only) is equivalent to A (baseline).** The area fix does NOT worsen miss_KO — the 100g difference was variance.
 
-However, the baseline's miss_KO=6 (vs #151's 2) shows that self-play miss_KO has ~3-6x variance across 100g runs. The difference between A(6), B(11), C(9) may be partly noise.
+**C (attack compensation) is harmful** — it worsens miss_KO by ~36% vs baseline. The +0.15 attack bonus should be removed.
 
 ## Recommendation
 
-**Maintain #148 bonus=10 baseline as the submission candidate.** Do not promote the area fix to submission.
+**B (area fix only) is safe to adopt.** It correctly fixes attach features without harming KO capture.
 
-Rationale:
-- Area fix consistently worsens miss_KO across multiple runs
-- The fix activates previously-dead code that shifts score balance unfavorably
-- Self-play miss_KO variance is high, but the trend is consistently worse with the fix
-- The benefit (correct attach feature) has not been shown to improve leaderboard score
-
-### Next steps
-- Keep `POKEMON_AI_AREA_FIX_MODE` env flag for future experiments
-- Default mode remains `area_fix_attack_comp` (#153) but submission stays #148
-- Consider redesigning the attach heuristic to avoid miss_KO impact before re-attempting the area fix
-- Focus on other improvement axes (opponent modeling, late-game play) instead
+Action items:
+1. Remove attack compensation (+0.15 attack bonus) from `_heuristic_ml_score` — it worsens results
+2. Keep the inPlayArea 4/5 fix (B mode) as the new default
+3. B can be considered for submission candidate since it matches baseline safety
+4. Set `POKEMON_AI_AREA_FIX_MODE` default to `area_fix_only` instead of `area_fix_attack_comp`

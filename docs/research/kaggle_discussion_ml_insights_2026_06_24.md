@@ -141,3 +141,87 @@ Source: [Topic 709160](https://www.kaggle.com/competitions/pokemon-tcg-ai-battle
 - 純粋 RL エージェントの構築 (勝率 25% が現状の限界)
 - 大規模 MCTS (API 制約 + 時間制約で非現実的)
 - human-play ログの収集 (コスト対効果が低い)
+
+---
+
+## 6. Leaderboard スコアリングの不安定性とデッキ実績
+
+Source: [Topic 712621](https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/discussion/712621) — "Leaderboard Scoring Inconsistency" (20 votes, 8 comments)
+
+### 実測データ
+
+投稿者が同一エージェントを2回提出して観測したスコア差:
+
+| デッキ | 提出1 | 提出2 | スコア差 |
+|--------|-------|-------|----------|
+| Kangaskhan/Crustle | 940.7 | 790.8 | ~150 pt |
+| Festival Lead | 1104.6 | 687.4 | **>400 pt** |
+
+- 同一エージェントでも leaderboard スコアに 150-400 pt の差が出る
+- 最初の 5-10 ゲームでほぼ運命が決まる
+- TCG 固有のランダム性 (初手、サイド順、マッチアップ) が原因
+
+### 言及されたデッキ
+
+- **Kangaskhan/Crustle**: 最近のスタンダードメタで好成績。偏りの大きいマッチアップ
+- **Festival Lead**: Crustle より偏りが少ないと予想されたが、実際はさらに大きなスコア差が出た
+- **Lucario**: 公式サンプルデッキの一つ。ヒューリスティックのベースライン
+
+### コミュニティの提言
+
+- 1エージェントあたりのゲーム数を増やすべき
+- BO3 (3本先取) 形式でマッチングすべき
+- レーティング収束を遅くすべき
+- 現状は「ハイロールするまで再提出」が最適行動になってしまう
+
+### 示唆
+
+- **leaderboard スコアは 1 回の提出で判断できない** — 最低 2 回提出して比較すべき
+- **我々の ~495 pt は安定した代表値とは限らない**
+- デッキ選択自体がスコアに大きく影響する (Crustle は 940、Festival Lead は 1104 に到達)
+
+## 7. マルチデッキの禁止
+
+Source: [Topic 711741](https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/discussion/711741) (15 votes, 10 comments)
+
+### 公式回答 (shige, Competition Host)
+
+> Participants are expected to submit agents that use a single deck consistently.
+> Agents should not switch between multiple decks from game to game within the same submission.
+
+- 技術的にはゲームごとにデッキを変えることが可能
+- しかし**公式ルールとして単一デッキのみ許可**
+- メタゲーム戦略よりも、1 デッキでの AI 戦略に集中すべき
+
+### 示唆
+
+- デッキ変更による改善は 1 回のPRで完結させるべき (実験的にデッキを切り替えることは可)
+- 現在の Iono's Kilowattrel デッキで AI 戦略を深める方向が正しい
+
+## 8. デッキメタ可視化サイト
+
+Source: [Topic 710361](https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/discussion/710361) (20 votes, 7 comments)
+
+- URL: https://ptcg-kaggle-meta.vercel.app/
+- 毎日更新されるデッキメタ情報 (使用率、カード構成)
+- 2026-06-23 時点のデータ: https://ptcg-kaggle-meta.vercel.app/2026-06-23
+
+### 観測データ (コメントより)
+
+- Day 0 → Day 3 のデッキ提出数: 2,555 → 15,632 → 13,040 → 10,855
+- 総デッキ数が減少傾向 — 参加者がデッキを削除/置き換えている可能性
+
+### 示唆
+
+- 対戦相手のデッキ分布を把握するのに有用
+- どのデッキが多いかを知ることで、マッチアップ有利なプレイを検討できる
+- ただしサイトは動的レンダリングのため API 取得には工夫が必要
+
+## 追加の影響分析
+
+| 知見 | 我々への影響 |
+|------|-------------|
+| スコア 150-400 pt のブレ | 1 回の提出で改善/悪化を判断できない。複数提出 or ローカル評価を重視 |
+| Crustle/Festival Lead が高スコア到達 | Iono's Kilowattrel 以外のデッキも検討価値あり (ただしルール上は単一デッキ) |
+| 単一デッキルール | 現在のデッキで AI を磨く方針は正しい |
+| メタサイトが存在 | 対戦相手の傾向を把握し、マッチアップ対策に活用可能 |

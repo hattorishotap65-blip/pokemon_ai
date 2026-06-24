@@ -29,6 +29,8 @@ _AREA_FIX_MODE = os.environ.get("POKEMON_AI_AREA_FIX_MODE", "area_fix_only")
 _ACTIVE_ATTACH_BONUS = float(os.environ.get("POKEMON_AI_ACTIVE_ATTACH_BONUS", "0.0"))
 _BENCH_ATTACH_PENALTY = float(os.environ.get("POKEMON_AI_BENCH_ATTACH_PENALTY", "0.0"))
 
+_ATTACK_PLAN_ENABLED = os.environ.get("POKEMON_AI_ATTACK_PLAN", "0") != "0"
+
 
 def is_hybrid_enabled() -> bool:
     return _ENABLED
@@ -189,6 +191,18 @@ def apply_hybrid_bonus(
             if _safety_gate(c, has_legal_attack, has_ko):
                 normalized = (ml_scores[i] - ml_min) / ml_range
                 result[i] += _BONUS_RATIO * normalized
+
+        if _ATTACK_PLAN_ENABLED:
+            try:
+                from agent.attack_plan import get_cached_top_plans, plan_matches_action
+                plans = get_cached_top_plans(state, limit=3)
+                if plans:
+                    for i, c in enumerate(candidates):
+                        bonus = max(plan_matches_action(p, c, state) for p in plans)
+                        result[i] += bonus
+            except Exception:
+                pass
+
         return result
     except Exception:
         return scores

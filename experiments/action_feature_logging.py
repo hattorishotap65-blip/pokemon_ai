@@ -299,9 +299,15 @@ def process_logs(start_game: int, count: int, output: str,
 def run_games(n: int, start_game: int, use_wsl: bool) -> bool:
     if use_wsl:
         wsl_root = f"/mnt/c{_REPO_ROOT[2:].replace(os.sep, '/')}"
+        env_fwd = ""
+        for key in ("POKEMON_AI_ML_HYBRID", "POKEMON_AI_ML_BONUS_RATIO"):
+            val = os.environ.get(key)
+            if val is not None:
+                env_fwd += f"{key}={val} "
         cmd = (
             f'wsl -d Ubuntu -e bash -c "'
             f'cd {wsl_root} && '
+            f'{env_fwd}'
             f'PYTHONPATH={wsl_root}/reference/extracted '
             f'python3 experiments/run_matches_real.py --n {n} --start-game {start_game}"'
         )

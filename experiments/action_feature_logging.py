@@ -300,7 +300,7 @@ def run_games(n: int, start_game: int, use_wsl: bool) -> bool:
     if use_wsl:
         wsl_root = f"/mnt/c{_REPO_ROOT[2:].replace(os.sep, '/')}"
         env_fwd = ""
-        for key in ("POKEMON_AI_ML_HYBRID", "POKEMON_AI_ML_BONUS_RATIO"):
+        for key in ("POKEMON_AI_ML_HYBRID", "POKEMON_AI_ML_BONUS_RATIO", "POKEMON_AI_AREA_FIX_MODE"):
             val = os.environ.get(key)
             if val is not None:
                 env_fwd += f"{key}={val} "

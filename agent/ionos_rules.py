@@ -16,12 +16,12 @@ Negative bonus discourages an action.
 import json as _json
 import os as _os
 
-# -- Active attach tuning (env-gated, default 0 = no change) ------------------
+# -- Active attach tuning (#161 D variant selected, 300g confirmed) ------------
 _IONOS_ACTIVE_ATTACH_BONUS = float(
-    _os.environ.get("POKEMON_AI_IONOS_ACTIVE_ATTACH_BONUS", "0")
+    _os.environ.get("POKEMON_AI_IONOS_ACTIVE_ATTACH_BONUS", "40")
 )
 _IONOS_BENCH_ATTACH_PENALTY = float(
-    _os.environ.get("POKEMON_AI_IONOS_BENCH_ATTACH_PENALTY", "0")
+    _os.environ.get("POKEMON_AI_IONOS_BENCH_ATTACH_PENALTY", "20")
 )
 
 # -- Weights (loaded once from data/weights.json) ------------------------------

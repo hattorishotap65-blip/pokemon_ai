@@ -20,6 +20,12 @@ _MAIN_ATTACKERS = {"265", "269", "271"}
 _AREA_ACTIVE = 4
 _AREA_BENCH = 5
 
+# Ablation modes for area fix experiment (#154 300g result: area_fix_only is best):
+#   "area_fix_only" (default)        = correct inPlayArea 4/5, no attack compensation
+#   "area_fix_attack_comp"           = correct inPlayArea + attack +0.15 (worse: miss_KO +36%)
+#   "baseline"                       = original broken inPlayArea (0/1), experiment only
+_AREA_FIX_MODE = os.environ.get("POKEMON_AI_AREA_FIX_MODE", "area_fix_only")
+
 
 def is_hybrid_enabled() -> bool:
     return _ENABLED
@@ -48,8 +54,12 @@ def _extract_features(action: dict, state: dict) -> Dict[str, float]:
 
     is_attach = opt_type == 8
     attach_area = action.get("inPlayArea")
-    attach_to_active = is_attach and attach_area == _AREA_ACTIVE
-    attach_to_bench = is_attach and attach_area == _AREA_BENCH
+    if _AREA_FIX_MODE == "baseline":
+        attach_to_active = is_attach and attach_area == 0
+        attach_to_bench = is_attach and attach_area == 1
+    else:
+        attach_to_active = is_attach and attach_area == _AREA_ACTIVE
+        attach_to_bench = is_attach and attach_area == _AREA_BENCH
     active_e_needed = _energy_needed(active_cid, active_energy)
     is_main_attacker = active_cid in _MAIN_ATTACKERS
 
@@ -108,12 +118,11 @@ def _heuristic_ml_score(features: Dict[str, float]) -> float:
     if features["prize_diff"] < 0:
         score += 0.05
 
-    # --- Active energy priority (#152 loss diagnostics) ---
-    # The inPlayArea fix (0→4, 1→5) makes attach_to_active fire correctly.
-    # Compensate: the fix activates +0.15 for attach_enables, which shifts the
-    # relative score balance. Strengthen attack bonus to maintain KO capture.
-    if features["is_attack"] > 0 and features["has_legal_attack"] > 0:
-        score += 0.15
+    # --- Attack compensation (experiment only, not default) ---
+    # 300g ablation (#154) showed this worsens miss_KO by 36%.
+    if _AREA_FIX_MODE == "area_fix_attack_comp":
+        if features["is_attack"] > 0 and features["has_legal_attack"] > 0:
+            score += 0.15
 
     return max(0.0, min(1.0, score))
 

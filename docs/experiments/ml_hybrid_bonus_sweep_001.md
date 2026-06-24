@@ -77,21 +77,23 @@ _To be filled after running the sweep._
 
 ## Safety Metrics
 
-| Bonus | End+legal_attack | zero_damage | miss_KO | gate_blocked |
-|-------|------------------|-------------|---------|--------------|
-| 8.0 | — | — | — | — |
-| 10.0 | — | — | — | — |
-| 12.0 | — | — | — | — |
-| 15.0 | — | — | — | — |
+| Bonus | End+legal_attack | zero_damage | miss_KO |
+|-------|------------------|-------------|---------|
+| 8.0 | — | — | — |
+| 10.0 | — | — | — |
+| 12.0 | — | — | — |
+| 15.0 | — | — | — |
 
 ## Runtime Overhead
 
-| Bonus | avg ms/game | avg decision time | notes |
-|-------|-------------|-------------------|-------|
-| 8.0 | — | — | — |
-| 10.0 | — | — | ~4725ms (#148) |
-| 12.0 | — | — | — |
-| 15.0 | — | — | — |
+_Note: avg ms/game is reported by `run_matches_real.py` stdout, not in the JSONL. Transfer manually from console output._
+
+| Bonus | avg ms/game | notes |
+|-------|-------------|-------|
+| 8.0 | — | — |
+| 10.0 | — | ~4725ms (#148) |
+| 12.0 | — | — |
+| 15.0 | — | — |
 
 ## Action Type Distribution
 

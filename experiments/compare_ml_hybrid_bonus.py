@@ -10,17 +10,15 @@ Usage:
                bonus10=artifacts/ml_hybrid_bonus10_100g.jsonl \
                bonus12=artifacts/ml_hybrid_bonus12_100g.jsonl \
                bonus15=artifacts/ml_hybrid_bonus15_100g.jsonl \
-      --results-dir results \
       --summary artifacts/ml_hybrid_bonus_sweep_summary.json
 """
 from __future__ import annotations
 import argparse
-import csv as csv_mod
 import json
 import os
 import sys
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, _REPO_ROOT)
@@ -46,19 +44,7 @@ def load_jsonl(path: str) -> List[dict]:
     return rows
 
 
-def load_results_csv(path: str) -> Dict[int, dict]:
-    results: Dict[int, dict] = {}
-    if not path or not os.path.exists(path):
-        return results
-    with open(path, encoding="utf-8") as f:
-        reader = csv_mod.DictReader(f)
-        for row in reader:
-            gidx = int(row.get("game", 0))
-            results[gidx] = row
-    return results
-
-
-def aggregate_one(label: str, data: List[dict], results_csv: Optional[str] = None) -> dict:
+def aggregate_one(label: str, data: List[dict]) -> dict:
     """Aggregate stats for one bonus ratio run."""
     games: Dict[int, List[dict]] = defaultdict(list)
     for row in data:
@@ -67,8 +53,6 @@ def aggregate_one(label: str, data: List[dict], results_csv: Optional[str] = Non
 
     total_games = len(games)
     wins = losses = errors = timeouts = unknown = 0
-    decision_times: List[float] = []
-    game_times: List[float] = []
 
     selected_types: Dict[str, int] = defaultdict(int)
     total_decisions = 0
@@ -76,7 +60,6 @@ def aggregate_one(label: str, data: List[dict], results_csv: Optional[str] = Non
     end_legal_attack = 0
     zero_damage = 0
     miss_ko = 0
-    gate_blocked = 0
 
     for gid, rows in games.items():
         result = rows[0].get("game_result", "unknown") if rows else "unknown"
@@ -142,7 +125,6 @@ def aggregate_one(label: str, data: List[dict], results_csv: Optional[str] = Non
         "end_legal_attack": end_legal_attack,
         "zero_damage": zero_damage,
         "miss_ko": miss_ko,
-        "gate_blocked": gate_blocked,
         "attack_count": attack_count,
         "attach_count": attach_count,
         "end_count": end_count,
@@ -168,12 +150,12 @@ def format_markdown_tables(results: List[dict]) -> str:
     lines.append("")
     lines.append("### Safety Metrics")
     lines.append("")
-    lines.append("| Bonus | End+legal_attack | zero_damage | miss_KO | gate_blocked |")
-    lines.append("|-------|------------------|-------------|---------|--------------|")
+    lines.append("| Bonus | End+legal_attack | zero_damage | miss_KO |")
+    lines.append("|-------|------------------|-------------|---------|")
     for r in results:
         lines.append(
             f"| {r['label']} | {r['end_legal_attack']} | {r['zero_damage']} "
-            f"| {r['miss_ko']} | {r['gate_blocked']} |"
+            f"| {r['miss_ko']} |"
         )
 
     lines.append("")
@@ -197,10 +179,6 @@ def main():
     parser.add_argument(
         "--inputs", nargs="+", required=True,
         help="label=path pairs, e.g. bonus8=artifacts/bonus8.jsonl"
-    )
-    parser.add_argument(
-        "--results-dir", default="",
-        help="Directory containing results CSVs (optional)"
     )
     parser.add_argument(
         "--summary", default="artifacts/ml_hybrid_bonus_sweep_summary.json",

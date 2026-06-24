@@ -16,6 +16,14 @@ Negative bonus discourages an action.
 import json as _json
 import os as _os
 
+# -- Active attach tuning (env-gated, default 0 = no change) ------------------
+_IONOS_ACTIVE_ATTACH_BONUS = float(
+    _os.environ.get("POKEMON_AI_IONOS_ACTIVE_ATTACH_BONUS", "0")
+)
+_IONOS_BENCH_ATTACH_PENALTY = float(
+    _os.environ.get("POKEMON_AI_IONOS_BENCH_ATTACH_PENALTY", "0")
+)
+
 # -- Weights (loaded once from data/weights.json) ------------------------------
 _RETREAT_BONUS_DEFAULT = 1100.0
 _retreat_to_better_attacker_bonus: float = _RETREAT_BONUS_DEFAULT
@@ -69,6 +77,7 @@ _ENERGY_RETRIEVAL = "1118"
 _MAX_ROD          = "1110"
 
 _LIGHTNING_ENERGY = "4"
+_MAIN_ATTACKERS = {_VOLTORB, _BELLIBOLT_EX, _KILOWATTREL}
 
 # All Iono's Pokemon — total Lightning on these powers Voltorb's damage
 _IONO_LINE = {_VOLTORB, _TADBULB, _BELLIBOLT_EX, _WATTREL, _KILOWATTREL}
@@ -1141,6 +1150,21 @@ def score_bonus(action: dict, state: dict, knowledge=None) -> tuple:
                 esc, ereason = score_bellibolt_energy_attach(e_cid, t_cid, state, t_energy)
             else:
                 esc, ereason = score_energy_attachment(e_cid, t_cid, state, t_energy)
+
+            # Active attach tuning (#159/#160: top agents 81% vs our 50%)
+            if _IONOS_ACTIVE_ATTACH_BONUS > 0 or _IONOS_BENCH_ATTACH_PENALTY > 0:
+                ac = _active_cid(state)
+                ac_needed = _energy_needed_to_attack(ac, (state.get("active_pokemon") or {}).get("energy_count", 0))
+                if ac_needed is not None and ac_needed > 0 and ac in _MAIN_ATTACKERS:
+                    if target_area == _AREA_ACTIVE:
+                        esc += _IONOS_ACTIVE_ATTACH_BONUS
+                        if _IONOS_ACTIVE_ATTACH_BONUS > 0:
+                            ereason += "|ionos:active_attach_priority"
+                    elif target_area == _AREA_BENCH:
+                        esc -= _IONOS_BENCH_ATTACH_PENALTY
+                        if _IONOS_BENCH_ATTACH_PENALTY > 0:
+                            ereason += "|ionos:bench_attach_penalty"
+
             if ereason:
                 return esc, f"ionos:attach_energy|{ereason}"
 

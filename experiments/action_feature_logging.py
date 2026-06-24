@@ -301,7 +301,8 @@ def run_games(n: int, start_game: int, use_wsl: bool) -> bool:
         wsl_root = f"/mnt/c{_REPO_ROOT[2:].replace(os.sep, '/')}"
         env_fwd = ""
         for key in ("POKEMON_AI_ML_HYBRID", "POKEMON_AI_ML_BONUS_RATIO", "POKEMON_AI_AREA_FIX_MODE",
-                    "POKEMON_AI_ACTIVE_ATTACH_BONUS", "POKEMON_AI_BENCH_ATTACH_PENALTY"):
+                    "POKEMON_AI_ACTIVE_ATTACH_BONUS", "POKEMON_AI_BENCH_ATTACH_PENALTY",
+                    "POKEMON_AI_IONOS_ACTIVE_ATTACH_BONUS", "POKEMON_AI_IONOS_BENCH_ATTACH_PENALTY"):
             val = os.environ.get(key)
             if val is not None:
                 env_fwd += f"{key}={val} "

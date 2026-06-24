@@ -151,7 +151,13 @@ Per PR comment feedback, re-ran A/B/C at 300g to reduce variance.
 **B (area fix only) is safe to adopt.** It correctly fixes attach features without harming KO capture.
 
 Action items:
-1. Remove attack compensation (+0.15 attack bonus) from `_heuristic_ml_score` — it worsens results
+1. ~~Remove attack compensation (+0.15 attack bonus) from `_heuristic_ml_score`~~ — kept behind env flag, disabled by default
 2. Keep the inPlayArea 4/5 fix (B mode) as the new default
 3. B can be considered for submission candidate since it matches baseline safety
-4. Set `POKEMON_AI_AREA_FIX_MODE` default to `area_fix_only` instead of `area_fix_attack_comp`
+4. ~~Set `POKEMON_AI_AREA_FIX_MODE` default to `area_fix_only`~~ — done
+
+## Final Implementation
+
+- **Default mode**: `area_fix_only` (correct inPlayArea 4/5, no attack compensation)
+- Attack compensation (+0.15) is retained behind `POKEMON_AI_AREA_FIX_MODE=area_fix_attack_comp` for experiment purposes only — it does NOT run by default
+- `baseline` mode (broken 0/1) is available for regression comparison only

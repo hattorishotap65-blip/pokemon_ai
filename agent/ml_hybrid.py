@@ -20,11 +20,11 @@ _MAIN_ATTACKERS = {"265", "269", "271"}
 _AREA_ACTIVE = 4
 _AREA_BENCH = 5
 
-# Ablation modes for area fix experiment:
-#   "area_fix_attack_comp" (default) = #153 behavior
-#   "area_fix_only"                  = correct inPlayArea, no attack compensation
-#   "baseline"                       = original broken inPlayArea (0/1)
-_AREA_FIX_MODE = os.environ.get("POKEMON_AI_AREA_FIX_MODE", "area_fix_attack_comp")
+# Ablation modes for area fix experiment (#154 300g result: area_fix_only is best):
+#   "area_fix_only" (default)        = correct inPlayArea 4/5, no attack compensation
+#   "area_fix_attack_comp"           = correct inPlayArea + attack +0.15 (worse: miss_KO +36%)
+#   "baseline"                       = original broken inPlayArea (0/1), experiment only
+_AREA_FIX_MODE = os.environ.get("POKEMON_AI_AREA_FIX_MODE", "area_fix_only")
 
 
 def is_hybrid_enabled() -> bool:
@@ -118,10 +118,8 @@ def _heuristic_ml_score(features: Dict[str, float]) -> float:
     if features["prize_diff"] < 0:
         score += 0.05
 
-    # --- Active energy priority (#152 loss diagnostics) ---
-    # The inPlayArea fix (0→4, 1→5) makes attach_to_active fire correctly.
-    # Compensate: the fix activates +0.15 for attach_enables, which shifts the
-    # relative score balance. Strengthen attack bonus to maintain KO capture.
+    # --- Attack compensation (experiment only, not default) ---
+    # 300g ablation (#154) showed this worsens miss_KO by 36%.
     if _AREA_FIX_MODE == "area_fix_attack_comp":
         if features["is_attack"] > 0 and features["has_legal_attack"] > 0:
             score += 0.15

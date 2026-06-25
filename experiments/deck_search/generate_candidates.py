@@ -45,7 +45,7 @@ ENERGY_SPLIT_TEMPLATES = {
 def _pick_energy_mix(rng: random.Random, n_energy: int) -> Dict[int, int]:
     """Pick 1-3 basic energy types and allocate n_energy cards among them."""
     n_types = rng.choice([1, 2, 2, 2, 3])
-    n_types = min(n_types, n_energy, len(BASIC_ENERGY_IDS))
+    n_types = min(n_types, n_energy, len(BASIC_ENERGY_IDS), 3)
 
     types = rng.sample(BASIC_ENERGY_IDS, n_types)
     template = rng.choice(ENERGY_SPLIT_TEMPLATES[n_types])
@@ -65,6 +65,9 @@ def _pick_energy_mix(rng: random.Random, n_energy: int) -> Dict[int, int]:
     if final_sum != n_energy:
         counts[types[0]] += n_energy - final_sum
 
+    if sum(counts.values()) != n_energy or any(v < 1 for v in counts.values()):
+        raise ValueError("energy mix invariant violated: %s (expected %d)" % (counts, n_energy))
+
     return counts
 
 
@@ -72,7 +75,7 @@ def energy_metadata(card_ids: List[int]) -> Dict:
     """Compute energy distribution metadata from a final deck."""
     dist: Dict[int, int] = {}
     for cid in card_ids:
-        if 1 <= cid <= 20:
+        if cid in BASIC_ENERGY_IDS:
             dist[cid] = dist.get(cid, 0) + 1
     sorted_types = sorted(dist.keys())
     return {
@@ -178,7 +181,8 @@ def _generate_one(rng: random.Random, constraints: DeckConstraints) -> List[int]
 
     if len(deck) < constraints.total_cards:
         shortfall = constraints.total_cards - len(deck)
-        fallback = rng.choice(BASIC_ENERGY_IDS)
+        existing_energy = [cid for cid in counts if cid in BASIC_ENERGY_IDS]
+        fallback = rng.choice(existing_energy) if existing_energy else rng.choice(BASIC_ENERGY_IDS)
         add(fallback, shortfall)
     elif len(deck) > constraints.total_cards:
         deck = deck[:constraints.total_cards]

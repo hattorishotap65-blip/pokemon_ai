@@ -35,10 +35,10 @@ def compute_learning_multiplier(entry: dict) -> float:
     result = entry.get("result", {})
     m = 1.0
 
-    win = result.get("win", False)
-    if win:
+    win = result.get("win")
+    if win is True:
         m *= 1.2
-    else:
+    elif win is False:
         m *= 0.7
 
     if result.get("starting_hand_bricked", False):

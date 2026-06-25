@@ -133,7 +133,10 @@ m_extreme_high = compute_learning_multiplier({"result": {"win": True, "prizes_ta
 check("multiplier <= 2.0 (ceiling)", m_extreme_high <= 2.0)
 
 m_no_result = compute_learning_multiplier({})
-check("no result field -> safe default", 0.2 <= m_no_result <= 2.0)
+check("no result field -> neutral 1.0", m_no_result == 1.0)
+
+m_no_win = compute_learning_multiplier({"result": {"prizes_taken": 3}})
+check("missing win -> neutral 1.0", m_no_win == 1.0)
 
 print("\n%d/%d passed" % (_total - _failures, _total))
 if _failures:

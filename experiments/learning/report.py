@@ -15,8 +15,8 @@ def generate_report(
     lines = ["# Learning Report", ""]
 
     # --- Result Breakdown ---
-    wins = sum(1 for e in logs if e.get("result", {}).get("win"))
-    losses = sum(1 for e in logs if not e.get("result", {}).get("win"))
+    wins = sum(1 for e in logs if e.get("result", {}).get("win") is True)
+    losses = sum(1 for e in logs if e.get("result", {}).get("win") is False)
     bricked = sum(1 for e in logs if e.get("result", {}).get("starting_hand_bricked"))
     prizes_list = [e.get("result", {}).get("prizes_taken", 0) for e in logs if e.get("result", {}).get("prizes_taken") is not None]
     avg_prizes = round(sum(prizes_list) / len(prizes_list), 2) if prizes_list else 0.0

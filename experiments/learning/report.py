@@ -60,21 +60,40 @@ def generate_report(
             lines.append("| %s | %.2f | %.2f | %+.2f |" % (k, b, a, d))
         lines.append("")
 
-    archetypes = {}
-    opp_archetypes = {}
+    from experiments.learning.evaluator import evaluate_log_entry
+    archetypes: Dict[str, Dict] = {}
+    opp_archetypes: Dict[str, Dict] = {}
     for entry in logs:
         arch = entry.get("deck_archetype", "unknown")
         opp = entry.get("opponent_archetype", "unknown")
         archetypes.setdefault(arch, {"total": 0, "match": 0})
         opp_archetypes.setdefault(opp, {"total": 0, "match": 0})
+        result = evaluate_log_entry(entry, weights_after)
+        if result["rank"] >= 0:
+            archetypes[arch]["total"] += 1
+            opp_archetypes[opp]["total"] += 1
+            if result["match"]:
+                archetypes[arch]["match"] += 1
+                opp_archetypes[opp]["match"] += 1
 
-    if len(archetypes) > 1:
+    if archetypes:
         lines.append("## By Deck Archetype")
         lines.append("")
-        lines.append("| Archetype | Entries |")
-        lines.append("|-----------|---------|")
-        for arch, stats in sorted(archetypes.items()):
-            lines.append("| %s | %d |" % (arch, stats["total"]))
+        lines.append("| Archetype | Entries | Accuracy |")
+        lines.append("|-----------|---------|----------|")
+        for arch, s in sorted(archetypes.items()):
+            acc = "%.1f%%" % (s["match"] / s["total"] * 100) if s["total"] else "N/A"
+            lines.append("| %s | %d | %s |" % (arch, s["total"], acc))
+        lines.append("")
+
+    if len(opp_archetypes) > 1:
+        lines.append("## By Opponent Archetype")
+        lines.append("")
+        lines.append("| Opponent | Entries | Accuracy |")
+        lines.append("|----------|---------|----------|")
+        for opp, s in sorted(opp_archetypes.items()):
+            acc = "%.1f%%" % (s["match"] / s["total"] * 100) if s["total"] else "N/A"
+            lines.append("| %s | %d | %s |" % (opp, s["total"], acc))
         lines.append("")
 
     lines.append("## Notes")

@@ -34,8 +34,12 @@ python experiments/learning/train_weights.py \
     --logs experiments/learning/sample_logs/raging_ogerpon_sample.jsonl \
     --params experiments/learning/params/raging_ogerpon_default.json \
     --out experiments/learning/params/raging_ogerpon_learned.json \
-    --report experiments/learning/reports/latest_report.md
+    --report experiments/learning/reports/latest_report.md \
+    --epochs 50 --lr 0.1
 ```
+
+Note: CLI default is `--epochs 5 --lr 0.05`. For sample data, `--epochs 50 --lr 0.1`
+produces measurable improvement (42.9% -> 57.1%).
 
 ## Scope
 

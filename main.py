@@ -1,888 +1,596 @@
-"""
-Competition entry point — cabt (Card AI Battle) engine on kaggle-environments.
-Uses cg.api for typed observation access.
-"""
+from __future__ import annotations
+
 import os
-import sys
-import time
+from collections import defaultdict
 
-try:
-    _agent_dir = os.path.dirname(os.path.abspath(__file__))
-except NameError:
-    _agent_dir = '/kaggle_simulations/agent'
-sys.path.insert(0, _agent_dir)
-
-from cg.api import all_card_data, to_observation_class, OptionType, AreaType
-from agent.policy import PolicyAgent
-from agent.logger import GameLogger
-try:
-    from agent.turn_plan import compute_plan as _compute_plan
-except Exception:
-    _compute_plan = None
-try:
-    from agent.ionos_rules import build_ionos_log as _build_ionos_log
-except Exception:
-    _build_ionos_log = None
-
-# Load deck once at startup
-file_path = os.path.join(_agent_dir, 'deck.csv')
-if not os.path.exists(file_path):
-    file_path = '/kaggle_simulations/agent/deck.csv'
-try:
-    with open(file_path) as _f:
-        _DECK = [int(l.strip()) for l in _f if l.strip()]
-except Exception:
-    _DECK = []
-
-# Load card metadata from cabt engine
-try:
-    _all_cards = all_card_data()
-    card_table = {c.cardId: c for c in _all_cards}
-except Exception:
-    card_table = {}
-
-_policy: PolicyAgent = None
-_logger: GameLogger = None
-_planner = None   # agent.planner.Planner; None if import fails
-AGENT_VERSION = "v5"
-DECK_NAME = "ionos_kilowattrel"
-
-# Opponent card tracking — reset each game
-_opp_seen: dict[int, set] = {}   # cardId -> set of event types seen ("play","attack","evolve")
-_last_game_turn: int = -1         # used to detect a new game starting
+from cg.api import (
+    AreaType,
+    Card,
+    CardType,
+    EnergyType,
+    Observation,
+    OptionType,
+    Pokemon,
+    SelectContext,
+    all_card_data,
+    to_observation_class,
+)
 
 
-def _init():
-    global _policy, _logger, _planner
-    _policy = PolicyAgent()
-    _logger = GameLogger(deck_name=DECK_NAME, agent_version=AGENT_VERSION)
-    try:
-        from agent.planner import Planner
-        from agent.opponent_model import OpponentModel
-        opp_model = OpponentModel(_policy.knowledge, _policy._attack_data or {})
-        _planner = Planner(
-            _policy.knowledge,
-            _policy.evaluator,
-            opp_model,
-            _policy._attack_data or {},
-        )
-    except Exception:
-        _planner = None
+class C:
+    KYOGRE = 721
+    SNOVER = 722
+    MEGA_ABOMASNOW_EX = 723
+
+    MAKUHITA = 673
+    HARIYAMA = 674
+    LUNATONE = 675
+    SOLROCK = 676
+    RIOLU = 677
+    MEGA_LUCARIO_EX = 678
+
+    BASIC_FIGHTING_ENERGY = 6
+    DUSK_BALL = 1102
+    SWITCH = 1123
+    PREMIUM_POWER_PRO = 1141
+    FIGHTING_GONG = 1142
+    POKE_PAD = 1152
+    HERO_CAPE = 1159
+    BOSS_ORDERS = 1182
+    CARMINE = 1192
+    LILLIE_DETERMINATION = 1227
+    GRAVITY_MOUNTAIN = 1252
+
+    LUMIOSE_CITY = 1267
+    LILLIES_PEARL = 1172
+    LEGACY_ENERGY = 12
 
 
-# ──────────────────────────────────────────────────────────────
-# Observation helpers
-# ──────────────────────────────────────────────────────────────
-
-_ENERGY_NAME_MAP = {
-    "GRASS": 1, "FIRE": 2, "WATER": 3, "LIGHTNING": 4,
-    "PSYCHIC": 5, "FIGHTING": 6, "DARKNESS": 7, "DARK": 7,
-    "METAL": 8, "FAIRY": 9, "DRAGON": 10, "COLORLESS": 11,
-}
+MEGA_BRAVE = 983
+LOW_DECK_COUNT = 10
 
 
-def _resolve_energy_types(raw_energies: list) -> list:
-    """Convert a raw energies list (EnergyType / int / dict / object) to list[int]."""
-    result = []
-    for e in raw_energies:
-        eid = None
-        if isinstance(e, int):
-            eid = e
-        elif isinstance(e, dict):
-            raw = e.get("id") or e.get("card_id") or e.get("type")
-            if raw is not None:
-                try:
-                    eid = int(raw)
-                except (TypeError, ValueError):
-                    pass
-        else:
-            try:
-                eid = int(e)
-            except Exception:
-                val = getattr(e, "value", None)
-                if val is not None:
-                    try:
-                        eid = int(val)
-                    except (TypeError, ValueError):
-                        pass
-                if eid is None:
-                    name = str(getattr(e, "name", "")).upper()
-                    eid = _ENERGY_NAME_MAP.get(name)
-        if eid is not None:
-            result.append(int(eid))
-    return result
+DECK_PATH = "deck.csv"
+if not os.path.exists(DECK_PATH):
+    DECK_PATH = "/kaggle_simulations/agent/deck.csv"
+with open(DECK_PATH, "r", encoding="utf-8") as f:
+    my_deck = [int(line) for line in f.read().splitlines() if line.strip()]
 
 
-def _normalize_pokemon(p) -> dict:
-    """Convert a Pokemon dataclass (or legacy dict) to our internal snake_case format."""
-    if p is None:
-        return {}
-    if isinstance(p, dict):
-        raw_energies = p.get("energies") or []
-        energy_types = _resolve_energy_types(raw_energies)
-        raw_cards    = p.get("energyCards") or []
-        energy_cards = [str(c.get("id", "") if isinstance(c, dict) else getattr(c, "id", ""))
-                        for c in raw_cards if c is not None]
-        result = {
-            "card_id":      str(p.get("id", "")),
-            "hp_remaining": p.get("hp", 0),
-            "max_hp":       p.get("maxHp", 1) or 1,
-            "energy_count": len(energy_types),
-            "energies":     energy_types,
-            "energy_types": energy_types,
-            "energy_cards": energy_cards,
-        }
-    else:
-        # Typed Pokemon dataclass from cg.api
-        raw_energies = getattr(p, "energies", None) or []
-        energy_types = _resolve_energy_types(raw_energies)
-        raw_cards    = getattr(p, "energyCards", None) or []
-        energy_cards = [str(getattr(c, "id", "")) for c in raw_cards if c is not None]
-        result = {
-            "card_id":      str(getattr(p, "id", "")),
-            "hp_remaining": getattr(p, "hp", 0),
-            "max_hp":       getattr(p, "maxHp", 1) or 1,
-            "energy_count": len(energy_types),
-            "energies":     energy_types,
-            "energy_types": energy_types,
-            "energy_cards": energy_cards,
-        }
-    try:
-        from agent.card_metadata import enrich_pokemon
-        enrich_pokemon(result)
-    except Exception:
-        pass
-    return result
+all_card = all_card_data()
+card_table = {card.cardId: card for card in all_card}
 
 
-def _board_to_state(current) -> dict:
-    """Convert obs.current (State dataclass or dict) to our internal state format."""
-    if current is None:
-        return {}
-
-    if isinstance(current, dict):
-        players     = current.get('players') or []
-        your_index  = int(current.get('yourIndex') or 0)
-        opp_index   = 1 - your_index
-        me  = players[your_index] if your_index < len(players) and isinstance(players[your_index], dict) else {}
-        opp = players[opp_index]  if opp_index  < len(players) and isinstance(players[opp_index],  dict) else {}
-
-        me_active_raw  = next(iter(me.get('active')  or []), None)
-        opp_active_raw = next(iter(opp.get('active') or []), None)
-        prizes_left     = sum(1 for p in (me.get('prize')  or []) if p is None)
-        opp_prizes_left = sum(1 for p in (opp.get('prize') or []) if p is None)
-        me_hand_count   = me.get('handCount', 0)
-        me_deck_count   = me.get('deckCount', 0)
-        me_hand_ids     = []  # dict format doesn't expose hand card IDs
-        me_bench        = [_normalize_pokemon(p) for p in (me.get('bench')  or [])]
-        opp_bench       = [_normalize_pokemon(p) for p in (opp.get('bench') or [])]
-        opp_deck_count  = opp.get('deckCount', 0)
-        energy_attached = bool(current.get('energyAttached'))
-        retreated       = bool(current.get('retreated'))
-        supporter_played= bool(current.get('supporterPlayed'))
-        turn            = int(current.get('turn') or 0)
-    else:
-        # Typed State dataclass
-        players     = current.players or []
-        your_index  = int(current.yourIndex or 0)
-        opp_index   = 1 - your_index
-        me  = players[your_index] if your_index < len(players) else None
-        opp = players[opp_index]  if opp_index  < len(players) else None
-
-        me_active_raw  = next(iter(me.active  or []), None) if me else None
-        opp_active_raw = next(iter(opp.active or []), None) if opp else None
-        prizes_left     = sum(1 for p in (me.prize  or []) if p is None) if me else 0
-        opp_prizes_left = sum(1 for p in (opp.prize or []) if p is None) if opp else 0
-        me_hand_count   = me.handCount  if me else 0
-        me_deck_count   = me.deckCount  if me else 0
-        me_hand_ids     = [str(c.id) for c in (me.hand or [])] if (me and me.hand is not None) else []
-        me_bench        = [_normalize_pokemon(p) for p in (me.bench  or [])] if me else []
-        opp_bench       = [_normalize_pokemon(p) for p in (opp.bench or [])] if opp else []
-        opp_deck_count  = opp.deckCount if opp else 0
-        energy_attached = bool(current.energyAttached)
-        retreated       = bool(current.retreated)
-        supporter_played= bool(current.supporterPlayed)
-        turn            = int(current.turn or 0)
-
-    return {
-        'your_index':       your_index,
-        'prizes_remaining': prizes_left,
-        'prizes_taken':     6 - prizes_left,
-        'hand_count':       me_hand_count,
-        'hand':             me_hand_ids,
-        'deck_count':       me_deck_count,
-        'bench':            me_bench,
-        'active_pokemon':   _normalize_pokemon(me_active_raw),
-        'energy_attached':  energy_attached,
-        'retreated':        retreated,
-        'supporter_played': supporter_played,
-        'turn':             turn,
-        'opponent': {
-            'prizes_remaining': opp_prizes_left,
-            'active_pokemon':   _normalize_pokemon(opp_active_raw),
-            'bench':            opp_bench,
-            'deck_count':       opp_deck_count,
-        },
-    }
+class AttackPlan:
+    def __init__(
+        self,
+        attacker: int = -1,
+        target: int = -1,
+        attack_index: int = -1,
+        remain_hp: int = -1,
+        needs_energy: bool = False,
+    ):
+        self.attacker = attacker
+        self.target = target
+        self.attack_index = attack_index
+        self.remain_hp = remain_hp
+        self.needs_energy = needs_energy
 
 
-def _opt_to_dict(o) -> dict:
-    """Convert a typed Option dataclass to a plain dict for policy scoring."""
-    if isinstance(o, dict):
-        return o
-    return {
-        "type":        int(o.type)                                       if o.type        is not None else None,
-        "cardId":      getattr(o, 'cardId',      None),
-        "attackId":    getattr(o, 'attackId',    None),
-        "index":       getattr(o, 'index',       None),
-        "area":        int(o.area)                                       if getattr(o, 'area', None)        is not None else None,
-        "playerIndex": getattr(o, 'playerIndex', None),
-        "inPlayArea":  int(o.inPlayArea)                                 if getattr(o, 'inPlayArea', None)  is not None else None,
-        "inPlayIndex": getattr(o, 'inPlayIndex', None),
-        "count":       getattr(o, 'count',       None),
-        "number":      getattr(o, 'number',      None),
-        "toolIndex":   getattr(o, 'toolIndex',   None),
-        "energyIndex": getattr(o, 'energyIndex', None),
-    }
+plan = AttackPlan()
+pre_turn = -1
+ability_used = False
 
 
-# AreaType integer constants (mirrors cg/api.py AreaType enum)
-_AREA_DECK    = 1
-_AREA_HAND    = 2
-_AREA_DISCARD = 3
-_AREA_ACTIVE  = 4
-_AREA_BENCH   = 5
-_AREA_LOOKING = 12
-
-
-def _resolve_card_id(o: dict, obs) -> tuple[str | None, str | None]:
-    """
-    Resolve the actual card ID and name from an option dict + live observation.
-
-    PLAY options never carry cardId — only hand index.
-    CARD/ATTACH/EVOLVE options reference cards by area+index.
-    Returns (card_id_str, card_name) or (None, None).
-    """
-    try:
-        opt_type = o.get("type")
-        area     = o.get("area")
-        idx      = o.get("index")
-        p_raw    = o.get("playerIndex")
-
-        current  = getattr(obs, "current", None)
-        select   = getattr(obs, "select",  None)
-        if current is None:
-            return None, None
-
-        players  = current.players or []
-        your_idx = int(current.yourIndex or 0)
-        p_idx    = int(p_raw) if p_raw is not None else your_idx
-        player   = players[p_idx] if p_idx < len(players) else None
-        hand     = (player.hand or []) if player else []
-
-        card = None
-
-        if opt_type == 7:           # PLAY: index = hand position
-            if idx is not None and idx < len(hand):
-                card = hand[idx]
-
-        elif opt_type in (3, 4, 5): # CARD / TOOL_CARD / ENERGY_CARD
-            if area == _AREA_HAND:
-                if idx is not None and idx < len(hand):
-                    card = hand[idx]
-            elif area == _AREA_DECK:
-                deck_cards = getattr(select, "deck", None) or []
-                if idx is not None and idx < len(deck_cards):
-                    card = deck_cards[idx]
-            elif area == _AREA_LOOKING:
-                looking = current.looking or []
-                if idx is not None and idx < len(looking):
-                    card = looking[idx]
-            elif area == _AREA_BENCH:
-                bench = (player.bench or []) if player else []
-                if idx is not None and idx < len(bench):
-                    poke = bench[idx]
-                    if poke is not None:
-                        if opt_type == 5:
-                            ei = o.get("energyIndex")
-                            if ei is not None:
-                                ecs = poke.energyCards or []
-                                if ei < len(ecs):
-                                    card = ecs[ei]
-                        elif opt_type == 4:
-                            ti = o.get("toolIndex")
-                            if ti is not None:
-                                tl = poke.tools or []
-                                if ti < len(tl):
-                                    card = tl[ti]
-                        elif opt_type == 3:
-                            # SWITCH / TO_ACTIVE: option IS the bench Pokemon itself
-                            poke_id = getattr(poke, 'id', None)
-                            if poke_id is not None:
-                                cdata = card_table.get(poke_id)
-                                name  = getattr(cdata, 'name', '') if cdata else ''
-                                return str(poke_id), name
-            elif area == _AREA_ACTIVE:
-                active_list = (player.active or []) if player else []
-                poke = active_list[0] if active_list else None
-                if poke is not None:
-                    if opt_type == 5:
-                        ei = o.get("energyIndex")
-                        if ei is not None:
-                            ecs = poke.energyCards or []
-                            if ei < len(ecs):
-                                card = ecs[ei]
-                    elif opt_type == 4:
-                        ti = o.get("toolIndex")
-                        if ti is not None:
-                            tl = poke.tools or []
-                            if ti < len(tl):
-                                card = tl[ti]
-                    elif opt_type == 3:
-                        # Pick the active Pokemon itself (rare but possible)
-                        poke_id = getattr(poke, 'id', None)
-                        if poke_id is not None:
-                            cdata = card_table.get(poke_id)
-                            name  = getattr(cdata, 'name', '') if cdata else ''
-                            return str(poke_id), name
-
-        elif opt_type == 10:    # ABILITY: area/index = the Pokémon using the ability
-            if area == _AREA_ACTIVE:
-                active_list = (player.active or []) if player else []
-                poke = active_list[0] if active_list else None
-                if poke is not None:
-                    poke_id = getattr(poke, 'id', None)
-                    if poke_id is not None:
-                        cdata = card_table.get(poke_id)
-                        name  = getattr(cdata, 'name', '') if cdata else ''
-                        return str(poke_id), name
-            elif area == _AREA_BENCH:
-                bench = (player.bench or []) if player else []
-                poke  = bench[idx] if idx is not None and idx < len(bench) else None
-                if poke is not None:
-                    poke_id = getattr(poke, 'id', None)
-                    if poke_id is not None:
-                        cdata = card_table.get(poke_id)
-                        name  = getattr(cdata, 'name', '') if cdata else ''
-                        return str(poke_id), name
-
-        elif opt_type in (8, 9):    # ATTACH / EVOLVE: area/index = card to attach/evolve
-            if area == _AREA_HAND:
-                if idx is not None and idx < len(hand):
-                    card = hand[idx]
-
-        if card is not None:
-            cid   = str(card.id)
-            cdata = card_table.get(card.id)
-            name  = getattr(cdata, "name", "") if cdata else ""
-            return cid, name
-
-        # Fallback: explicit cardId field (ATTACK has attackId not cardId; skip)
-        direct_cid = o.get("cardId")
-        if direct_cid is not None:
-            cid_str = str(direct_cid)
-            cdata   = card_table.get(int(direct_cid))
-            name    = getattr(cdata, "name", "") if cdata else ""
-            return cid_str, name
-
-    except Exception:
-        pass
-    return None, None
-
-
-def _enrich_options(
-    opt_dicts: list,
-    obs,
-    select_context: int,
-    remain_damage_counter: int = 0,
-) -> None:
-    """
-    Mutate each option dict in-place to add resolved_card_id,
-    resolved_card_name, select_context, and remain_damage_counter.
-    """
-    for o in opt_dicts:
-        o["select_context"]        = select_context
-        o["remain_damage_counter"] = remain_damage_counter
-        cid, name = _resolve_card_id(o, obs)
-        o["resolved_card_id"]   = cid
-        o["resolved_card_name"] = name
-
-
-def _extract_opp_events(obs_logs, opp_idx: int) -> list:
-    """
-    Parse cabt Log events and return (cardId, event_type) pairs for the opponent.
-    LogType integers: PLAY=10, EVOLVE=12, ATTACK=15
-    Returns [] on any error — never raises.
-    """
-    result = []
-    try:
-        for log in (obs_logs or []):
-            if getattr(log, 'playerIndex', None) != opp_idx:
-                continue
-            lt  = int(getattr(log, 'type', -1))
-            cid = getattr(log, 'cardId', None)
-            if lt == 10 and cid is not None:    # PLAY
-                result.append((int(cid), "play"))
-            elif lt == 15 and cid is not None:  # ATTACK
-                result.append((int(cid), "attack"))
-            elif lt == 12 and cid is not None:  # EVOLVE (cardId = evolved form)
-                result.append((int(cid), "evolve"))
-    except Exception:
-        pass
-    return result
-
-
-def _build_opp_card_list(opp_seen: dict) -> list:
-    """Convert _opp_seen dict to a JSON-serialisable list for log_result()."""
-    entries = []
-    try:
-        for cid, evts in sorted(opp_seen.items()):
-            cdata = card_table.get(cid)
-            name  = getattr(cdata, 'name', '') if cdata is not None else ''
-            entries.append({
-                "card_id": cid,
-                "name":    name,
-                "events":  sorted(evts),
-            })
-    except Exception:
-        pass
-    return entries
-
-
-def _build_adv_info(state: dict, opt_dicts: list, selected: list) -> dict | None:
-    """Build advantage breakdown for the selected action (for logging)."""
-    try:
-        if not _policy or not selected or not opt_dicts:
+def get_card(obs: Observation, area: AreaType, index: int, player_index: int) -> Pokemon | Card | None:
+    player = obs.current.players[player_index]
+    match area:
+        case AreaType.DECK:
+            return obs.select.deck[index]
+        case AreaType.HAND:
+            return player.hand[index]
+        case AreaType.DISCARD:
+            return player.discard[index]
+        case AreaType.ACTIVE:
+            return player.active[index]
+        case AreaType.BENCH:
+            return player.bench[index]
+        case AreaType.PRIZE:
+            return player.prize[index]
+        case AreaType.STADIUM:
+            return obs.current.stadium[index]
+        case AreaType.LOOKING:
+            return obs.current.looking[index]
+        case _:
             return None
-        from agent.advantage import breakdown
-        from agent.win_condition import (
-            detect_current_phase, evaluate_plan_progress, get_missing_plan_pieces
-        )
-        idx    = selected[0] if selected else 0
-        action = opt_dicts[idx] if idx < len(opt_dicts) else {}
-        phase  = detect_current_phase(state)
-        dp     = getattr(_policy, "deck_profile", {})
-        adv    = breakdown(action, state, _policy.knowledge, phase, dp)
-        adv["phase"]          = phase
-        adv["archetype"]      = dp.get("archetype", "unknown")
-        adv["plan_progress"]  = round(evaluate_plan_progress(state, dp, _policy.knowledge), 3)
-        adv["missing_pieces"] = get_missing_plan_pieces(state, dp, _policy.knowledge)
-        return adv
-    except Exception:
-        return None
 
 
-# Score threshold per SelectContext for optional selections (min_count=0).
-# If the best available option scores below this, we return [] — i.e. we choose
-# not to act at all rather than making a low-value pick.
-# Keys are SelectContext integer values from cg/api.py.
-_OPT_THRESHOLD: dict = {
-    5:  5.0,   # TO_BENCH              — bench only high-value Pokémon
-    7:  4.0,   # TO_HAND               — take only useful cards
-    8:  5.0,   # DISCARD               — only discard genuinely disposable cards
-    9:  4.0,   # TO_DECK               — return to deck only if worthwhile
-    10: 4.0,   # TO_DECK_BOTTOM
-    13: 10.0,  # DAMAGE_COUNTER        — place counters only on meaningful targets
-    14: 10.0,  # DAMAGE_COUNTER_ANY
-    15: 10.0,  # DAMAGE
-    16: 4.0,   # REMOVE_DAMAGE_COUNTER — heal if noticeably damaged
-    17: 3.0,   # HEAL                  — heal even minor damage
-}
-_OPT_THRESHOLD_DEFAULT = 3.0
+def prize_count(pokemon: Pokemon) -> int:
+    data = card_table[pokemon.id]
+    count = 3 if data.megaEx else 2 if data.ex else 1
+    for card in pokemon.energyCards:
+        if card.id == C.LEGACY_ENERGY:
+            count -= 1
+    for card in pokemon.tools:
+        if card.id == C.LILLIES_PEARL and "Lillie" in data.name:
+            count -= 1
+    return max(0, count)
 
 
-def _select_indices(
-    state: dict,
-    opt_dicts: list,
-    max_count: int,
-    min_count: int = 0,
-    obs=None,
-) -> list:
-    """
-    Return a list of indices into options, scored by policy + lookahead.
+def target_score(pokemon: Pokemon) -> int:
+    data = card_table[pokemon.id]
+    score = prize_count(pokemon) * 1000
+    score += len(pokemon.energies) * 150
+    score += len(pokemon.tools) * 100
+    if data.stage2:
+        score += 250
+    elif data.stage1:
+        score += 130
 
-    1. PolicyAgent._score() provides immediate scores for every action.
-    2. When min_count=0, options below _OPT_THRESHOLD are excluded; if none
-       survive the threshold the function returns [] (skip optional selection).
-    3. Planner.select() uses immediate scores plus 1-ply rollout.
-    4. Falls back to greedy immediate-score ranking on any error.
-    """
-    n = len(opt_dicts)
+    if pokemon.id in {144, 322, 323, 337}:  # low-value support Pokemon
+        score -= 200
+    if pokemon.id == C.SNOVER:
+        score += 950
+    elif pokemon.id == C.MEGA_ABOMASNOW_EX:
+        score += 250
+    if pokemon.id == C.RIOLU:
+        score += 800
+    elif pokemon.id == C.MEGA_LUCARIO_EX:
+        score += 100
+    if pokemon.id == 112 and len(pokemon.energies) >= 1:  # Munkidori
+        score += 300
+    score += pokemon.hp
+    return score
 
-    # Only skip scoring when ALL options must be chosen (no real decision).
-    if min_count == max_count == n:
-        return list(range(n))
 
-    # --- immediate scores (always computed) ---
-    immediate_scores: list[float] = []
-    if _policy:
-        try:
-            immediate_scores = [
-                _policy._score(opt, state)[0] if isinstance(opt, dict) else 0.0
-                for opt in opt_dicts
-            ]
-        except Exception:
-            immediate_scores = [0.0] * n
-    else:
-        immediate_scores = [0.0] * n
+class LucarioPolicy:
+    def __init__(self, obs: Observation):
+        self.obs = obs
+        self.state = obs.current
+        self.select = obs.select
+        self.context = self.select.context
+        self.my_index = self.state.yourIndex
+        self.op_index = 1 - self.my_index
+        self.me = self.state.players[self.my_index]
+        self.opponent = self.state.players[self.op_index]
+        self.my_prizes_left = len(self.me.prize)
 
-    # --- terminal-action suppression ---
-    # Attack ends the turn. If the plan requires a pre-attack action (Boss's
-    # Orders, switch, energy attach) AND that action is available in the current
-    # legal options, reduce all Attack scores so PRE_ATTACK actions win.
-    if _policy is not None:
-        try:
-            immediate_scores = _policy.suppress_attack_if_pre_required(
-                state, opt_dicts, immediate_scores
-            )
-        except Exception:
-            pass
+        self.field_counts = defaultdict(int)
+        self.hand_counts = defaultdict(int)
+        self.discard_counts = defaultdict(int)
+        self.has_ready_lucario_line = False
+        self.has_ready_hariyama_line = False
+        self.can_switch = False
+        self.can_gust = False
+        self.can_attack = False
+        self.can_use_mega_brave = False
+        self.stadium_id = self.state.stadium[0].id if self.state.stadium else 0
 
-    # --- ML hybrid bonus (env-gated, default OFF) ---
-    try:
-        from agent.ml_hybrid import is_hybrid_enabled, apply_hybrid_bonus
-        if is_hybrid_enabled():
-            immediate_scores = apply_hybrid_bonus(opt_dicts, state, immediate_scores)
-    except Exception:
-        pass
+        self._count_cards()
+        self._scan_main_options()
 
-    # --- optional-selection threshold (min_count=0 = agent may choose nothing) ---
-    # If the best option scores below the context threshold, return [] explicitly
-    # rather than forcing a low-value pick.  Options below threshold are nulled
-    # (-999) so planner/greedy never selects them.
-    _opt_thresh_active = False
-    if min_count == 0 and n > 0:
-        ctx    = opt_dicts[0].get("select_context", -1) if opt_dicts else -1
-        thresh = _OPT_THRESHOLD.get(ctx, _OPT_THRESHOLD_DEFAULT)
-        best   = max(immediate_scores) if immediate_scores else -999.0
-        if best < thresh:
-            return []   # all options below threshold — skip optional selection
-        immediate_scores = [s if s >= thresh else -999.0 for s in immediate_scores]
-        _opt_thresh_active = True
+    def choose(self) -> list[int]:
+        if not self.select.option or self.select.maxCount == 0:
+            return []
 
-    # --- planner with lookahead ---
-    if _planner is not None:
-        try:
-            result = _planner.select(
-                state=state,
-                opt_dicts=opt_dicts,
-                immediate_scores=immediate_scores,
-                max_count=max_count,
-                min_count=min_count,
-                obs=obs,
-                known_deck=_DECK,
-                card_table=card_table,
-                board_to_state=_board_to_state,
-            )
-            if _opt_thresh_active:
-                result = [i for i in result if i < n and immediate_scores[i] > -900.0]
-            return result
-        except Exception:
-            pass
+        if self.context == SelectContext.MAIN:
+            self._plan_attack()
 
-    # --- Iono's Poffin / ToBench diversity guard (ctx in (2,5), max_count>1) ---
-    # Prevents picking two copies of the same basic (Voltorb+Voltorb etc.).
-    # Spread Tadbulb / Voltorb / Wattrel first; allow duplicates only to meet min_count.
-    try:
-        if n > 0 and max_count > 1:
-            _ctx0 = opt_dicts[0].get("select_context", -1) if opt_dicts else -1
-            if _ctx0 in (2, 5):
-                _IONO_BASICS = {"265", "268", "270"}
-                ranked = sorted(enumerate(immediate_scores), key=lambda x: -x[1])
-                selected_diverse: list = []
-                seen_cids: set = set()
-                for i, s in ranked:
-                    if s <= -900.0:
+        scores = [self._score_option(option) for option in self.select.option]
+        ranked = [i for i, _ in sorted(enumerate(scores), key=lambda item: item[1], reverse=True)]
+        self._remember_lunatone_ability(ranked)
+        return ranked[: self.select.maxCount]
+
+    def _count_cards(self) -> None:
+        for pokemon in self.me.active + self.me.bench:
+            if pokemon is None:
+                continue
+            self.field_counts[pokemon.id] += 1
+            if pokemon.id in {C.MAKUHITA, C.HARIYAMA} and len(pokemon.energies) >= 3:
+                self.has_ready_hariyama_line = True
+            if pokemon.id in {C.RIOLU, C.MEGA_LUCARIO_EX} and len(pokemon.energies) >= 2:
+                self.has_ready_lucario_line = True
+
+        for card in self.me.hand:
+            self.hand_counts[card.id] += 1
+        for card in self.me.discard:
+            self.discard_counts[card.id] += 1
+
+    def _scan_main_options(self) -> None:
+        if self.context != SelectContext.MAIN:
+            return
+        for option in self.select.option:
+            if option.type == OptionType.PLAY:
+                card = get_card(self.obs, AreaType.HAND, option.index, self.my_index)
+                if card.id == C.SWITCH:
+                    self.can_switch = True
+                elif card.id == C.BOSS_ORDERS:
+                    self.can_gust = True
+            elif option.type == OptionType.EVOLVE:
+                card = get_card(self.obs, AreaType.HAND, option.index, self.my_index)
+                if card.id == C.HARIYAMA:
+                    self.can_gust = True
+            elif option.type == OptionType.RETREAT:
+                self.can_switch = True
+            elif option.type == OptionType.ATTACK:
+                self.can_attack = True
+                if option.attackId == MEGA_BRAVE:
+                    self.can_use_mega_brave = True
+
+    def _my_board(self) -> list[Pokemon | None]:
+        return self.me.active + self.me.bench
+
+    def _opponent_board(self) -> list[Pokemon | None]:
+        return self.opponent.active + self.opponent.bench
+
+    def _opponent_has(self, ids: set[int]) -> bool:
+        return any(pokemon is not None and pokemon.id in ids for pokemon in self._opponent_board())
+
+    def _opponent_is_water_deck(self) -> bool:
+        return self._opponent_has({C.KYOGRE, C.SNOVER, C.MEGA_ABOMASNOW_EX})
+
+    def _opponent_is_crustle_wall(self) -> bool:
+        return self._opponent_has({344, 345})
+
+    def _can_evolve_board_index(self, board_index: int) -> bool:
+        for option in self.select.option:
+            if option.type != OptionType.EVOLVE:
+                continue
+            target_index = option.inPlayIndex
+            if option.inPlayArea == AreaType.BENCH:
+                target_index += 1
+            if target_index == board_index:
+                return True
+        return False
+
+    def _base_attack(self, pokemon: Pokemon, attack_index: int) -> tuple[int, int, int] | None:
+        energy_required = 0
+        base_damage = 0
+        base_score = 0
+
+        if pokemon.id == C.MEGA_LUCARIO_EX:
+            if attack_index == 0:
+                energy_required = 1
+                base_damage = 130
+                base_score += 60 * min(3, self.discard_counts[C.BASIC_FIGHTING_ENERGY])
+            else:
+                energy_required = 2
+                base_damage = 270
+            if self._opponent_is_water_deck() and len(self.opponent.prize) <= 3:
+                base_score -= 500
+        elif attack_index == 1:
+            return None
+        elif pokemon.id == C.HARIYAMA:
+            energy_required = 3
+            base_damage = 210
+        elif pokemon.id == C.MAKUHITA:
+            return None
+        elif pokemon.id == C.SOLROCK and self.field_counts[C.LUNATONE] >= 1:
+            energy_required = 1
+            base_damage = 70
+
+        if base_damage <= 0:
+            return None
+        return energy_required, base_damage, base_score
+
+    def _base_attack_after_evolution(self, pokemon: Pokemon, board_index: int, attack_index: int):
+        if pokemon.id == C.MAKUHITA and attack_index == 0 and self._can_evolve_board_index(board_index):
+            return 3, 210, -100
+        return self._base_attack(pokemon, attack_index)
+
+    def _plan_attack(self) -> None:
+        global plan
+        best_score = -1
+        plan = AttackPlan()
+
+        if self.state.turn < 2:
+            return
+
+        for attacker_index, my_pokemon in enumerate(self._my_board()):
+            if my_pokemon is None:
+                continue
+            if attacker_index != 0 and not self.can_switch:
+                break
+
+            for attack_index in range(2):
+                attack = self._base_attack_after_evolution(my_pokemon, attacker_index, attack_index)
+                if attack is None:
+                    continue
+                energy_required, base_damage, base_score = attack
+
+                energy_count = len(my_pokemon.energies)
+                if attack_index == 1 and attacker_index == 0 and energy_count >= 2 and not self.can_use_mega_brave:
+                    break
+
+                needs_energy = False
+                if energy_count < energy_required:
+                    if self.hand_counts[C.BASIC_FIGHTING_ENERGY] >= 1 and not self.state.energyAttached:
+                        energy_count += 1
+                        needs_energy = energy_count >= energy_required
+                    if not needs_energy:
                         continue
-                    _cid = str(opt_dicts[i].get("resolved_card_id", ""))
-                    if _cid in _IONO_BASICS and _cid in seen_cids:
+
+                for target_index, op_pokemon in enumerate(self._opponent_board()):
+                    if op_pokemon is None:
                         continue
-                    selected_diverse.append(i)
-                    if _cid in _IONO_BASICS:
-                        seen_cids.add(_cid)
-                    if len(selected_diverse) >= max_count:
+                    if target_index != 0 and not self.can_gust:
                         break
-                # Backfill duplicates if min_count not yet met
-                if len(selected_diverse) < max(min_count, 1):
-                    for i, s in ranked:
-                        if i in selected_diverse or s <= -900.0:
-                            continue
-                        selected_diverse.append(i)
-                        if len(selected_diverse) >= max_count:
-                            break
-                if len(selected_diverse) >= min_count:
-                    return selected_diverse[:max_count]
-    except Exception:
-        pass
+                    if (
+                        self._opponent_is_crustle_wall()
+                        and my_pokemon.id == C.MEGA_LUCARIO_EX
+                        and op_pokemon.id == 345
+                    ):
+                        continue
 
-    # --- greedy fallback ---
-    scored = sorted(enumerate(immediate_scores), key=lambda x: -x[1])
-    if _opt_thresh_active:
-        result = [i for i, s in scored if s > -900.0][:max_count]
-    else:
-        result = [i for i, _ in scored[:max_count]]
-        if len(result) < min_count:
-            extra = [i for i in range(n) if i not in result]
-            result += extra[: min_count - len(result)]
-    return result
+                    damage = base_damage
+                    op_data = card_table[op_pokemon.id]
+                    if op_data.weakness == EnergyType.FIGHTING:
+                        damage *= 2
+                    elif op_data.resistance == EnergyType.FIGHTING:
+                        damage -= 30
 
+                    score = target_score(op_pokemon)
+                    prize = prize_count(op_pokemon) if op_pokemon.hp <= damage else 0
+                    if prize == 0:
+                        score *= damage / op_pokemon.hp
+                    if len(self.opponent.prize) <= prize:
+                        score = 50000
 
-# ──────────────────────────────────────────────────────────────
-# Kaggle agent entry point
-# ──────────────────────────────────────────────────────────────
+                    score += base_score
+                    score += 220 if attacker_index == 0 else 0
+                    score += 300 if target_index == 0 else 0
+                    score += energy_count
 
-def agent(obs_dict, config=None):
-    """
-    Called every turn by the kaggle-environments harness.
-    Returns list[int]: indices of selected options.
-    """
-    global _policy, _logger, _opp_seen, _last_game_turn
-    if _policy is None:
-        _init()
+                    if score > best_score:
+                        best_score = score
+                        plan = AttackPlan(
+                            attacker=attacker_index,
+                            target=target_index,
+                            attack_index=attack_index,
+                            remain_hp=op_pokemon.hp - damage,
+                            needs_energy=needs_energy,
+                        )
 
-    obs = to_observation_class(obs_dict)
+    def _energy_target_score(self, pokemon: Pokemon, active: bool) -> int:
+        energy_count = len(pokemon.energies)
+        score = 8000 + (10 if active else 0)
 
-    if obs.select is None:
-        return _DECK
+        if pokemon.id in {C.MAKUHITA, C.HARIYAMA}:
+            score += 1 if pokemon.id == C.HARIYAMA else 0
+            if self._opponent_is_crustle_wall():
+                score += 260 if energy_count < 3 else 30
+            else:
+                score += 100 if energy_count < 3 else 0
+                score -= 50 if self.has_ready_hariyama_line else 0
+        elif pokemon.id == C.LUNATONE:
+            score -= 100
+        elif pokemon.id == C.SOLROCK:
+            score += 20 if energy_count < 1 else -100
+        elif pokemon.id in {C.RIOLU, C.MEGA_LUCARIO_EX}:
+            score += 1 if pokemon.id == C.MEGA_LUCARIO_EX else 0
+            score += 100 if energy_count < 2 else 0
+            score -= 50 if self.has_ready_lucario_line else 0
+        return score
 
-    select    = obs.select
-    options   = select.option or []
-    max_count = int(select.maxCount or 1)
-    min_count = int(select.minCount or 0)
+    def _score_option(self, option) -> float:
+        if option.type == OptionType.NUMBER:
+            return option.number
+        if option.type == OptionType.YES:
+            return 100 if self.context == SelectContext.IS_FIRST else 1
+        if option.type == OptionType.NO:
+            return 0
+        if option.type == OptionType.CARD:
+            return self._score_card_choice(option)
+        if option.type == OptionType.PLAY:
+            return self._score_play(option)
+        if option.type == OptionType.ATTACH:
+            return self._score_attach(option)
+        if option.type == OptionType.EVOLVE:
+            return self._score_evolve(option)
+        if option.type == OptionType.ABILITY:
+            return self._score_ability(option)
+        if option.type == OptionType.RETREAT:
+            return 2000 if plan.attacker >= 1 else -1
+        if option.type == OptionType.ATTACK:
+            if (
+                self._opponent_is_crustle_wall()
+                and self.me.active
+                and self.opponent.active
+                and self.me.active[0].id == C.MEGA_LUCARIO_EX
+                and self.opponent.active[0].id == 345
+                and plan.target < 0
+            ):
+                return -1
+            return 1100 if (option.attackId == MEGA_BRAVE) == (plan.attack_index == 1) else 1000
+        return 0
 
-    if not options:
-        return []
+    def _score_card_choice(self, option) -> float:
+        card = get_card(self.obs, option.area, option.index, option.playerIndex)
+        if card is None:
+            return 0
 
-    # ── Opponent tracking ─────────────────────────────────────────
-    current_turn = 0
-    opp_idx      = 1
-    game_over    = False
-    try:
-        if obs.current is not None:
-            current_turn = int(obs.current.turn or 0)
-            opp_idx      = 1 - int(obs.current.yourIndex or 0)
-            game_over    = (obs.current.result != -1)
-            # Detect new game: turn resets while we tracked a later turn
-            if current_turn <= 1 and _last_game_turn > 3:
-                _opp_seen = {}
-            _last_game_turn = current_turn
-    except Exception:
-        pass
+        if self.context in {SelectContext.SWITCH, SelectContext.TO_ACTIVE}:
+            return self._score_active_choice(option, card)
+        if self.context == SelectContext.SETUP_ACTIVE_POKEMON:
+            return self._score_setup_active(card)
+        if self.context == SelectContext.TO_HAND:
+            return self._score_to_hand(card)
+        if self.context == SelectContext.ATTACH_FROM and isinstance(card, Pokemon):
+            return self._energy_target_score(card, option.area == AreaType.ACTIVE)
+        return 0
 
-    try:
-        for cid, evt in _extract_opp_events(obs.logs, opp_idx):
-            if cid not in _opp_seen:
-                _opp_seen[cid] = set()
-            _opp_seen[cid].add(evt)
-    except Exception:
-        pass
+    def _score_active_choice(self, option, card: Pokemon | Card) -> float:
+        if not isinstance(card, Pokemon):
+            return 0
 
-    # ── Action selection ──────────────────────────────────────────
-    state      = _board_to_state(obs.current)
-    opt_dicts  = [_opt_to_dict(o) for o in options]
-    select_ctx = int(getattr(select, "context", 0) or 0)
-    select_typ = int(getattr(select, "type",    0) or 0)
+        if option.playerIndex != self.my_index:
+            return 100 if option.index == plan.target - 1 else 0
 
-    # Enrich every option with resolved card ID + context
-    remain_dc = int(getattr(select, "remainDamageCounter", 0) or 0)
-    _enrich_options(opt_dicts, obs, select_ctx, remain_dc)
+        score = len(card.energies) * 2
+        if option.index == plan.attacker - 1:
+            score += 100
+        if card.id == C.MEGA_LUCARIO_EX:
+            score += 8 if self._opponent_is_water_deck() and len(self.opponent.prize) <= 3 else 20
+        elif card.id == C.HARIYAMA and len(card.energies) >= 2:
+            score += 45 if self._opponent_is_crustle_wall() else 15
+        elif card.id == C.MAKUHITA and len(card.energies) >= 2:
+            score += 35 if self._opponent_is_crustle_wall() else 10
+        elif card.id == C.SOLROCK:
+            score += 5
+        elif card.id == C.RIOLU:
+            score += 4
+        return score
 
-    if _policy and _compute_plan is not None:
-        try:
-            _policy.current_plan = _compute_plan(
-                obs, card_table, getattr(_policy, '_attack_full', {})
-            )
-        except Exception:
-            _policy.current_plan = None
+    def _score_setup_active(self, card: Pokemon | Card) -> int:
+        if card.id == C.SOLROCK:
+            return 2 if self.state.firstPlayer == self.my_index else 4
+        if card.id == C.RIOLU:
+            return 3
+        if card.id == C.MAKUHITA:
+            return 1
+        return 0
 
-    # --- Score breakdown for all candidates ---
-    # Cache opt_dicts on the policy so _score_with_breakdown() can access all
-    # options when computing turn_rule_engine scores (needs full select context).
-    if _policy:
-        _policy._current_opt_dicts = opt_dicts
+    def _score_to_hand(self, card: Pokemon | Card) -> float:
+        score = 200 - self.hand_counts[card.id] * 100
+        if card.id == C.MAKUHITA:
+            if self._opponent_is_crustle_wall():
+                score += 80 if self.field_counts[card.id] < 2 else -20
+            else:
+                score += -10 if self.field_counts[card.id] >= 1 else 10
+        elif card.id == C.HARIYAMA:
+            if self._opponent_is_crustle_wall():
+                score += 120 if self.field_counts[C.MAKUHITA] >= 1 else -5
+            else:
+                score += 20 if self.field_counts[C.MAKUHITA] >= 1 else -20
+        elif card.id == C.LUNATONE:
+            score += -250 if self.field_counts[card.id] >= 1 else 60
+        elif card.id == C.SOLROCK:
+            score += -250 if self.field_counts[card.id] >= 1 else 50
+        elif card.id == C.RIOLU:
+            lucario_line = self.field_counts[C.RIOLU] + self.field_counts[C.MEGA_LUCARIO_EX]
+            score += -150 if lucario_line >= 2 else -3 if lucario_line >= 1 else 40
+        elif card.id == C.MEGA_LUCARIO_EX:
+            score += 40 if self.field_counts[C.RIOLU] >= 1 else -15
+        elif card.id == C.BASIC_FIGHTING_ENERGY:
+            score += 30 if not ability_used or not self.state.energyAttached else -1
+        return score
 
-    # _score_with_breakdown() returns (total, reason, {type_score, adv_score,
-    # rule_bonus, rule_reason, turn_rule_score, turn_rule_reason})
-    _cand_bd: list = []
-    if _policy:
-        try:
-            _cand_bd = [_policy._score_with_breakdown(o, state) for o in opt_dicts]
-        except Exception:
-            _cand_bd = [(0.0, "score_error", {})] * len(opt_dicts)
-    else:
-        _cand_bd = [(0.0, "no_policy", {})] * len(opt_dicts)
+    def _score_play(self, option) -> float:
+        card = get_card(self.obs, AreaType.HAND, option.index, self.my_index)
+        data = card_table[card.id]
+        if data.cardType == CardType.POKEMON:
+            return self._score_play_pokemon(card)
+        return self._score_play_trainer(card)
 
-    # --- Turn-rule debug records (option_class, is_attack, etc.) for logging ---
-    _tr_debug: list = []
-    try:
-        from agent.turn_rule_engine import option_debug_record
-        _tr_synthetic = {"option": opt_dicts}
-        _tr_debug = [option_debug_record(o, state, _tr_synthetic) for o in opt_dicts]
-    except Exception:
-        _tr_debug = [{}] * len(opt_dicts)
+    def _score_play_pokemon(self, card: Card) -> float:
+        score = 20000
+        if card.id in {C.LUNATONE, C.SOLROCK} and self.field_counts[card.id] >= 1:
+            return -1
+        if card.id == C.RIOLU and self.field_counts[C.RIOLU] + self.field_counts[C.MEGA_LUCARIO_EX] >= 2:
+            return -1
+        return score
 
-    candidate_scores = [(s, r) for s, r, _ in _cand_bd]
-    _breakdowns      = [bd     for _, _, bd in _cand_bd]
+    def _score_play_trainer(self, card: Card) -> float:
+        if card.id == C.SWITCH:
+            return 6000 if plan.attacker > 0 else -1
+        if card.id == C.PREMIUM_POWER_PRO:
+            if self.state.supporterPlayed and plan.remain_hp <= 0:
+                return -1
+            if not self.can_attack:
+                can_bridge_draw = (
+                    not self.state.supporterPlayed
+                    and self.hand_counts[C.CARMINE] > 0
+                    and self.hand_counts[C.LILLIE_DETERMINATION] == 0
+                    and not self._low_deck()
+                )
+                return 3050 if can_bridge_draw else -1
+            return 5000
+        if card.id == C.BOSS_ORDERS:
+            return 3200 if plan.target >= 1 else -1
+        if card.id == C.CARMINE:
+            return -1 if self._low_deck() else 3000
+        if card.id == C.LILLIE_DETERMINATION:
+            return -1 if self._low_deck() else 3100
+        if card.id == C.GRAVITY_MOUNTAIN:
+            return self._score_gravity_mountain()
+        return 10000
 
-    # Pre/post-suppression comparison — used to compute attack_suppression field
-    _pre_sup = [s for s, _ in candidate_scores]
-    _post_sup = list(_pre_sup)
-    if _policy:
-        try:
-            _post_sup = _policy.suppress_attack_if_pre_required(state, opt_dicts, _post_sup)
-        except Exception:
-            pass
-    _sup_pen = [
-        round(a - b, 3) if abs(a - b) > 0.01 else 0.0
-        for a, b in zip(_pre_sup, _post_sup)
-    ]
-
-    # --- Run selection ---
-    t0 = time.time()
-    planner_used = False
-    try:
-        result = _select_indices(state, opt_dicts, max_count, min_count, obs)
-        planner_used = (_planner is not None)
-    except Exception:
-        count  = max(min_count, min(1, len(options)))
-        result = list(range(count))
-    elapsed_ms = int((time.time() - t0) * 1000)
-
-    # Planner last-run details (set inside _select_indices by Planner.select())
-    _pf = getattr(_planner, "last_final_scores",  {}) if _planner else {}
-    _pfu= getattr(_planner, "last_future_scores", {}) if _planner else {}
-    _pt = getattr(_planner, "last_threat_scores", {}) if _planner else {}
-    rollout_success = getattr(_planner, "last_rollout_used", False) if _planner else False
-
-    sel_idx    = result[0] if result else 0
-    # Use planner final score when available, else post-suppression immediate score
-    sel_score  = round(_pf.get(sel_idx, _post_sup[sel_idx] if sel_idx < len(_post_sup) else 0.0), 4) if candidate_scores else 0.0
-    sel_reason = candidate_scores[sel_idx][1] if candidate_scores else "unknown"
-    sel_cid    = opt_dicts[sel_idx].get("resolved_card_id")   if opt_dicts else None
-    sel_cname  = opt_dicts[sel_idx].get("resolved_card_name") if opt_dicts else None
-    sel_number = opt_dicts[sel_idx].get("number") if (opt_dicts and select_typ == 8) else None
-
-    # Optional-selection skip: when min_count=0 and we returned [] consciously
-    optional_skip_reason = None
-    if not result and min_count == 0:
-        ctx    = opt_dicts[0].get("select_context", -1) if opt_dicts else -1
-        thresh = _OPT_THRESHOLD.get(ctx, _OPT_THRESHOLD_DEFAULT)
-        optional_skip_reason = f"optional_skip_ctx{ctx}_thresh{thresh}"
-        sel_reason = optional_skip_reason
-
-    # --- Plan info (once per turn) ---
-    _plan = getattr(_policy, "current_plan", None) if _policy else None
-    plan_log = {}
-    if _plan is not None and _plan.has_plan:
-        _opp_active_cid = str(state.get("opponent", {}).get("active_pokemon", {}).get("card_id", ""))
-        _target_cid     = str(_plan.target_card_id or "")
-        plan_log = {
-            "goal":                    _plan.goal,
-            "need_boss":               _plan.need_boss,
-            "need_energy":             _plan.need_energy,
-            "need_switch":             _plan.need_switch,
-            "target_card_id":          _plan.target_card_id,
-            "target_zone":             _plan.target_zone,
-            "target_active":           _plan.target_active,
-            "pre_attack_requirements": _plan.pre_attack_requirements,
-            "ko_expected":             _plan.ko_expected,
-            "attack_target_matches":   (_target_cid == _opp_active_cid) if _target_cid else None,
-        }
-
-    candidates = [
-        {
-            "option_index":       i,
-            "option_type":        o.get("type"),
-            "select_context":     select_ctx,
-            "resolved_card_id":   o.get("resolved_card_id"),
-            "resolved_card_name": o.get("resolved_card_name"),
-            # Raw option fields for diagnostics
-            "cardId":             o.get("cardId"),
-            "attackId":           o.get("attackId"),
-            "area":               o.get("area"),
-            "index":              o.get("index"),
-            "playerIndex":        o.get("playerIndex"),
-            "inPlayArea":         o.get("inPlayArea"),
-            "inPlayIndex":        o.get("inPlayIndex"),
-            "count":              o.get("count"),
-            "number":             o.get("number"),
-            "toolIndex":          o.get("toolIndex"),
-            "energyIndex":        o.get("energyIndex"),
-            # Score breakdown
-            "raw_score":          round(_pre_sup[i], 3) if i < len(_pre_sup) else 0.0,
-            "type_score":         _breakdowns[i].get("type_score",      0.0) if i < len(_breakdowns) else 0.0,
-            "rule_bonus":         _breakdowns[i].get("rule_bonus",       0.0) if i < len(_breakdowns) else 0.0,
-            "rule_reason":        _breakdowns[i].get("rule_reason",      "")  if i < len(_breakdowns) else "",
-            "turn_rule_score":    _breakdowns[i].get("turn_rule_score",  0.0) if i < len(_breakdowns) else 0.0,
-            "turn_rule_reason":   _breakdowns[i].get("turn_rule_reason", "")  if i < len(_breakdowns) else "",
-            "kilowattrel_ability_score":  _breakdowns[i].get("kilowattrel_ability_score",  0.0) if i < len(_breakdowns) else 0.0,
-            "kilowattrel_ability_reason": _breakdowns[i].get("kilowattrel_ability_reason", "")  if i < len(_breakdowns) else "",
-            "voltorb_attack_score":      _breakdowns[i].get("voltorb_attack_score",      0.0) if i < len(_breakdowns) else 0.0,
-            "voltorb_attack_reason":     _breakdowns[i].get("voltorb_attack_reason",     "")  if i < len(_breakdowns) else "",
-            "voltorb_safety_score":      _breakdowns[i].get("voltorb_safety_score",      0.0) if i < len(_breakdowns) else 0.0,
-            "voltorb_safety_reason":     _breakdowns[i].get("voltorb_safety_reason",     "")  if i < len(_breakdowns) else "",
-            "attack_suppression": _sup_pen[i] if i < len(_sup_pen) else 0.0,
-            "final_score":        round(_pf.get(i, _post_sup[i]), 3) if i < len(_post_sup) else 0.0,
-            "future_score":       round(_pfu.get(i, 0.0), 3),
-            "threat_score":       round(_pt.get(i, 0.0), 3),
-            # Turn-rule classification
-            "option_class":            _tr_debug[i].get("option_class",            "") if i < len(_tr_debug) else "",
-            "is_attack":               _tr_debug[i].get("is_attack",               False) if i < len(_tr_debug) else False,
-            "is_ability":              _tr_debug[i].get("is_ability",              False) if i < len(_tr_debug) else False,
-            "is_retreat":              _tr_debug[i].get("is_retreat",              False) if i < len(_tr_debug) else False,
-            "is_end":                  _tr_debug[i].get("is_end",                  False) if i < len(_tr_debug) else False,
-            "is_turn_ending":          _tr_debug[i].get("is_turn_ending",          False) if i < len(_tr_debug) else False,
-            "can_continue_after":      _tr_debug[i].get("can_continue_after",      True)  if i < len(_tr_debug) else True,
-            "has_legal_attack_option": _tr_debug[i].get("has_legal_attack_option", False) if i < len(_tr_debug) else False,
-            # Selection indicator
-            "selected":           i in result,
-            "reason":             candidate_scores[i][1] if i < len(candidate_scores) else "",
-        }
-        for i, o in enumerate(opt_dicts)
-    ]
-
-    adv_info = _build_adv_info(state, opt_dicts, result)
-    iono_log = None
-    if _build_ionos_log is not None:
-        try:
-            sel_opt = opt_dicts[sel_idx] if sel_idx < len(opt_dicts) else {}
-            iono_log = _build_ionos_log(state, sel_opt)
-        except Exception:
-            pass
-    if _logger:
-        _logger.log(
-            state=state,
-            legal_actions=opt_dicts,
-            selected_action=result,
-            selected_score=sel_score,
-            reason=sel_reason,
-            error=None,
-            time_ms=elapsed_ms,
-            adv_info=adv_info,
-            select_type=select_typ,
-            select_context=select_ctx,
-            resolved_card_id=sel_cid,
-            resolved_card_name=sel_cname,
-            planner_used=planner_used,
-            rollout_success=rollout_success,
-            candidates=candidates,
-            selected_number=sel_number,
-            optional_skip_reason=optional_skip_reason,
-            plan_log=plan_log,
-            deck_log=iono_log,
+    def _score_gravity_mountain(self) -> float:
+        opponent_has_stage2 = any(
+            pokemon is not None and card_table[pokemon.id].stage2 for pokemon in self._opponent_board()
         )
+        if opponent_has_stage2:
+            return 3500
+        return 1200 if self.stadium_id else -1
 
-    # ── Game-end summary ─────────────────────────────────────────
-    if game_over and _logger:
-        try:
-            won        = (obs.current.result == int(obs.current.yourIndex or 0))
-            result_str = "win" if won else "loss"
-            _logger.log_result(
-                result=result_str,
-                total_turns=current_turn,
-                opp_cards_seen=_build_opp_card_list(_opp_seen),
-            )
-        except Exception:
-            pass
+    def _low_deck(self) -> bool:
+        return self.me.deckCount <= LOW_DECK_COUNT
 
-    return result
+    def _score_attach(self, option) -> float:
+        card = get_card(self.obs, AreaType.HAND, option.index, self.my_index)
+        pokemon = get_card(self.obs, option.inPlayArea, option.inPlayIndex, self.my_index)
+        if not isinstance(pokemon, Pokemon):
+            return 0
+
+        if card.id == C.HERO_CAPE:
+            score = 7000
+            if self._opponent_is_water_deck():
+                if pokemon.id == C.RIOLU:
+                    return 12200
+                if pokemon.id == C.MEGA_LUCARIO_EX:
+                    return 12800
+            if pokemon.id == C.RIOLU:
+                score += 100
+            elif pokemon.id == C.MEGA_LUCARIO_EX:
+                score += 200
+            return score
+
+        score = self._energy_target_score(pokemon, option.inPlayArea == AreaType.ACTIVE)
+        board_index = option.inPlayIndex if option.inPlayArea == AreaType.ACTIVE else option.inPlayIndex + 1
+        if board_index == plan.attacker and plan.needs_energy:
+            score += 200
+        return score
+
+    def _score_evolve(self, option) -> float:
+        pokemon = get_card(self.obs, option.inPlayArea, option.inPlayIndex, self.my_index)
+        if not isinstance(pokemon, Pokemon):
+            return 0
+        if pokemon.id == C.MAKUHITA and plan.target == 0 and not self._opponent_is_crustle_wall():
+            return -1
+        return 9000 + len(pokemon.energies)
+
+    def _score_ability(self, option) -> float:
+        card = get_card(self.obs, option.area, option.index, self.my_index)
+        if card.id == C.LUMIOSE_CITY:
+            return 1
+        if card.id == C.LUNATONE and self._low_deck():
+            return -1
+        return 30000
+
+    def _remember_lunatone_ability(self, ranked: list[int]) -> None:
+        global ability_used
+        if self.context != SelectContext.MAIN or not ranked:
+            return
+        option = self.select.option[ranked[0]]
+        if option.type != OptionType.ABILITY:
+            return
+        card = get_card(self.obs, option.area, option.index, self.my_index)
+        if card is not None and card.id == C.LUNATONE:
+            ability_used = True
+
+
+def agent(obs_dict: dict) -> list[int]:
+    obs = to_observation_class(obs_dict)
+    if obs.select is None:
+        return my_deck
+
+    global pre_turn
+    global ability_used
+    global plan
+
+    if pre_turn != obs.current.turn:
+        pre_turn = obs.current.turn
+        ability_used = False
+        plan = AttackPlan()
+
+    return LucarioPolicy(obs).choose()

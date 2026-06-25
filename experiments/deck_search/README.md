@@ -37,13 +37,19 @@ Validates candidate decks against cabt rules:
 - Configurable Pokemon/Energy/Trainer ranges
 
 ### generate_candidates.py
-CLI to generate randomized valid deck candidates:
+CLI to generate randomized valid deck candidates with multi-color
+energy support (1-3 basic energy types per deck):
 ```bash
 python experiments/deck_search/generate_candidates.py \
     --num 100 --seed 42 \
     --out experiments/deck_search/results
 ```
-Outputs per-candidate: `deck.csv`, `counts.json`, and a `manifest.jsonl`.
+Outputs per-candidate: `deck.csv`, `counts.json` (with energy distribution),
+and a `manifest.jsonl`.
+
+Energy type distribution: ~20% single-color, ~60% two-color, ~20% three-color.
+Three-color decks like Grass+Lightning+Fighting (0.6/0.2/0.2 split) are
+supported for archetypes like Raging Bolt ex + Teal Mask Ogerpon ex.
 
 ### features.py
 Extracts ML-ready feature vectors from deck lists:

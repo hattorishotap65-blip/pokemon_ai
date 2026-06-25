@@ -30,18 +30,44 @@ from experiments.learning.evaluator import (
 from experiments.learning.report import generate_report
 
 
+def compute_learning_multiplier(entry: dict) -> float:
+    """Compute a learning rate multiplier based on game outcome."""
+    result = entry.get("result", {})
+    m = 1.0
+
+    win = result.get("win", False)
+    if win:
+        m *= 1.2
+    else:
+        m *= 0.7
+
+    if result.get("starting_hand_bricked", False):
+        m *= 0.5
+
+    prizes = result.get("prizes_taken")
+    if prizes is not None:
+        if prizes >= 5:
+            m *= 1.1
+        elif prizes <= 2 and not win:
+            m *= 0.8
+
+    turns = result.get("turns_to_win")
+    if win and turns is not None and 0 < turns <= 5:
+        m *= 1.1
+
+    return max(0.2, min(2.0, m))
+
+
 def train(logs: List[dict], weights: Dict[str, float],
           epochs: int = 5, lr: float = 0.05) -> Dict[str, float]:
     """Train weights to match human choices via perceptron-style updates."""
     w = dict(weights)
 
     for epoch in range(epochs):
-        updates = 0
         for entry in logs:
             actions = entry.get("legal_actions", [])
             state = entry.get("state", {})
             chosen_id = entry.get("chosen_action_id", "")
-            result = entry.get("result", {})
 
             if not actions or not chosen_id:
                 continue
@@ -66,19 +92,13 @@ def train(logs: List[dict], weights: Dict[str, float],
             chosen_features = extract_action_features(chosen_action, state, actions)
             predicted_features = extract_action_features(predicted_action, state, actions)
 
-            effective_lr = lr
-            if result.get("win"):
-                effective_lr *= 1.2
-            if result.get("starting_hand_bricked"):
-                effective_lr *= 0.5
+            effective_lr = lr * compute_learning_multiplier(entry)
 
             for name, value in chosen_features.items():
                 w[name] = w.get(name, 0.0) + effective_lr * value
 
             for name, value in predicted_features.items():
                 w[name] = w.get(name, 0.0) - effective_lr * value
-
-            updates += 1
 
     return w
 

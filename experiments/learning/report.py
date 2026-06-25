@@ -14,6 +14,26 @@ def generate_report(
 ) -> str:
     lines = ["# Learning Report", ""]
 
+    # --- Result Breakdown ---
+    wins = sum(1 for e in logs if e.get("result", {}).get("win"))
+    losses = sum(1 for e in logs if not e.get("result", {}).get("win"))
+    bricked = sum(1 for e in logs if e.get("result", {}).get("starting_hand_bricked"))
+    prizes_list = [e.get("result", {}).get("prizes_taken", 0) for e in logs if e.get("result", {}).get("prizes_taken") is not None]
+    avg_prizes = round(sum(prizes_list) / len(prizes_list), 2) if prizes_list else 0.0
+    win_turns = [e.get("result", {}).get("turns_to_win", 0) for e in logs if e.get("result", {}).get("win") and e.get("result", {}).get("turns_to_win")]
+    avg_win_turns = round(sum(win_turns) / len(win_turns), 2) if win_turns else 0.0
+
+    lines.append("## Result Breakdown")
+    lines.append("")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
+    lines.append("| Win entries | %d |" % wins)
+    lines.append("| Loss entries | %d |" % losses)
+    lines.append("| Bricked entries | %d |" % bricked)
+    lines.append("| Average prizes taken | %.2f |" % avg_prizes)
+    lines.append("| Average turns to win | %.2f |" % avg_win_turns)
+    lines.append("")
+
     lines.append("## Summary")
     lines.append("")
     lines.append("| Metric | Before | After | Change |")

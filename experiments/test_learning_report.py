@@ -77,6 +77,15 @@ check("contains By Opponent Archetype", "Opponent Archetype" in report)
 check("contains lucario_ex", "lucario_ex" in report)
 check("contains dragapult_ex", "dragapult_ex" in report)
 
+print("\n=== result breakdown ===")
+
+check("contains Result Breakdown", "Result Breakdown" in report)
+check("contains Win entries", "Win entries" in report)
+check("contains Loss entries", "Loss entries" in report)
+check("contains Bricked entries", "Bricked entries" in report)
+check("contains Average prizes taken", "Average prizes taken" in report)
+check("contains Average turns to win", "Average turns to win" in report)
+
 print("\n=== empty logs ===")
 
 report_empty = generate_report([], W_BEFORE, W_AFTER,
@@ -84,6 +93,7 @@ report_empty = generate_report([], W_BEFORE, W_AFTER,
                                {"total": 0, "matches": 0, "accuracy": 0.0, "avg_rank": 0.0})
 check("empty logs does not crash", isinstance(report_empty, str))
 check("empty logs contains Summary", "Summary" in report_empty)
+check("empty logs Result Breakdown safe", "Result Breakdown" in report_empty)
 
 print("\n=== no weight changes ===")
 

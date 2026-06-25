@@ -262,6 +262,7 @@ def save_candidates(candidates: List[Dict], out_dir: str):
                 "hash": cand["hash"],
                 "deck_csv": os.path.relpath(deck_path, out_dir),
                 "composition": cand["composition"],
+                "energy_types": cand["energy_meta"]["energy_types"],
                 "energy_type_count": cand["energy_meta"]["energy_type_count"],
                 "energy_distribution": cand["energy_meta"]["energy_distribution"],
             }

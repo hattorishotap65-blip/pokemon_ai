@@ -81,7 +81,10 @@ def extract_features(card_ids: List[int]) -> Dict[str, float]:
         if cid in _DISRUPTION_IDS:
             disruption += cnt
 
-    dominant_energy = max(energy_type_counts.values()) if energy_type_counts else 0
+    sorted_energy_counts = sorted(energy_type_counts.values(), reverse=True)
+    dominant_energy = sorted_energy_counts[0] if sorted_energy_counts else 0
+    second_energy = sorted_energy_counts[1] if len(sorted_energy_counts) > 1 else 0
+    third_energy = sorted_energy_counts[2] if len(sorted_energy_counts) > 2 else 0
     energy_diversity = len(energy_type_counts)
 
     main_attacker = ex_count + mega_ex_count
@@ -133,6 +136,8 @@ def extract_features(card_ids: List[int]) -> Dict[str, float]:
         "tool_count": float(tool),
         "disruption_count": float(disruption),
         "dominant_energy_count": float(dominant_energy),
+        "second_energy_count": float(second_energy),
+        "third_energy_count": float(third_energy),
         "energy_diversity": float(energy_diversity),
         "avg_pokemon_hp": round(total_hp / pokemon, 1) if pokemon else 0.0,
         "avg_retreat_cost": round(total_retreat / pokemon, 2) if pokemon else 0.0,

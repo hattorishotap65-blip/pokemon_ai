@@ -1,8 +1,7 @@
 """
 Generate candidate decks for exploration.
 
-Produces randomized deck candidates within cabt constraints.
-Each candidate gets a deck.csv, counts.json, and an entry in manifest.jsonl.
+Supports multi-color energy splits (1-3 types) via templates.
 
 Usage:
   python experiments/deck_search/generate_candidates.py \
@@ -17,7 +16,7 @@ import os
 import random
 import sys
 from collections import Counter
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.abspath(os.path.join(_DIR, "..", ".."))
@@ -32,9 +31,60 @@ from experiments.deck_search.deck_constraints import (
 )
 
 
-def _pick_energy_type(rng: random.Random) -> int:
-    return rng.choice(BASIC_ENERGY_IDS)
+# ---------------------------------------------------------------------------
+# Multi-color energy generation
+# ---------------------------------------------------------------------------
 
+ENERGY_SPLIT_TEMPLATES = {
+    1: [[1.0]],
+    2: [[0.75, 0.25], [0.65, 0.35], [0.5, 0.5]],
+    3: [[0.6, 0.2, 0.2], [0.5, 0.3, 0.2], [0.4, 0.3, 0.3]],
+}
+
+
+def _pick_energy_mix(rng: random.Random, n_energy: int) -> Dict[int, int]:
+    """Pick 1-3 basic energy types and allocate n_energy cards among them."""
+    n_types = rng.choice([1, 2, 2, 2, 3])
+    n_types = min(n_types, n_energy, len(BASIC_ENERGY_IDS))
+
+    types = rng.sample(BASIC_ENERGY_IDS, n_types)
+    template = rng.choice(ENERGY_SPLIT_TEMPLATES[n_types])
+
+    counts: Dict[int, int] = {}
+    allocated = 0
+    for i, t in enumerate(types):
+        n = max(1, round(template[i] * n_energy))
+        counts[t] = n
+        allocated += n
+
+    diff = n_energy - allocated
+    if diff != 0:
+        counts[types[0]] = max(1, counts[types[0]] + diff)
+
+    final_sum = sum(counts.values())
+    if final_sum != n_energy:
+        counts[types[0]] += n_energy - final_sum
+
+    return counts
+
+
+def energy_metadata(card_ids: List[int]) -> Dict:
+    """Compute energy distribution metadata from a final deck."""
+    dist: Dict[int, int] = {}
+    for cid in card_ids:
+        if 1 <= cid <= 20:
+            dist[cid] = dist.get(cid, 0) + 1
+    sorted_types = sorted(dist.keys())
+    return {
+        "energy_types": sorted_types,
+        "energy_type_count": len(sorted_types),
+        "energy_distribution": {str(k): v for k, v in sorted(dist.items())},
+    }
+
+
+# ---------------------------------------------------------------------------
+# Candidate generation
+# ---------------------------------------------------------------------------
 
 def _generate_one(rng: random.Random, constraints: DeckConstraints) -> List[int]:
     """Generate a single random deck satisfying constraints."""
@@ -56,11 +106,8 @@ def _generate_one(rng: random.Random, constraints: DeckConstraints) -> List[int]
 
     basics = all_basic_pokemon()
     trainers = all_trainers()
-    energies = all_energies()
     ace_specs = all_ace_specs()
     non_ace_trainers = [t for t in trainers if not t.is_ace_spec]
-
-    primary_energy = _pick_energy_type(rng)
 
     n_pokemon = rng.randint(constraints.min_pokemon, min(20, constraints.max_pokemon))
     n_energy = rng.randint(max(constraints.min_energy, 8), min(20, constraints.max_energy))
@@ -125,11 +172,14 @@ def _generate_one(rng: random.Random, constraints: DeckConstraints) -> List[int]
 
     remaining = constraints.total_cards - len(deck)
     if remaining > 0:
-        add(primary_energy, remaining)
+        energy_mix = _pick_energy_mix(rng, remaining)
+        for eid, cnt in energy_mix.items():
+            add(eid, cnt)
 
     if len(deck) < constraints.total_cards:
         shortfall = constraints.total_cards - len(deck)
-        add(primary_energy, shortfall)
+        fallback = rng.choice(BASIC_ENERGY_IDS)
+        add(fallback, shortfall)
     elif len(deck) > constraints.total_cards:
         deck = deck[:constraints.total_cards]
 
@@ -169,12 +219,14 @@ def generate_candidates(
 
         seen_hashes.add(h)
         comp = deck_composition(deck)
+        e_meta = energy_metadata(deck)
         candidates.append({
             "index": len(candidates),
             "hash": h,
             "cards": deck,
             "counts": dict(Counter(deck)),
             "composition": comp,
+            "energy_meta": e_meta,
         })
 
     return candidates
@@ -187,7 +239,7 @@ def save_candidates(candidates: List[Dict], out_dir: str):
     with open(manifest_path, "w", encoding="utf-8") as mf:
         for cand in candidates:
             idx = cand["index"]
-            deck_dir = os.path.join(out_dir, f"candidate_{idx:04d}")
+            deck_dir = os.path.join(out_dir, "candidate_%04d" % idx)
             os.makedirs(deck_dir, exist_ok=True)
 
             deck_path = os.path.join(deck_dir, "deck.csv")
@@ -200,6 +252,9 @@ def save_candidates(candidates: List[Dict], out_dir: str):
                     "hash": cand["hash"],
                     "counts": cand["counts"],
                     "composition": cand["composition"],
+                    "energy_types": cand["energy_meta"]["energy_types"],
+                    "energy_type_count": cand["energy_meta"]["energy_type_count"],
+                    "energy_distribution": cand["energy_meta"]["energy_distribution"],
                 }, cf, indent=2)
 
             entry = {
@@ -207,11 +262,12 @@ def save_candidates(candidates: List[Dict], out_dir: str):
                 "hash": cand["hash"],
                 "deck_csv": os.path.relpath(deck_path, out_dir),
                 "composition": cand["composition"],
+                "energy_type_count": cand["energy_meta"]["energy_type_count"],
+                "energy_distribution": cand["energy_meta"]["energy_distribution"],
             }
             mf.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-    print(f"Saved {len(candidates)} candidates to {out_dir}")
-    print(f"Manifest: {manifest_path}")
+    print("Saved %d candidates to %s" % (len(candidates), out_dir))
 
 
 def main():
@@ -221,9 +277,15 @@ def main():
     parser.add_argument("--out", default="experiments/deck_search/results")
     args = parser.parse_args()
 
-    print(f"Generating {args.num} candidates (seed={args.seed})...")
+    print("Generating %d candidates (seed=%d)..." % (args.num, args.seed))
     candidates = generate_candidates(args.num, args.seed)
-    print(f"Generated {len(candidates)} unique valid candidates")
+    print("Generated %d unique valid candidates" % len(candidates))
+
+    type_dist = Counter()
+    for c in candidates:
+        type_dist[c["energy_meta"]["energy_type_count"]] += 1
+    print("Energy type distribution: %s" % dict(sorted(type_dist.items())))
+
     save_candidates(candidates, args.out)
 
 

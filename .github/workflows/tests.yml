@@ -99,3 +99,18 @@ jobs:
 
       - name: Run collect attack plan diagnostics tests
         run: python experiments/test_collect_attack_plan_diagnostics.py
+
+      - name: Run learning schema tests
+        run: python experiments/test_learning_schema.py
+
+      - name: Run learning action features tests
+        run: python experiments/test_learning_action_features.py
+
+      - name: Run learning evaluator tests
+        run: python experiments/test_learning_evaluator.py
+
+      - name: Run learning train tests
+        run: python experiments/test_learning_train.py
+
+      - name: Run learning report tests
+        run: python experiments/test_learning_report.py

@@ -66,12 +66,28 @@ check("chosen_action_id not in legal_actions", len(validate_entry({
 
 check("non-dict entry", len(validate_entry("not a dict")) > 0)
 
+check("legal_actions is string", len(validate_entry({
+    "match_id": "x", "turn": 1, "chosen_action_id": "a1",
+    "legal_actions": "not a list",
+})) > 0)
+
+check("legal_actions is dict", len(validate_entry({
+    "match_id": "x", "turn": 1, "chosen_action_id": "a1",
+    "legal_actions": {"id": "a1"},
+})) > 0)
+
 print("\n=== load_logs ===")
+
+NON_LIST_ENTRY = {
+    "match_id": "x", "turn": 1, "chosen_action_id": "a1",
+    "legal_actions": "not a list",
+}
 
 with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False, encoding="utf-8") as f:
     f.write(json.dumps(VALID_ENTRY) + "\n")
     f.write("not json\n")
     f.write(json.dumps({"bad": "entry"}) + "\n")
+    f.write(json.dumps(NON_LIST_ENTRY) + "\n")
     f.write(json.dumps(VALID_ENTRY) + "\n")
     f.write("\n")
     tmp_path = f.name

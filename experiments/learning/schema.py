@@ -20,6 +20,9 @@ def validate_entry(entry: dict) -> List[str]:
             errors.append("missing required field: %s" % field)
 
     actions = entry.get("legal_actions")
+    if not isinstance(actions, list):
+        errors.append("legal_actions is not a list")
+        return errors
     if isinstance(actions, list):
         ids = set()
         for i, a in enumerate(actions):

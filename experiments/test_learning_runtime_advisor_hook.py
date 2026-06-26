@@ -104,6 +104,25 @@ result_zero = maybe_rank_with_learned_weights({}, zero_cands)
 check("all score 0 -> None (fallback)", result_zero is None)
 os.unlink(zero_path)
 
+print("\n=== meaningful labels produce scores ===")
+
+with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+    json.dump({"use_crispin_value": 55.0, "teal_dance_value": 50.0}, f)
+    rich_path = f.name
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+_set_env("POKEMON_AI_WEIGHTS_PATH", rich_path)
+reset_cache()
+
+rich_cands = [
+    {"id": "play_crispin", "label": "アカマツを使う", "type": "supporter"},
+    {"id": "end_turn", "label": "ターン終了", "type": "end"},
+]
+result_rich = maybe_rank_with_learned_weights({}, rich_cands)
+check("meaningful labels -> ranked (not None)", result_rich is not None)
+check("crispin scores higher than end", result_rich is not None and result_rich[0]["action_id"] == "play_crispin")
+os.unlink(rich_path)
+
 print("\n=== default weights when path unset ===")
 
 _set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")

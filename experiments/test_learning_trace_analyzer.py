@@ -10,7 +10,9 @@ import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from experiments.learning.trace_analyzer import load_traces, analyze_traces, format_report
+from experiments.learning.trace_analyzer import (
+    load_traces, analyze_traces, format_report, find_override_cases,
+)
 
 PASS = "[PASS]"
 FAIL = "[FAIL]"
@@ -91,6 +93,8 @@ check("loads valid entries", len(loaded) == 4)
 check("skips invalid JSON", True)
 os.unlink(tmp_path)
 
+check("missing file returns empty", load_traces("/nonexistent/path.jsonl") == [])
+
 print("\n=== analyze_traces ===")
 
 summary = analyze_traces(SAMPLE_TRACES)
@@ -104,6 +108,8 @@ check("fallback_reasons has all_scores_zero", summary["fallback_reasons"].get("a
 check("fallback_reasons has weights_missing", summary["fallback_reasons"].get("weights_missing") == 1)
 check("advisor_top_actions has play_crispin", summary["advisor_top_actions"].get("play_crispin") == 2)
 check("avg_advisor_top_score > 0", summary["avg_advisor_top_score"] > 0)
+check("max_top_advisor_score present", summary["max_top_advisor_score"] >= summary["min_top_advisor_score"])
+check("selected_index_distribution present", isinstance(summary["selected_index_distribution"], dict))
 
 print("\n=== analyze_traces empty ===")
 
@@ -129,6 +135,23 @@ check("contains override", "overrode" in report.lower() or "Override" in report)
 report_empty = format_report(empty)
 check("empty report: no crash", isinstance(report_empty, str))
 check("empty report: contains Overview", "Overview" in report_empty)
+
+print("\n=== find_override_cases ===")
+
+overrides = find_override_cases(SAMPLE_TRACES)
+check("finds 1 override", len(overrides) == 1)
+check("override has advisor_top", overrides[0]["advisor_top"] == "play_crispin")
+check("override has state_active", overrides[0]["state_active"] == "Raging Bolt ex")
+
+check("empty entries -> empty overrides", find_override_cases([]) == [])
+check("limit works", len(find_override_cases(SAMPLE_TRACES * 10, limit=3)) == 3)
+
+print("\n=== format_report with overrides ===")
+
+report_with_ov = format_report(summary, overrides)
+check("report has Override Cases", "Override Cases" in report_with_ov)
+check("report has play_crispin in overrides", "play_crispin" in report_with_ov)
+check("report has max score", "Max advisor" in report_with_ov)
 
 print("\n%d/%d passed" % (_total - _failures, _total))
 if _failures:

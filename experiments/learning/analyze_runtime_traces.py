@@ -17,19 +17,17 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.abspath(os.path.join(_DIR, "..", ".."))
 sys.path.insert(0, _REPO)
 
-from experiments.learning.trace_analyzer import load_traces, analyze_traces, format_report
+from experiments.learning.trace_analyzer import (
+    load_traces, analyze_traces, format_report, find_override_cases,
+)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze runtime advisor traces")
     parser.add_argument("--trace", required=True, help="Trace JSONL file")
-    parser.add_argument("--report", default="", help="Output Markdown report path")
-    parser.add_argument("--summary", default="", help="Output JSON summary path")
+    parser.add_argument("--report", "--out-md", default="", help="Output Markdown report path")
+    parser.add_argument("--summary", "--out-json", default="", help="Output JSON summary path")
     args = parser.parse_args()
-
-    if not os.path.exists(args.trace):
-        print("ERROR: trace file not found: %s" % args.trace)
-        sys.exit(1)
 
     entries = load_traces(args.trace)
     print("Loaded %d trace entries from %s" % (len(entries), args.trace))
@@ -49,8 +47,12 @@ def main():
         for r, c in sorted(reasons.items(), key=lambda x: -x[1]):
             print("  %s: %d" % (r, c))
 
+    overrides = find_override_cases(entries)
+    if overrides:
+        print("\nOverride cases: %d" % len(overrides))
+
     if args.report:
-        report = format_report(summary)
+        report = format_report(summary, overrides)
         os.makedirs(os.path.dirname(args.report) or ".", exist_ok=True)
         with open(args.report, "w", encoding="utf-8") as f:
             f.write(report)

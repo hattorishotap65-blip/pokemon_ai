@@ -126,6 +126,18 @@ python experiments/learning/analyze_runtime_traces.py \
 Outputs: advisor usage rate, fallback reasons, override rate,
 top action distribution, and average advisor scores.
 
+### Tuning Recommendations
+
+```bash
+python experiments/learning/recommend_from_traces.py \
+    --trace experiments/learning/sample_traces/sample_tuning_trace.jsonl \
+    --report tuning_report.md \
+    --summary tuning_summary.json
+```
+
+Identifies: high zero-score rate, missing weights, low advisor usage,
+override conflicts, dominant actions, and narrow score ranges.
+
 ## Scope
 
 - Target deck: Raging Bolt ex + Teal Mask Ogerpon ex

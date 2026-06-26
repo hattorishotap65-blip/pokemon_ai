@@ -491,8 +491,12 @@ def deck_page_html(name):
     if name not in DECKS:
         body = '<h1>デッキ図鑑</h1><p>上のデッキ名をクリックすると、デッキリストと戦略を表示します。</p>'
         return _DECK_HTML.replace('{{nav}}', nav).replace('{{body}}', body).replace('{{title}}', 'デッキ図鑑')
+    d = _resolve_deck_dir(name)
+    if d is None:
+        body = f'<h1>{DECKS[name][0]}</h1><p>deck.csv が見つかりません。agents/ をコピーしてください。</p>'
+        return _DECK_HTML.replace('{{nav}}', nav).replace('{{body}}', body).replace('{{title}}', DECKS[name][0])
     from collections import Counter
-    deck = [int(l) for l in open(ROOT + '/' + DECKS[name][1] + '/deck.csv') if l.strip()]
+    deck = [int(l) for l in open(d + '/deck.csv') if l.strip()]
     cnt = Counter(deck)
     groups = {'poke': [], 'trainer': [], 'energy': []}
     for cid, n in sorted(cnt.items(), key=lambda kv: (-kv[1], kv[0])):

@@ -301,7 +301,11 @@ function pick(i,btn){
     if(k>=0){SEL.splice(k,1);btn.classList.remove('sel');} else {SEL.push(i);btn.classList.add('sel');}
   } else send([i]);
 }
-function confirmMulti(){ send(SEL.slice()); }
+function confirmMulti(){
+  const min=STATE.multi?.min??0, max=STATE.multi?.max??999;
+  if(SEL.length<min||SEL.length>max){alert(`${min}〜${max}個を選んでください`);return;}
+  send(SEL.slice());
+}
 function detailLive(el){
   detail(+el.dataset.id, {hp:el.dataset.hp, mhp:el.dataset.mhp, e:el.dataset.e, tools:el.dataset.tools});
 }

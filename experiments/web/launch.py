@@ -11,8 +11,10 @@ Open in Windows browser to play interactively against AI agents.
 
 Card images:
     - Cards in card_images.json → loaded from pokemontcg.io CDN
-    - Other cards → extracted from Card_ID_List_EN.pdf on first request
-      (download via: kaggle competitions download -f "Card_ID List_EN.pdf" pokemon-tcg-ai-battle)
+    - Cards in card_imgs/ → served as local fallback
+    - For missing cards, run extract_card_images.py beforehand:
+        kaggle competitions download -f "Card_ID List_EN.pdf" pokemon-tcg-ai-battle -p reference/
+        python3 experiments/web/extract_card_images.py
 """
 import sys, os
 

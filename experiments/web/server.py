@@ -204,7 +204,7 @@ def load_opp(name):
 
 # ── game session (single global game; single-threaded server) ────────────────
 GAME = {'obs_dict': None, 'opp_mod': None, 'opp_deck': None, 'human': 0, 'over': True, 'log': [], 'logseq': 0,
-        'trace_path': None, 'last_state': None}
+        'trace_path': None, 'last_state': None, 'recording': False}
 
 AREA = {AreaType.DECK: 'deck', AreaType.HAND: 'hand', AreaType.DISCARD: 'discard',
         AreaType.ACTIVE: 'active', AreaType.BENCH: 'bench', AreaType.PRIZE: 'prize'}
@@ -545,6 +545,8 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')document.get
 def _record_game_result(state):
     """Record game result to trace JSONL. Never raises."""
     try:
+        if not GAME.get('recording'):
+            return
         tp = GAME.get('trace_path')
         if not tp:
             return
@@ -708,8 +710,11 @@ class H(BaseHTTPRequestHandler):
             ln = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(ln) or '{}')
             idx = body.get('indices', [])
+            recording = body.get('recording', False)
+            GAME['recording'] = recording
             try:
-                _record_human_trace(idx)
+                if recording:
+                    _record_human_trace(idx)
                 _note_action(GAME['obs_dict'], idx)
                 GAME['obs_dict'] = _select(idx)
                 _advance_opponent()

@@ -159,6 +159,7 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
   <span class="hint">対戦相手</span>
   <select id="opp"></select>
   <button class="btn" onclick="newGame()">🔄 新しい対戦</button>
+  <button class="btn" id="recBtn" onclick="toggleRec()" style="min-width:90px">⏺ 記録OFF</button>
   <a class="btn" href="/deck" target="_blank" style="text-decoration:none">📖 デッキ図鑑</a>
 </header>
 
@@ -213,7 +214,7 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
 </div>
 
 <script>
-let STATE=null, SEL=[], MULTI=false, DB={}, IMG={}, LASTSEQ=-1;
+let STATE=null, SEL=[], MULTI=false, DB={}, IMG={}, LASTSEQ=-1, REC=false;
 const $=s=>document.querySelector(s);
 const TYPES={GRASS:'--grass',FIRE:'--fire',WATER:'--water',LIGHTNING:'--lightning',PSYCHIC:'--psychic',
   FIGHTING:'--fighting',DARKNESS:'--darkness',METAL:'--metal',DRAGON:'--dragon',FAIRY:'--fairy',COLORLESS:'--colorless'};
@@ -385,10 +386,17 @@ function processLog(log){
   fresh.slice(-12).forEach((e,k)=>setTimeout(()=>animateEntry(e), k*130));   // stagger, cap burst
 }
 async function send(indices){
-  const r=await fetch('/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({indices})});
+  const r=await fetch('/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({indices,recording:REC})});
   render(await r.json());
 }
-async function newGame(){ LASTSEQ=-1; $('#logbox').innerHTML=''; const r=await fetch('/new?me='+$('#me').value+'&opp='+$('#opp').value); render(await r.json()); }
+function toggleRec(){
+  REC=!REC;
+  const b=$('#recBtn');
+  b.textContent=REC?'⏺ 記録ON':'⏺ 記録OFF';
+  b.style.background=REC?'var(--accent2)':'';
+  b.style.color=REC?'#fff':'';
+}
+async function newGame(){ LASTSEQ=-1; $('#logbox').innerHTML=''; const r=await fetch('/new?me='+$('#me').value+'&opp='+$('#opp').value+'&rec='+(REC?1:0)); render(await r.json()); }
 async function loadDecks(){
   const decks=await (await fetch('/decks')).json();
   const opts=decks.map(d=>`<option value="${d.id}">${d.name}</option>`).join('');

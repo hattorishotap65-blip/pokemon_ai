@@ -114,3 +114,12 @@ jobs:
 
       - name: Run learning report tests
         run: python experiments/test_learning_report.py
+
+      - name: Run learning weight profile tests
+        run: python experiments/test_learning_weight_profile.py
+
+      - name: Run learning agent action adapter tests
+        run: python experiments/test_learning_agent_action_adapter.py
+
+      - name: Run learning decision advisor tests
+        run: python experiments/test_learning_decision_advisor.py

@@ -89,6 +89,35 @@ check("ranked has original_index", result4 is not None and "original_index" in r
 
 os.unlink(weights_path)
 
+print("\n=== all-zero score fallback ===")
+
+with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+    json.dump({"some_unrelated_weight": 99.0}, f)
+    zero_path = f.name
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+_set_env("POKEMON_AI_WEIGHTS_PATH", zero_path)
+reset_cache()
+
+zero_cands = [{"id": "mystery_action", "label": "unknown thing", "type": "unknown"}]
+result_zero = maybe_rank_with_learned_weights({}, zero_cands)
+check("all score 0 -> None (fallback)", result_zero is None)
+os.unlink(zero_path)
+
+print("\n=== default weights when path unset ===")
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+_set_env("POKEMON_AI_WEIGHTS_PATH", None)
+_set_env("POKEMON_AI_WEIGHTS_FALLBACK_PATH", None)
+reset_cache()
+
+default_cands = [
+    {"id": "play_crispin", "label": "アカマツを使う", "type": "supporter"},
+    {"id": "end", "label": "ターン終了", "type": "end"},
+]
+result_default = maybe_rank_with_learned_weights({}, default_cands)
+check("no WEIGHTS_PATH -> uses default params, returns ranked", result_default is not None and len(result_default) > 0)
+
 print("\n=== fallback safety ===")
 
 _set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")

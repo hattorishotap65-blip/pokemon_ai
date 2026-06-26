@@ -11,6 +11,10 @@ from typing import Dict, List, Optional
 _ENABLED_VAR = "POKEMON_AI_USE_LEARNED_WEIGHTS"
 _WEIGHTS_VAR = "POKEMON_AI_WEIGHTS_PATH"
 _FALLBACK_VAR = "POKEMON_AI_WEIGHTS_FALLBACK_PATH"
+_DEFAULT_WEIGHTS = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "params", "raging_ogerpon_default.json",
+)
 
 _cached_weights: Optional[Dict[str, float]] = None
 _cache_loaded: bool = False
@@ -27,9 +31,9 @@ def _load_weights_once() -> Dict[str, float]:
     _cache_loaded = True
     try:
         from experiments.learning.weight_profile import load_weight_profile
-        path = os.environ.get(_WEIGHTS_VAR, "")
-        fallback = os.environ.get(_FALLBACK_VAR, "")
-        _cached_weights = load_weight_profile(path, fallback or None)
+        path = os.environ.get(_WEIGHTS_VAR) or _DEFAULT_WEIGHTS
+        fallback = os.environ.get(_FALLBACK_VAR) or _DEFAULT_WEIGHTS
+        _cached_weights = load_weight_profile(path, fallback)
     except Exception:
         _cached_weights = {}
     return _cached_weights or {}
@@ -61,6 +65,10 @@ def maybe_rank_with_learned_weights(
 
         from experiments.learning.decision_advisor import rank_candidates
         ranked = rank_candidates(state or {}, candidates, weights)
-        return ranked if ranked else None
+        if not ranked:
+            return None
+        if max(r.get("score", 0.0) for r in ranked) <= 0.0:
+            return None
+        return ranked
     except Exception:
         return None

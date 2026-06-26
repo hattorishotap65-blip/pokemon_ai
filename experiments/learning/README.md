@@ -138,6 +138,12 @@ python experiments/learning/recommend_from_traces.py \
 Identifies: high zero-score rate, missing weights, low advisor usage,
 override conflicts, dominant actions, and narrow score ranges.
 
+## Simulator Integration
+
+See [docs/ptcg_simulator_integration_research.md](../../docs/ptcg_simulator_integration_research.md)
+for evaluation of PTCG simulator options. Recommendation: use the existing
+cabt engine (already in `reference/extracted/cg/`) for evaluation.
+
 ## Scope
 
 - Target deck: Raging Bolt ex + Teal Mask Ogerpon ex

@@ -71,6 +71,16 @@ check("non-numeric values ignored", "bad_str" not in w4 and "bad_list" not in w4
 check("numeric values kept", w4.get("good") == 1.0 and w4.get("ok_int") == 3.0)
 os.unlink(mixed_path)
 
+with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+    json.dump({"bool_true": True, "bool_false": False, "real_num": 42.0}, f)
+    bool_path = f.name
+
+w5 = load_weight_profile(bool_path)
+check("bool True excluded", "bool_true" not in w5)
+check("bool False excluded", "bool_false" not in w5)
+check("real number kept alongside bools", w5.get("real_num") == 42.0)
+os.unlink(bool_path)
+
 print("\n%d/%d passed" % (_total - _failures, _total))
 if _failures:
     sys.exit(1)

@@ -177,6 +177,23 @@ class LucarioPolicy:
             self._plan_attack()
 
         scores = [self._score_option(option) for option in self.select.option]
+
+        # --- learned weight advisor (default off) ---
+        if os.environ.get("POKEMON_AI_USE_LEARNED_WEIGHTS") == "1":
+            try:
+                from experiments.learning.runtime_advisor_hook import maybe_rank_with_learned_weights
+                advisor_candidates = [
+                    {"id": "opt_%d" % i, "label": str(getattr(o, "type", "")),
+                     "type": str(getattr(o, "type", ""))}
+                    for i, o in enumerate(self.select.option)
+                ]
+                advisor_ranked = maybe_rank_with_learned_weights({}, advisor_candidates)
+                if advisor_ranked:
+                    ranked = [r["original_index"] for r in advisor_ranked]
+                    return ranked[: self.select.maxCount]
+            except Exception:
+                pass
+
         ranked = [i for i, _ in sorted(enumerate(scores), key=lambda item: item[1], reverse=True)]
         self._remember_lunatone_ability(ranked)
         return ranked[: self.select.maxCount]

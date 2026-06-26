@@ -23,6 +23,8 @@ def load_weight_profile(
                 continue
             weights = {}
             for k, v in raw.items():
+                if isinstance(v, bool):
+                    continue
                 if isinstance(v, (int, float)):
                     weights[str(k)] = float(v)
             return weights

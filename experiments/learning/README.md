@@ -69,9 +69,19 @@ python experiments/learning/advise_action.py \
     --weights experiments/learning/params/raging_ogerpon_default.json
 ```
 
-Currently the advisor is not connected to the runtime agent.
-To integrate, call `decision_advisor.rank_candidates()` from the
-agent's action selection hook with `POKEMON_AI_USE_LEARNED_WEIGHTS=1`.
+## Optional Runtime Hook
+
+The learned weight advisor is connected to `main.py` but **default off**.
+Enable with environment variables:
+
+```bash
+POKEMON_AI_USE_LEARNED_WEIGHTS=1
+POKEMON_AI_WEIGHTS_PATH=experiments/learning/params/raging_ogerpon_learned.json
+POKEMON_AI_WEIGHTS_FALLBACK_PATH=experiments/learning/params/raging_ogerpon_default.json
+```
+
+If loading weights or ranking fails, runtime falls back to existing logic.
+No env vars = completely unchanged agent behavior.
 
 ## Scope
 

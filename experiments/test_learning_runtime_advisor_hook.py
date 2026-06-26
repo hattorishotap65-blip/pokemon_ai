@@ -1,0 +1,108 @@
+"""
+Tests for experiments/learning/runtime_advisor_hook.py.
+
+Run: python experiments/test_learning_runtime_advisor_hook.py
+"""
+import json
+import os
+import sys
+import tempfile
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from experiments.learning.runtime_advisor_hook import (
+    learned_weight_advisor_enabled,
+    maybe_rank_with_learned_weights,
+    reset_cache,
+)
+
+PASS = "[PASS]"
+FAIL = "[FAIL]"
+_failures = 0
+_total = 0
+
+
+def check(label, condition):
+    global _failures, _total
+    _total += 1
+    status = PASS if condition else FAIL
+    print("  %s  %s" % (status, label))
+    if not condition:
+        _failures += 1
+
+
+def _set_env(key, val):
+    if val is None:
+        os.environ.pop(key, None)
+    else:
+        os.environ[key] = val
+
+
+print("=== learned_weight_advisor_enabled ===")
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", None)
+check("unset -> disabled", not learned_weight_advisor_enabled())
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "0")
+check("'0' -> disabled", not learned_weight_advisor_enabled())
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+check("'1' -> enabled", learned_weight_advisor_enabled())
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "yes")
+check("'yes' -> disabled (only '1' works)", not learned_weight_advisor_enabled())
+
+print("\n=== maybe_rank_with_learned_weights ===")
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", None)
+reset_cache()
+result = maybe_rank_with_learned_weights({}, [{"id": "a"}])
+check("disabled -> None", result is None)
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+_set_env("POKEMON_AI_WEIGHTS_PATH", "/nonexistent.json")
+_set_env("POKEMON_AI_WEIGHTS_FALLBACK_PATH", None)
+reset_cache()
+result2 = maybe_rank_with_learned_weights({}, [{"id": "a"}])
+check("missing weights file -> None", result2 is None)
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+reset_cache()
+result3 = maybe_rank_with_learned_weights({}, [])
+check("empty candidates -> None", result3 is None)
+
+with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+    json.dump({"use_crispin_value": 55.0, "teal_dance_value": 50.0}, f)
+    weights_path = f.name
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+_set_env("POKEMON_AI_WEIGHTS_PATH", weights_path)
+reset_cache()
+
+candidates = [
+    {"id": "play_crispin", "label": "アカマツを使う", "type": "supporter"},
+    {"id": "use_teal_dance", "label": "みどりのまいを使う", "type": "ability"},
+]
+result4 = maybe_rank_with_learned_weights({}, candidates)
+check("valid weights + candidates -> ranked list", result4 is not None and len(result4) == 2)
+check("ranked has original_index", result4 is not None and "original_index" in result4[0])
+
+os.unlink(weights_path)
+
+print("\n=== fallback safety ===")
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+_set_env("POKEMON_AI_WEIGHTS_PATH", "/nonexistent.json")
+_set_env("POKEMON_AI_WEIGHTS_FALLBACK_PATH", None)
+reset_cache()
+result5 = maybe_rank_with_learned_weights({}, [{"id": "x"}])
+check("advisor error -> None (no crash)", result5 is None)
+
+# Cleanup env
+for key in ("POKEMON_AI_USE_LEARNED_WEIGHTS", "POKEMON_AI_WEIGHTS_PATH", "POKEMON_AI_WEIGHTS_FALLBACK_PATH"):
+    _set_env(key, None)
+reset_cache()
+
+print("\n%d/%d passed" % (_total - _failures, _total))
+if _failures:
+    sys.exit(1)

@@ -139,6 +139,9 @@ jobs:
       - name: Run learning cabt trace eval runner tests
         run: python experiments/test_learning_cabt_trace_eval_runner.py
 
+      - name: Run web deck registry tests
+        run: python experiments/test_web_deck_registry.py
+
       - name: Run learning trace analyzer tests
         run: python experiments/test_learning_trace_analyzer.py
 

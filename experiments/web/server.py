@@ -121,29 +121,21 @@ def render_card_png(cid):
 
 
 # ── strong decks: selectable for BOTH player and opponent ────────────────────
-# (display name, agent dir). All have an agent() callable; those with a *Policy class
-# also show per-option AI scores when you pilot them.
-DECKS = {
-    'dragapult':      ('👻 Dragapult ex ドラパルト', 'agents/dragapult'),
-    'megastarmie':    ('💧🔥 Mega Starmie ex + Cinderace', 'agents/megastarmie'),
-    'megastarmie_v2': ('💧🔥 Mega Starmie v2', 'agents/megastarmie_v2'),
-    'alakazam':       ('🔮 Alakazam フーディン', 'agents/alakazam'),
-    'trevenant':      ("🌳 Hop's Trevenant オーロット", 'agents/trevenant'),
-    'lucario_v3':     ('🥊 Mega Lucario ex ルカリオ', 'agents/lucario_v3'),
-    'chandelure':     ('🕯 Chandelure シャンデラ', 'agents/chandelure'),
-    'froslass':       ('❄ Mega Froslass ex ユキメノコ', 'agents/froslass'),
-    'mewtwo':         ("🧬 Team Rocket's Mewtwo ex ミュウツー", 'agents/mewtwo'),
-}
+try:
+    from deck_registry import DECKS, resolve_deck_dir, available_decks
+    def _resolve_deck_dir(name):
+        return resolve_deck_dir(name, ROOT)
+    def _find_available_decks():
+        return available_decks(ROOT)
+except ImportError:
+    from experiments.web.deck_registry import DECKS, resolve_deck_dir, available_decks
+    def _resolve_deck_dir(name):
+        return resolve_deck_dir(name, ROOT)
+    def _find_available_decks():
+        return available_decks(ROOT)
+
 ME = {'mod': None, 'deck': None, 'Policy': None, 'name': None}
 _LOADED = {}   # name -> {deck, mod, Policy}
-
-
-def _resolve_deck_dir(name):
-    """Resolve the actual directory for a deck agent."""
-    d = ROOT + '/' + DECKS[name][1]
-    if os.path.isdir(d) and os.path.exists(d + '/deck.csv'):
-        return d
-    return None
 
 
 def _load_deck(name):
@@ -178,10 +170,6 @@ def _load_deck(name):
     _LOADED[name] = {'deck': deck, 'mod': mod, 'Policy': Policy}
     return _LOADED[name]
 
-
-def _find_available_decks():
-    """Return list of deck names that have agents/ directories present."""
-    return [k for k in DECKS if _resolve_deck_dir(k) is not None]
 
 
 def load_me(name):

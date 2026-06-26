@@ -49,8 +49,20 @@ def main():
     parser.add_argument("--deck", required=True, help="Path to deck CSV")
     parser.add_argument("--n", type=int, default=50)
     parser.add_argument("--start-game", type=int, default=316000)
-    parser.add_argument("--output", default="artifacts/external_agent_results.csv")
+    parser.add_argument("--output", default="artifacts/external_agent_results.jsonl")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Validate args and create output dir without running games")
     args = parser.parse_args()
+
+    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+
+    if args.dry_run:
+        dry = {"mode": "dry_run", "agent": args.agent, "deck": args.deck,
+               "n": args.n, "output": args.output}
+        with open(args.output, "w", encoding="utf-8") as f:
+            f.write(json.dumps(dry) + "\n")
+        print("Dry run: validated args, created %s" % args.output)
+        return
 
     if sys.platform == "win32":
         print("ERROR: This script must run inside WSL (libcg.so is Linux only).")
@@ -116,10 +128,9 @@ def main():
             wins = sum(1 for r in results if r["winner"] == "p0")
             print(f"  {gi+1}/{args.n} games, p0 wins: {wins}")
 
-    with open(args.output, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["game", "winner", "turns", "error"])
-        writer.writeheader()
-        writer.writerows(results)
+    with open(args.output, "w", encoding="utf-8") as f:
+        for r in results:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     wins = sum(1 for r in results if r["winner"] == "p0")
     losses = sum(1 for r in results if r["winner"] == "p1")

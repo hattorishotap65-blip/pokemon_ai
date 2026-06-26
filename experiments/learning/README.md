@@ -144,6 +144,26 @@ See [docs/ptcg_simulator_integration_research.md](../../docs/ptcg_simulator_inte
 for evaluation of PTCG simulator options. Recommendation: use the existing
 cabt engine (already in `reference/extracted/cg/`) for evaluation.
 
+### cabt Runner Scripts
+
+```bash
+# Self-play (WSL only)
+PYTHONPATH=reference/extracted python3 experiments/run_external_agent.py \
+    --agent main.py --deck deck.csv --n 50 --output results.jsonl
+
+# Head-to-head (WSL only)
+PYTHONPATH=reference/extracted python3 experiments/head_to_head.py \
+    --agent-a main.py --deck-a deck.csv \
+    --agent-b main.py --deck-b experiments/decks/raging_bolt_ogerpon.csv \
+    --n 50 --output summary.json
+
+# Dry-run (validates args without running games, CI-safe)
+python experiments/run_external_agent.py --agent main.py --deck deck.csv --dry-run --output dry.jsonl
+python experiments/head_to_head.py --agent-a main.py --deck-a deck.csv --agent-b main.py --deck-b deck.csv --dry-run --output dry.json
+```
+
+Experiment deck: `experiments/decks/raging_bolt_ogerpon.csv` (fixture, not the submission deck.csv)
+
 ## Scope
 
 - Target deck: Raging Bolt ex + Teal Mask Ogerpon ex

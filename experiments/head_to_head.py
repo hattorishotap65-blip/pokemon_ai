@@ -40,7 +40,25 @@ def main():
     parser.add_argument("--n", type=int, default=100)
     parser.add_argument("--label-a", default="A")
     parser.add_argument("--label-b", default="B")
+    parser.add_argument("--output", default="", help="Save summary JSON to this path")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Validate args and create output without running games")
     args = parser.parse_args()
+
+    if args.output:
+        os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+
+    if args.dry_run:
+        import json
+        dry = {"mode": "dry_run", "agent_a": args.agent_a, "agent_b": args.agent_b,
+               "deck_a": args.deck_a, "deck_b": args.deck_b, "n": args.n}
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                json.dump(dry, f, indent=2)
+        print("Dry run: validated args")
+        if args.output:
+            print("Created %s" % args.output)
+        return
 
     if sys.platform == "win32":
         print("ERROR: Run inside WSL (libcg.so is Linux only).")
@@ -110,6 +128,17 @@ def main():
     print(f"Timeouts: {timeouts}")
     if total > 0:
         print(f"{args.label_a} win rate: {a_wins/total*100:.1f}%")
+
+    if args.output:
+        import json
+        summary = {
+            "games": args.n, "agent_a_wins": a_wins, "agent_b_wins": b_wins,
+            "draws": draws, "errors": errors, "timeouts": timeouts,
+            "label_a": args.label_a, "label_b": args.label_b,
+        }
+        with open(args.output, "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2)
+        print(f"Saved summary to {args.output}")
 
 
 if __name__ == "__main__":

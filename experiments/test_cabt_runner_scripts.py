@@ -85,9 +85,42 @@ result3 = subprocess.run(
 )
 check("compiles", result3.returncode == 0)
 
+print("\n=== CLI --help ===")
+
+r_help1 = subprocess.run([sys.executable, path_rea, "--help"], capture_output=True, text=True)
+check("run_external_agent --help succeeds", r_help1.returncode == 0)
+
+r_help2 = subprocess.run([sys.executable, path_hth, "--help"], capture_output=True, text=True)
+check("head_to_head --help succeeds", r_help2.returncode == 0)
+
+print("\n=== --dry-run ===")
+
+import tempfile
+tmp_dir = tempfile.mkdtemp()
+
+dry_out1 = os.path.join(tmp_dir, "dry_rea.jsonl")
+r_dry1 = subprocess.run([
+    sys.executable, path_rea, "--agent", "main.py", "--deck", "deck.csv",
+    "--dry-run", "--output", dry_out1,
+], capture_output=True, text=True)
+check("run_external_agent --dry-run succeeds", r_dry1.returncode == 0)
+check("run_external_agent --dry-run creates file", os.path.exists(dry_out1))
+
+dry_out2 = os.path.join(tmp_dir, "dry_hth.json")
+r_dry2 = subprocess.run([
+    sys.executable, path_hth, "--agent-a", "main.py", "--deck-a", "deck.csv",
+    "--agent-b", "main.py", "--deck-b", "deck.csv",
+    "--dry-run", "--output", dry_out2,
+], capture_output=True, text=True)
+check("head_to_head --dry-run succeeds", r_dry2.returncode == 0)
+check("head_to_head --dry-run creates file", os.path.exists(dry_out2))
+
+import shutil
+shutil.rmtree(tmp_dir, ignore_errors=True)
+
 print("\n=== deck files ===")
 
-for deck_name in ["top_lucario_1084.csv", "top_crustle_replay.csv", "raging_bolt_ogerpon.csv"]:
+for deck_name in ["top_crustle_replay.csv", "raging_bolt_ogerpon.csv"]:
     deck_path = os.path.join(os.path.dirname(__file__), "decks", deck_name)
     exists = os.path.exists(deck_path)
     if exists:

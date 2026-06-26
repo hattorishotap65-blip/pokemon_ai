@@ -133,6 +133,9 @@ jobs:
       - name: Run learning runtime trace tests
         run: python experiments/test_learning_runtime_trace.py
 
+      - name: Run cabt runner scripts tests
+        run: python experiments/test_cabt_runner_scripts.py
+
       - name: Run learning trace analyzer tests
         run: python experiments/test_learning_trace_analyzer.py
 

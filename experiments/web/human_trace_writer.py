@@ -31,6 +31,11 @@ def build_trace_entry(
     ai_pick,
     human_pick,
     params_path="",
+    opp_deck="",
+    opp_active=None,
+    my_active=None,
+    my_prizes=None,
+    opp_prizes=None,
 ):
     """Build a single trace entry dict.
 
@@ -42,12 +47,22 @@ def build_trace_entry(
         ai_pick: list of AI-recommended option indices
         human_pick: list of human-selected option indices
         params_path: path to params.json used by the agent
+        opp_deck: opponent deck name
+        opp_active: dict {id, name, hp, maxHp, energy} or None
+        my_active: dict {id, name, hp, maxHp, energy} or None
+        my_prizes: remaining prize count
+        opp_prizes: opponent remaining prize count
     """
     return {
         "ts": time.time(),
         "deck": deck_name,
+        "opp_deck": opp_deck,
         "turn": turn,
         "context": context,
+        "my_active": my_active,
+        "opp_active": opp_active,
+        "my_prizes": my_prizes,
+        "opp_prizes": opp_prizes,
         "options": options,
         "ai_pick": ai_pick,
         "human_pick": human_pick,
@@ -55,6 +70,18 @@ def build_trace_entry(
         "human_top": human_pick[0] if human_pick else None,
         "agree": _picks_agree(ai_pick, human_pick),
         "params_path": params_path,
+    }
+
+
+def build_game_result_entry(deck_name, opp_deck, result, turns):
+    """Build a game-end summary entry."""
+    return {
+        "ts": time.time(),
+        "type": "game_result",
+        "deck": deck_name,
+        "opp_deck": opp_deck,
+        "result": result,
+        "turns": turns,
     }
 
 

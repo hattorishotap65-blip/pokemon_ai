@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "web"))
 
 from experiments.web.human_trace_writer import (
     build_trace_entry, write_trace_entry, load_traces, trace_path,
+    build_game_result_entry,
 )
 from experiments.web.human_trace_analyzer import analyze, format_report
 from experiments.web.params_recommender import recommend
@@ -43,18 +44,26 @@ entry = build_trace_entry(
     ai_pick=[0],
     human_pick=[0],
     params_path="params.json",
+    opp_deck="dragapult",
+    opp_active={"id": 100, "name": "Dragapult", "hp": 150, "maxHp": 320, "energy": 2},
+    my_active={"id": 63, "name": "Raging Bolt ex", "hp": 240, "maxHp": 240, "energy": 3},
+    my_prizes=5,
+    opp_prizes=4,
 )
 
 check("entry has ts", "ts" in entry and isinstance(entry["ts"], float))
 check("entry has deck", entry["deck"] == "raging_bolt")
+check("entry has opp_deck", entry["opp_deck"] == "dragapult")
 check("entry has turn", entry["turn"] == 3)
 check("entry has context", entry["context"] == "PLAY")
 check("entry has options", len(entry["options"]) == 2)
 check("entry has ai_pick", entry["ai_pick"] == [0])
 check("entry has human_pick", entry["human_pick"] == [0])
 check("entry agree=True", entry["agree"] is True)
-check("entry ai_top=0", entry["ai_top"] == 0)
-check("entry human_top=0", entry["human_top"] == 0)
+check("entry has opp_active", entry["opp_active"]["name"] == "Dragapult")
+check("entry has my_active", entry["my_active"]["id"] == 63)
+check("entry has my_prizes", entry["my_prizes"] == 5)
+check("entry has opp_prizes", entry["opp_prizes"] == 4)
 
 entry_disagree = build_trace_entry(
     deck_name="raging_bolt", turn=5, context="ATTACH",
@@ -63,8 +72,18 @@ entry_disagree = build_trace_entry(
         {"i": 1, "label": "🔋 エネルギーをつける → Raging Bolt", "score": 600, "type": 8, "cardId": 63, "attackId": None},
     ],
     ai_pick=[0], human_pick=[1],
+    opp_deck="megastarmie",
 )
 check("disagree entry agree=False", entry_disagree["agree"] is False)
+check("disagree has opp_deck", entry_disagree["opp_deck"] == "megastarmie")
+
+print("\n=== build_game_result_entry ===")
+result_entry = build_game_result_entry("raging_bolt", "dragapult", "win", 12)
+check("result has type", result_entry["type"] == "game_result")
+check("result has deck", result_entry["deck"] == "raging_bolt")
+check("result has opp_deck", result_entry["opp_deck"] == "dragapult")
+check("result has result", result_entry["result"] == "win")
+check("result has turns", result_entry["turns"] == 12)
 
 print("\n=== write/load traces ===")
 tmp = tempfile.mkdtemp()

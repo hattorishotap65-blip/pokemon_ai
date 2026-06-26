@@ -17,7 +17,7 @@ _PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", ".."))
 #   {"deck": <path>, "agent": <path>}  - explicit paths relative to project root
 DECKS = {
     'my_deck':        ('自分のデッキ (Lucario)', '@@PROJECT_ROOT'),
-    'raging_bolt':    ('タケルライコex + オーガポンex', {
+    'raging_bolt':    ('タケルライコex + オーガポンex (deck only / agent未専用)', {
         'deck': 'experiments/decks/raging_bolt_ogerpon.csv',
         'agent': 'main.py',
     }),

@@ -32,6 +32,8 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--run-dir", default="")
     parser.add_argument("--label", default="")
+    parser.add_argument("--weights", default="", help="Path to learned weights JSON")
+    parser.add_argument("--fallback-weights", default="", help="Path to fallback weights JSON")
     args = parser.parse_args()
 
     avail = available_decks(SCRIPT_DIR)
@@ -71,6 +73,10 @@ def main():
         cmd.extend(["--run-dir", args.run_dir])
     if args.label:
         cmd.extend(["--label", args.label])
+    if args.weights:
+        cmd.extend(["--weights", args.weights])
+    if args.fallback_weights:
+        cmd.extend(["--fallback-weights", args.fallback_weights])
 
     print("[run_with_deck] command: %s" % " ".join(cmd))
     r = subprocess.run(cmd)

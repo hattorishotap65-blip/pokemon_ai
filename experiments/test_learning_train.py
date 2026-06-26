@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from experiments.learning.train_weights import train, evaluate_all
+from experiments.learning.train_weights import train, evaluate_all, compute_learning_multiplier
 
 PASS = "[PASS]"
 FAIL = "[FAIL]"
@@ -102,6 +102,41 @@ check("bricked=True weakens lr", isinstance(w_bricked, dict))
 
 w_empty = train([], WEIGHTS, epochs=5, lr=0.1)
 check("empty logs does not crash", w_empty == WEIGHTS)
+
+print("\n=== compute_learning_multiplier ===")
+
+m_win = compute_learning_multiplier({"result": {"win": True, "prizes_taken": 6, "turns_to_win": 4}})
+check("win=true -> multiplier > 1.0", m_win > 1.0)
+
+m_loss = compute_learning_multiplier({"result": {"win": False}})
+check("win=false -> multiplier < 1.0", m_loss < 1.0)
+
+m_bricked = compute_learning_multiplier({"result": {"win": False, "starting_hand_bricked": True}})
+check("bricked -> lower than plain loss", m_bricked < m_loss)
+
+m_high_prizes = compute_learning_multiplier({"result": {"win": True, "prizes_taken": 5}})
+m_low_prizes = compute_learning_multiplier({"result": {"win": True, "prizes_taken": 3}})
+check("prizes>=5 boosts multiplier", m_high_prizes > m_low_prizes)
+
+m_low_loss = compute_learning_multiplier({"result": {"win": False, "prizes_taken": 1}})
+m_mid_loss = compute_learning_multiplier({"result": {"win": False, "prizes_taken": 3}})
+check("prizes<=2 + loss -> lower multiplier", m_low_loss < m_mid_loss)
+
+m_fast = compute_learning_multiplier({"result": {"win": True, "turns_to_win": 4}})
+m_slow = compute_learning_multiplier({"result": {"win": True, "turns_to_win": 10}})
+check("fast win (<=5 turns) -> higher multiplier", m_fast > m_slow)
+
+m_extreme_low = compute_learning_multiplier({"result": {"win": False, "starting_hand_bricked": True, "prizes_taken": 0}})
+check("multiplier >= 0.2 (floor)", m_extreme_low >= 0.2)
+
+m_extreme_high = compute_learning_multiplier({"result": {"win": True, "prizes_taken": 6, "turns_to_win": 3}})
+check("multiplier <= 2.0 (ceiling)", m_extreme_high <= 2.0)
+
+m_no_result = compute_learning_multiplier({})
+check("no result field -> neutral 1.0", m_no_result == 1.0)
+
+m_no_win = compute_learning_multiplier({"result": {"prizes_taken": 3}})
+check("missing win -> neutral 1.0", m_no_win == 1.0)
 
 print("\n%d/%d passed" % (_total - _failures, _total))
 if _failures:

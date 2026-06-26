@@ -41,6 +41,16 @@ python experiments/learning/train_weights.py \
 Note: CLI default is `--epochs 5 --lr 0.05`. For sample data, `--epochs 50 --lr 0.1`
 produces measurable improvement (42.9% -> 57.1%).
 
+## Loss-Aware Learning
+
+The trainer uses a loss-aware multiplier on the learning rate:
+- Wins are weighted slightly higher (x1.2)
+- Losses are weighted lower (x0.7)
+- Bricked games are down-weighted (x0.5)
+- High-prize games (>=5) are not overly penalized (x1.1)
+- Fast wins (<=5 turns) are slightly reinforced (x1.1)
+- Multiplier is clamped to [0.2, 2.0]
+
 ## Scope
 
 - Target deck: Raging Bolt ex + Teal Mask Ogerpon ex

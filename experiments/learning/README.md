@@ -179,10 +179,22 @@ python experiments/learning/run_cabt_trace_eval.py \
     --use-advisor --label advisor_test
 ```
 
-Run outputs go to `experiments/learning/trace_eval_runs/run_<timestamp>/`:
-- `run_metadata.json`, `self_play_results.jsonl`, `advisor_trace.jsonl`
-- `trace_summary.json`, `trace_report.md`
-- `tuning_recommendations.json`, `tuning_report.md`
+Run outputs go to the specified `--run-dir` (or `trace_eval_runs/run_<timestamp>/`):
+- `run_metadata.json` — command, env, paths, result
+- `self_play_results.jsonl` — per-game JSONL
+- `advisor_trace.jsonl` — per-decision advisor trace
+- `advisor_trace_summary.json` + `advisor_trace_report.md` — trace analysis
+- `tuning_recommendations.json` + `tuning_recommendations.md` — recommendations
+
+Custom command:
+```bash
+python experiments/learning/run_cabt_trace_eval.py \
+    --run-dir /tmp/eval --use-advisor \
+    -- python experiments/run_external_agent.py --agent main.py --deck deck.csv --n 50
+```
+
+Note: `--use-advisor` is required to enable advisor env vars.
+Without it, advisor trace is not collected.
 
 ## Scope
 

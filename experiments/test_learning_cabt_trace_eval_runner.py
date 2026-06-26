@@ -138,6 +138,18 @@ check("CLI creates run_metadata", os.path.exists(os.path.join(tmp5, "cli_run", _
 check("CLI creates trace_summary", os.path.exists(os.path.join(tmp5, "cli_run", _TRACE_SUMMARY)))
 shutil.rmtree(tmp5)
 
+print("\n=== CLI -- custom command ===")
+
+tmp_cmd = tempfile.mkdtemp()
+r_cmd = subprocess.run([
+    sys.executable, cli_path,
+    "--run-dir", os.path.join(tmp_cmd, "cmd_run"),
+    "--skip-command",
+    "--", "echo", "hello",
+], capture_output=True, text=True)
+check("CLI -- custom command succeeds", r_cmd.returncode == 0)
+shutil.rmtree(tmp_cmd)
+
 print("\n=== CLI --dry-run alias ===")
 
 tmp6 = tempfile.mkdtemp()

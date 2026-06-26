@@ -38,9 +38,20 @@ def main():
                         help="Skip cabt execution, only create run dir and analysis outputs")
     parser.add_argument("--dry-run", action="store_true",
                         help="Alias for --skip-command")
+    parser.add_argument("command", nargs=argparse.REMAINDER,
+                        help="Custom cabt command after -- (overrides --agent/--deck/--n)")
     args = parser.parse_args()
 
     skip = args.skip_command or args.dry_run
+
+    custom_command = None
+    if args.command:
+        # Strip leading '--' if present
+        cmd = args.command
+        if cmd and cmd[0] == "--":
+            cmd = cmd[1:]
+        if cmd:
+            custom_command = cmd
 
     print("=== cabt Trace Evaluation ===")
     print("Agent: %s" % args.agent)
@@ -51,6 +62,7 @@ def main():
     print()
 
     result = execute_trace_eval(
+        command=custom_command,
         agent=args.agent, deck=args.deck, n=args.n,
         use_advisor=args.use_advisor,
         weights_path=args.weights,

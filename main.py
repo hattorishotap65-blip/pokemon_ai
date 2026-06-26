@@ -182,12 +182,12 @@ class LucarioPolicy:
         if os.environ.get("POKEMON_AI_USE_LEARNED_WEIGHTS") == "1":
             try:
                 from experiments.learning.runtime_advisor_hook import maybe_rank_with_learned_weights
-                advisor_candidates = [
-                    {"id": "opt_%d" % i, "label": str(getattr(o, "type", "")),
-                     "type": str(getattr(o, "type", ""))}
-                    for i, o in enumerate(self.select.option)
-                ]
-                advisor_ranked = maybe_rank_with_learned_weights({}, advisor_candidates)
+                from experiments.learning.runtime_candidate_builder import (
+                    build_runtime_candidates, build_runtime_state,
+                )
+                advisor_state = build_runtime_state(self)
+                advisor_candidates = build_runtime_candidates(self)
+                advisor_ranked = maybe_rank_with_learned_weights(advisor_state, advisor_candidates)
                 if advisor_ranked:
                     ranked = [r["original_index"] for r in advisor_ranked]
                     return ranked[: self.select.maxCount]

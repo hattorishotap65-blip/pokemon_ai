@@ -83,6 +83,15 @@ POKEMON_AI_WEIGHTS_FALLBACK_PATH=experiments/learning/params/raging_ogerpon_defa
 If loading weights or ranking fails, runtime falls back to existing logic.
 No env vars = completely unchanged agent behavior.
 
+## Runtime Candidate Builder
+
+The runtime hook builds rich advisor candidates from actual runtime options:
+- Extracts option type (attack/ability/item/supporter/attach/end)
+- Resolves card names via `card_table` and `get_card()`
+- Refines PLAY type into supporter/item/play_pokemon using `CardType`
+- Builds runtime state (active/bench/hand/discard/prizes)
+- Falls back safely when card data is unavailable
+
 ## Scope
 
 - Target deck: Raging Bolt ex + Teal Mask Ogerpon ex

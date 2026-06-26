@@ -1,11 +1,10 @@
-"""Human-vs-AI web sandbox for the PTCG agent.
+"""Human-vs-AI web sandbox for PTCG battle.
 
-You pilot the Ethan's Typhlosion (Quilava) deck; the computer plays a meta deck
-(Crustle / Lucario). At every one of YOUR decisions the panel shows what OUR
-agent would do and the score it gives each legal option — so you can compare your
-intuition with the strategy and spot where the agent is wrong (optimization points).
+Run via launch.py:
+    python3 experiments/web/launch.py
+    # open http://localhost:8000
 
-Run:  venv/bin/python web/server.py   then open http://localhost:8000
+Based on wmh/ptcg-abc. Japanese localized.
 """
 import sys, os, json, ctypes, types
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
@@ -125,15 +124,15 @@ def render_card_png(cid):
 # (display name, agent dir). All have an agent() callable; those with a *Policy class
 # also show per-option AI scores when you pilot them.
 DECKS = {
-    'dragapult':      ('👻 Dragapult ex 多龍', 'agents/dragapult'),
-    'megastarmie':    ('💧🔥 Mega Starmie ex + Cinderace 寶石海星', 'agents/megastarmie'),
+    'dragapult':      ('👻 Dragapult ex ドラパルト', 'agents/dragapult'),
+    'megastarmie':    ('💧🔥 Mega Starmie ex + Cinderace', 'agents/megastarmie'),
     'megastarmie_v2': ('💧🔥 Mega Starmie v2', 'agents/megastarmie_v2'),
-    'alakazam':       ('🔮 Alakazam 胡地', 'agents/alakazam'),
-    'trevenant':      ("🌳 Hop's Trevenant", 'agents/trevenant'),
-    'lucario_v3':     ('🥊 Mega Lucario ex v3', 'agents/lucario_v3'),
-    'chandelure':     ('🕯 Chandelure 水晶燈火靈', 'agents/chandelure'),
-    'froslass':       ('❄ Mega Froslass ex', 'agents/froslass'),
-    'mewtwo':         ("🧬 Team Rocket's Mewtwo ex", 'agents/mewtwo'),
+    'alakazam':       ('🔮 Alakazam フーディン', 'agents/alakazam'),
+    'trevenant':      ("🌳 Hop's Trevenant オーロット", 'agents/trevenant'),
+    'lucario_v3':     ('🥊 Mega Lucario ex ルカリオ', 'agents/lucario_v3'),
+    'chandelure':     ('🕯 Chandelure シャンデラ', 'agents/chandelure'),
+    'froslass':       ('❄ Mega Froslass ex ユキメノコ', 'agents/froslass'),
+    'mewtwo':         ("🧬 Team Rocket's Mewtwo ex ミュウツー", 'agents/mewtwo'),
 }
 ME = {'mod': None, 'deck': None, 'Policy': None, 'name': None}
 _LOADED = {}   # name -> {deck, mod, Policy}
@@ -577,7 +576,7 @@ class H(BaseHTTPRequestHandler):
                 _advance_opponent()
                 return self._send(200, json.dumps(state_json()))
             except Exception as e:
-                return self._send(200, json.dumps(state_json(f'錯誤: {e}')))
+                return self._send(200, json.dumps(state_json(f'エラー: {e}')))
         return self._send(404, '{}')
 
 

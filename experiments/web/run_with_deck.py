@@ -19,7 +19,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 sys.path.insert(0, SCRIPT_DIR)
 
-from deck_registry import DECKS, resolve_deck_dir, available_decks
+from deck_registry import DECKS, available_decks, deck_csv_path, agent_main_path
 
 
 def main():
@@ -39,8 +39,9 @@ def main():
     if args.list:
         print("Available decks (%d):" % len(avail))
         for name in avail:
-            d = resolve_deck_dir(name, SCRIPT_DIR)
-            print("  %-20s %s" % (name, d))
+            dc = deck_csv_path(name, SCRIPT_DIR)
+            ag = agent_main_path(name, SCRIPT_DIR)
+            print("  %-20s deck=%s agent=%s" % (name, dc, ag))
         if not avail:
             print("  (none — run setup_agents.py first)")
         return
@@ -50,9 +51,8 @@ def main():
         sys.exit(1)
 
     deck_name = args.deck if args.deck in avail else avail[0]
-    d = resolve_deck_dir(deck_name, SCRIPT_DIR)
-    agent_path = os.path.join(d, "main.py")
-    deck_path = os.path.join(d, "deck.csv")
+    deck_path = deck_csv_path(deck_name, SCRIPT_DIR)
+    agent_path = agent_main_path(deck_name, SCRIPT_DIR)
 
     print("[run_with_deck] deck=%s agent=%s deck_csv=%s" % (deck_name, agent_path, deck_path))
 

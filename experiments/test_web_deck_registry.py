@@ -56,6 +56,16 @@ if rb_csv:
         cards = [l.strip() for l in f if l.strip()]
     check("raging_bolt has 60 cards", len(cards) == 60)
 
+print("\n=== raging_bolt path correctness ===")
+rb_csv = deck_csv_path("raging_bolt")
+rb_agent = agent_main_path("raging_bolt")
+check("raging_bolt csv is raging_bolt_ogerpon.csv",
+      rb_csv is not None and "raging_bolt_ogerpon.csv" in rb_csv)
+check("raging_bolt csv is NOT root deck.csv",
+      rb_csv is not None and not rb_csv.endswith(os.sep + "deck.csv"))
+check("raging_bolt agent is main.py",
+      rb_agent is not None and rb_agent.endswith("main.py"))
+
 print("\n=== resolve_deck_dir (no agents) ===")
 tmp = tempfile.mkdtemp()
 check("missing deck -> None", resolve_deck_dir("dragapult", tmp) is None)
@@ -86,7 +96,8 @@ shutil.rmtree(tmp)
 print("\n=== setup_agents.py --help ===")
 setup_path = os.path.join(os.path.dirname(__file__), "web", "setup_agents.py")
 r = subprocess.run([sys.executable, setup_path, "--help"], capture_output=True, text=True)
-check("setup_agents exits 0", r.returncode == 0 or "usage" in r.stdout.lower() or "setup" in r.stderr.lower())
+check("setup_agents --help exits 0", r.returncode == 0)
+check("setup_agents --help shows usage", "usage" in r.stdout.lower() or "download" in r.stdout.lower())
 
 print("\n=== run_with_deck.py --list ===")
 rwd_path = os.path.join(os.path.dirname(__file__), "web", "run_with_deck.py")

@@ -67,4 +67,7 @@ def main():
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Download agent decks for web sandbox")
+    parser.parse_args()
     main()

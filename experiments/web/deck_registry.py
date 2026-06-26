@@ -2,12 +2,18 @@
 
 Provides a single source of truth for deck name -> (display_name, agent_dir)
 and resolution of actual paths.
+
+'my_deck' is a special entry pointing to the project root deck.csv / main.py.
 """
 import os
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", ".."))
 
+# path value: relative to root (for agents/) or starts with "/" for absolute-style
+# Special: "@@PROJECT_ROOT" resolves to the project root directory
 DECKS = {
+    'my_deck':        ('自分のデッキ (project root)', '@@PROJECT_ROOT'),
     'dragapult':      ('Dragapult ex ドラパルト', 'agents/dragapult'),
     'megastarmie':    ('Mega Starmie ex + Cinderace', 'agents/megastarmie'),
     'megastarmie_v2': ('Mega Starmie v2', 'agents/megastarmie_v2'),
@@ -26,7 +32,11 @@ def resolve_deck_dir(name, root=None):
         return None
     if root is None:
         root = _SCRIPT_DIR
-    d = os.path.join(root, DECKS[name][1])
+    path_spec = DECKS[name][1]
+    if path_spec == '@@PROJECT_ROOT':
+        d = _PROJECT_ROOT
+    else:
+        d = os.path.join(root, path_spec)
     if os.path.isdir(d) and os.path.exists(os.path.join(d, 'deck.csv')):
         return d
     return None

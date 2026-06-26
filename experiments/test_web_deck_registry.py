@@ -34,13 +34,22 @@ check("lucario_v3 in DECKS", "lucario_v3" in DECKS)
 check("dragapult in DECKS", "dragapult" in DECKS)
 for name, (display, path) in DECKS.items():
     check("%s display is string" % name, isinstance(display, str) and len(display) > 0)
-    check("%s path starts with agents/" % name, path.startswith("agents/"))
+    check("%s path is valid spec" % name, path.startswith("agents/") or path == "@@PROJECT_ROOT")
+
+print("\n=== my_deck (project root) ===")
+check("my_deck in DECKS", "my_deck" in DECKS)
+my_dir = resolve_deck_dir("my_deck")
+check("my_deck resolves", my_dir is not None)
+if my_dir:
+    check("my_deck has deck.csv", os.path.exists(os.path.join(my_dir, "deck.csv")))
+    check("my_deck has main.py", os.path.exists(os.path.join(my_dir, "main.py")))
 
 print("\n=== resolve_deck_dir (no agents) ===")
 tmp = tempfile.mkdtemp()
 check("missing deck -> None", resolve_deck_dir("dragapult", tmp) is None)
 check("unknown name -> None", resolve_deck_dir("nonexistent", tmp) is None)
-check("available_decks empty", available_decks(tmp) == [])
+# my_deck always resolves (project root), so available has at least 1
+check("available_decks includes my_deck", "my_deck" in available_decks(tmp))
 
 print("\n=== resolve_deck_dir (with mock agents) ===")
 mock_deck = os.path.join(tmp, "agents", "dragapult")
@@ -53,7 +62,7 @@ with open(os.path.join(mock_deck, "main.py"), "w") as f:
 check("dragapult resolves", resolve_deck_dir("dragapult", tmp) is not None)
 check("dragapult path correct",
       os.path.normpath(resolve_deck_dir("dragapult", tmp)) == os.path.normpath(mock_deck))
-check("available_decks has 1", available_decks(tmp) == ["dragapult"])
+check("available_decks includes dragapult", "dragapult" in available_decks(tmp))
 check("deck_csv_path works",
       os.path.normpath(deck_csv_path("dragapult", tmp)) == os.path.normpath(os.path.join(mock_deck, "deck.csv")))
 check("agent_main_path works",

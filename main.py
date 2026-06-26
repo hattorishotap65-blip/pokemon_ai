@@ -185,17 +185,15 @@ class LucarioPolicy:
             _adv_state = None
             _adv_fallback = None
             try:
-                from experiments.learning.runtime_advisor_hook import maybe_rank_with_learned_weights
+                from experiments.learning.runtime_advisor_hook import maybe_rank_with_reason
                 from experiments.learning.runtime_candidate_builder import (
                     build_runtime_candidates, build_runtime_state,
                 )
                 _adv_state = build_runtime_state(self)
                 _adv_candidates = build_runtime_candidates(self)
-                _adv_ranked = maybe_rank_with_learned_weights(_adv_state, _adv_candidates)
-                if not _adv_ranked:
-                    _adv_fallback = "advisor_returned_none"
-            except Exception:
-                _adv_fallback = "advisor_exception"
+                _adv_ranked, _adv_fallback = maybe_rank_with_reason(_adv_state, _adv_candidates)
+            except Exception as _ex:
+                _adv_fallback = "hook_exception:%s" % type(_ex).__name__
 
             _existing_ranked = [i for i, _ in sorted(enumerate(scores), key=lambda item: item[1], reverse=True)]
 

@@ -53,22 +53,33 @@ def maybe_rank_with_learned_weights(
 
     Returns ranked list or None (caller should fall back to existing logic).
     """
+    result, _ = maybe_rank_with_reason(state, candidates)
+    return result
+
+
+def maybe_rank_with_reason(
+    state: dict, candidates: list
+) -> tuple:
+    """Rank candidates and return (ranked_list_or_None, reason_string).
+
+    reason is None on success, or a descriptive string on fallback.
+    """
     if not learned_weight_advisor_enabled():
-        return None
+        return None, "advisor_disabled"
     if not candidates:
-        return None
+        return None, "no_candidates"
 
     try:
         weights = _load_weights_once()
         if not weights:
-            return None
+            return None, "weights_missing"
 
         from experiments.learning.decision_advisor import rank_candidates
         ranked = rank_candidates(state or {}, candidates, weights)
         if not ranked:
-            return None
+            return None, "rank_empty"
         if max(r.get("score", 0.0) for r in ranked) <= 0.0:
-            return None
-        return ranked
-    except Exception:
-        return None
+            return None, "all_scores_zero"
+        return ranked, None
+    except Exception as ex:
+        return None, "advisor_exception:%s" % type(ex).__name__

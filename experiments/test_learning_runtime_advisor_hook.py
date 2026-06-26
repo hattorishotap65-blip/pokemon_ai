@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from experiments.learning.runtime_advisor_hook import (
     learned_weight_advisor_enabled,
     maybe_rank_with_learned_weights,
+    maybe_rank_with_reason,
     reset_cache,
 )
 
@@ -145,6 +146,44 @@ _set_env("POKEMON_AI_WEIGHTS_FALLBACK_PATH", None)
 reset_cache()
 result5 = maybe_rank_with_learned_weights({}, [{"id": "x"}])
 check("advisor error -> None (no crash)", result5 is None)
+
+print("\n=== maybe_rank_with_reason ===")
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", None)
+reset_cache()
+r, reason = maybe_rank_with_reason({}, [{"id": "a"}])
+check("disabled -> reason=advisor_disabled", reason == "advisor_disabled")
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+reset_cache()
+r2, reason2 = maybe_rank_with_reason({}, [])
+check("empty candidates -> reason=no_candidates", reason2 == "no_candidates")
+
+_set_env("POKEMON_AI_USE_LEARNED_WEIGHTS", "1")
+_set_env("POKEMON_AI_WEIGHTS_PATH", "/nonexistent_nowhere.json")
+_set_env("POKEMON_AI_WEIGHTS_FALLBACK_PATH", "/also_nonexistent.json")
+reset_cache()
+r3, reason3 = maybe_rank_with_reason({}, [{"id": "x"}])
+check("no weights -> reason=weights_missing", reason3 == "weights_missing")
+
+with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+    json.dump({"unrelated_key": 99.0}, f)
+    zero_w = f.name
+_set_env("POKEMON_AI_WEIGHTS_PATH", zero_w)
+reset_cache()
+r4, reason4 = maybe_rank_with_reason({}, [{"id": "mystery", "label": "unknown", "type": "unknown"}])
+check("all scores zero -> reason=all_scores_zero", reason4 == "all_scores_zero")
+os.unlink(zero_w)
+
+with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+    json.dump({"use_crispin_value": 55.0}, f)
+    good_w = f.name
+_set_env("POKEMON_AI_WEIGHTS_PATH", good_w)
+reset_cache()
+r5, reason5 = maybe_rank_with_reason({}, [{"id": "play_crispin", "label": "アカマツ", "type": "supporter"}])
+check("success -> reason=None", reason5 is None)
+check("success -> ranked list", r5 is not None and len(r5) == 1)
+os.unlink(good_w)
 
 # Cleanup env
 for key in ("POKEMON_AI_USE_LEARNED_WEIGHTS", "POKEMON_AI_WEIGHTS_PATH", "POKEMON_AI_WEIGHTS_FALLBACK_PATH"):

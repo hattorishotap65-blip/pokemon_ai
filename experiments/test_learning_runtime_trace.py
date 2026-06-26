@@ -67,15 +67,21 @@ entry = build_trace_entry(state, cands, ranked, existing_scores, existing_ranked
 check("has ts", "ts" in entry and entry["ts"] > 0)
 check("used_advisor true when no fallback", entry["used_advisor"] is True)
 check("advisor_top is crispin", entry["advisor_top"] == "play_crispin")
+check("advisor_top_index is 0", entry["advisor_top_index"] == 0)
 check("existing_top_index is 1", entry["existing_top_index"] == 1)
+check("advisor_overrode_existing true", entry["advisor_overrode_existing"] is True)
 check("selected_indices present", entry["selected_indices"] == [0])
 check("advisor_scores present", len(entry["advisor_scores"]) == 2)
 check("candidates summary present", len(entry["candidates"]) == 2)
 check("state_summary has active", entry["state_summary"]["active"] == "Raging Bolt ex")
 
-entry_fb = build_trace_entry(state, cands, None, existing_scores, existing_ranked, [1, 0], "advisor_returned_none")
+entry_fb = build_trace_entry(state, cands, None, existing_scores, existing_ranked, [1, 0], "weights_missing")
 check("fallback entry: used_advisor false", entry_fb["used_advisor"] is False)
-check("fallback entry: reason present", entry_fb["fallback_reason"] == "advisor_returned_none")
+check("fallback entry: reason is weights_missing", entry_fb["fallback_reason"] == "weights_missing")
+check("fallback entry: advisor_overrode false", entry_fb["advisor_overrode_existing"] is False)
+
+entry_same = build_trace_entry(state, cands, [{"action_id": "x", "score": 1.0, "original_index": 1}], existing_scores, existing_ranked, [1], None)
+check("same top: advisor_overrode false", entry_same["advisor_overrode_existing"] is False)
 
 entry_empty = build_trace_entry({}, [], None, [], [], [], "no_candidates")
 check("empty inputs: no crash", isinstance(entry_empty, dict))

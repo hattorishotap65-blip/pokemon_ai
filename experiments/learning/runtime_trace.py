@@ -37,9 +37,11 @@ def build_trace_entry(
 ) -> dict:
     """Build a trace entry dict for one decision point."""
     advisor_top = None
+    advisor_top_idx = -1
     advisor_scores = []
     if ranked:
         advisor_top = ranked[0].get("action_id", "") if ranked else None
+        advisor_top_idx = ranked[0].get("original_index", -1) if ranked else -1
         advisor_scores = [
             {"action_id": r.get("action_id", ""), "score": r.get("score", 0.0),
              "original_index": r.get("original_index", -1)}
@@ -47,6 +49,10 @@ def build_trace_entry(
         ]
 
     existing_top_idx = existing_ranked_indices[0] if existing_ranked_indices else -1
+    advisor_overrode = (
+        fallback_reason is None and ranked is not None
+        and advisor_top_idx >= 0 and advisor_top_idx != existing_top_idx
+    )
 
     cand_summary = []
     for c in (candidates or [])[:8]:
@@ -63,7 +69,9 @@ def build_trace_entry(
         "used_advisor": used_advisor,
         "fallback_reason": fallback_reason,
         "advisor_top": advisor_top,
+        "advisor_top_index": advisor_top_idx,
         "existing_top_index": existing_top_idx,
+        "advisor_overrode_existing": advisor_overrode,
         "selected_indices": selected_indices[:3],
         "advisor_scores": advisor_scores,
         "existing_scores_top3": [

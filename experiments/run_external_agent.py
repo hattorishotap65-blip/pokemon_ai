@@ -90,14 +90,14 @@ def main():
         try:
             obs, start_data = battle_start(deck, deck)
             if obs is None:
-                results.append({"game": gid, "winner": "error", "turns": 0, "error": "start_failed"})
+                results.append({"game": gid, "game_id": gid, "winner": "error", "turns": 0, "error": "start_failed", "returncode": 1})
                 continue
 
             for step in range(2000):
                 obc = to_observation_class(obs)
                 if obc.current.result >= 0:
                     winner = "p0" if obc.current.result == 0 else "p1" if obc.current.result == 1 else "draw"
-                    results.append({"game": gid, "winner": winner, "turns": obc.current.turn, "error": ""})
+                    results.append({"game": gid, "game_id": gid, "winner": winner, "turns": obc.current.turn, "error": "", "returncode": 0})
                     break
 
                 sel = obc.select
@@ -114,9 +114,9 @@ def main():
 
                 obs = battle_select(chosen)
             else:
-                results.append({"game": gid, "winner": "timeout", "turns": 2000, "error": "max_steps"})
+                results.append({"game": gid, "game_id": gid, "winner": "timeout", "turns": 2000, "error": "max_steps", "returncode": -1})
         except Exception as ex:
-            results.append({"game": gid, "winner": "error", "turns": 0, "error": str(ex)[:100]})
+            results.append({"game": gid, "game_id": gid, "winner": "error", "turns": 0, "error": str(ex)[:100], "returncode": 1})
         finally:
             if obs is not None:
                 try:

@@ -114,6 +114,18 @@ Each trace entry (JSONL) includes:
 
 Trace logging never crashes runtime — all errors are silently ignored.
 
+### Analyzing Traces
+
+```bash
+python experiments/learning/analyze_runtime_traces.py \
+    --trace experiments/learning/runtime_traces/advisor_trace.jsonl \
+    --report experiments/learning/runtime_traces/trace_report.md \
+    --summary experiments/learning/runtime_traces/trace_summary.json
+```
+
+Outputs: advisor usage rate, fallback reasons, override rate,
+top action distribution, and average advisor scores.
+
 ## Scope
 
 - Target deck: Raging Bolt ex + Teal Mask Ogerpon ex

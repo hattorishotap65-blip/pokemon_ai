@@ -20,6 +20,17 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 CG_PATH = os.path.join(PROJECT_ROOT, "reference", "extracted")
 
+agents_dir = os.path.join(SCRIPT_DIR, "agents")
+if not os.path.isdir(agents_dir):
+    print("=" * 60)
+    print("agents/ directory not found at: %s" % agents_dir)
+    print()
+    print("Setup: clone ptcg-abc and copy agents/")
+    print("  git clone https://github.com/wmh/ptcg-abc /tmp/ptcg-abc")
+    print("  cp -r /tmp/ptcg-abc/agents %s/" % SCRIPT_DIR)
+    print("=" * 60)
+    sys.exit(1)
+
 sys.path.insert(0, CG_PATH)
 
 server_path = os.path.join(SCRIPT_DIR, "server.py")

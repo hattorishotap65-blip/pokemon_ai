@@ -138,24 +138,38 @@ ME = {'mod': None, 'deck': None, 'Policy': None, 'name': None}
 _LOADED = {}   # name -> {deck, mod, Policy}
 
 
+def _resolve_deck_dir(name):
+    """Resolve the actual directory for a deck agent."""
+    d = ROOT + '/' + DECKS[name][1]
+    if os.path.isdir(d) and os.path.exists(d + '/deck.csv'):
+        return d
+    return None
+
+
 def _load_deck(name):
     """Load a deck's main.py once: its deck list, module (has agent()), and *Policy if any."""
     if name not in DECKS:
-        name = 'dragapult'
+        name = list(DECKS.keys())[0]
     if name in _LOADED:
         return _LOADED[name]
-    d = ROOT + '/' + DECKS[name][1]
+    d = _resolve_deck_dir(name)
+    if d is None:
+        raise FileNotFoundError(
+            "agents/%s not found under ROOT=%s. "
+            "Copy agent decks to %s/agents/ first." % (name, ROOT, ROOT))
+    print("[load] deck=%s dir=%s" % (name, d))
     deck = [int(l) for l in open(d + '/deck.csv') if l.strip()]
     mod = types.ModuleType('deck_' + name)
     mod.__dict__['__file__'] = d + '/main.py'
-    sys.path.insert(0, d); sys.path.insert(0, ROOT + '/agents/_base')
+    base_dir = ROOT + '/agents/_base'
+    if os.path.isdir(base_dir):
+        sys.path.insert(0, base_dir)
+    sys.path.insert(0, d)
     cur = os.getcwd(); os.chdir(d)
     try:
         exec(compile(open(d + '/main.py').read(), d + '/main.py', 'exec'), mod.__dict__)
     finally:
         os.chdir(cur)
-    # pick the CONCRETE deck Policy — exclude the imported abstract bases (BasePolicy/GenericPolicy
-    # also end in 'Policy' and would shadow the real one).
     cands = [v for k, v in mod.__dict__.items()
              if k.endswith('Policy') and isinstance(v, type)
              and k not in ('BasePolicy', 'GenericPolicy')
@@ -165,18 +179,36 @@ def _load_deck(name):
     return _LOADED[name]
 
 
+def _find_available_decks():
+    """Return list of deck names that have agents/ directories present."""
+    return [k for k in DECKS if _resolve_deck_dir(k) is not None]
+
+
 def load_me(name):
     """Load the deck you pilot (per-option AI scores shown if it has a *Policy)."""
-    L = _load_deck(name if name in DECKS else 'megastarmie')
-    ME.update(mod=L['mod'], deck=L['deck'], Policy=L['Policy'],
-              name=(name if name in DECKS else 'megastarmie'))
+    avail = _find_available_decks()
+    if not avail:
+        raise FileNotFoundError(
+            "No agent decks found under %s/agents/. "
+            "Copy ptcg-abc agents/ directory first." % ROOT)
+    pick = name if name in avail else avail[0]
+    L = _load_deck(pick)
+    ME.update(mod=L['mod'], deck=L['deck'], Policy=L['Policy'], name=pick)
 
 
-load_me('megastarmie')   # default
+avail = _find_available_decks()
+if avail:
+    load_me(avail[0])
+    print("[init] %d decks available: %s" % (len(avail), ', '.join(avail)))
+else:
+    print("[warn] No agent decks found under %s/agents/. "
+          "Copy ptcg-abc agents/ directory to start." % ROOT)
 
 
 def load_opp(name):
-    L = _load_deck(name if name in DECKS else 'dragapult')
+    avail = _find_available_decks()
+    pick = name if name in avail else avail[0]
+    L = _load_deck(pick)
     return L['mod'], L['deck']
 
 
@@ -542,8 +574,9 @@ class H(BaseHTTPRequestHandler):
             if data:
                 return self._send(200, data, 'image/png')
             return self._send(404, b'', 'image/png')
-        if u.path == '/decks':   # list of all decks (JSON, for the UI dropdowns)
-            return self._send(200, json.dumps([{'id': k, 'name': v[0]} for k, v in DECKS.items()]))
+        if u.path == '/decks':
+            avail = _find_available_decks()
+            return self._send(200, json.dumps([{'id': k, 'name': DECKS[k][0]} for k in avail]))
         if u.path == '/deck' or u.path.startswith('/deck/'):
             name = u.path[len('/deck/'):] if u.path.startswith('/deck/') else ''
             return self._send(200, deck_page_html(name).encode('utf-8'), 'text/html; charset=utf-8')

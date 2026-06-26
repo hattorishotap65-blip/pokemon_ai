@@ -18,7 +18,7 @@ PDF_PATH = os.path.join(PROJECT_ROOT, "reference", "Card_ID_List_EN.pdf")
 CSV_PATH = os.path.join(PROJECT_ROOT, "reference", "EN_Card_Data.csv")
 IMG_MAP_PATH = os.path.join(SCRIPT_DIR, "card_images.json")
 OUT_DIR = os.path.join(SCRIPT_DIR, "card_imgs")
-AGENTS_DIR = os.path.join(SCRIPT_DIR, os.pardir, "agents")
+AGENTS_DIR = os.path.join(SCRIPT_DIR, "agents")
 
 try:
     import fitz

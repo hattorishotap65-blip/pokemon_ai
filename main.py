@@ -180,19 +180,41 @@ class LucarioPolicy:
 
         # --- learned weight advisor (default off) ---
         if os.environ.get("POKEMON_AI_USE_LEARNED_WEIGHTS") == "1":
+            _adv_ranked = None
+            _adv_candidates = None
+            _adv_state = None
+            _adv_fallback = None
             try:
-                from experiments.learning.runtime_advisor_hook import maybe_rank_with_learned_weights
+                from experiments.learning.runtime_advisor_hook import maybe_rank_with_reason
                 from experiments.learning.runtime_candidate_builder import (
                     build_runtime_candidates, build_runtime_state,
                 )
-                advisor_state = build_runtime_state(self)
-                advisor_candidates = build_runtime_candidates(self)
-                advisor_ranked = maybe_rank_with_learned_weights(advisor_state, advisor_candidates)
-                if advisor_ranked:
-                    ranked = [r["original_index"] for r in advisor_ranked]
-                    return ranked[: self.select.maxCount]
+                _adv_state = build_runtime_state(self)
+                _adv_candidates = build_runtime_candidates(self)
+                _adv_ranked, _adv_fallback = maybe_rank_with_reason(_adv_state, _adv_candidates)
+            except Exception as _ex:
+                _adv_fallback = "hook_exception:%s" % type(_ex).__name__
+
+            _existing_ranked = [i for i, _ in sorted(enumerate(scores), key=lambda item: item[1], reverse=True)]
+
+            if _adv_ranked and _adv_fallback is None:
+                _selected = [r["original_index"] for r in _adv_ranked][:self.select.maxCount]
+            else:
+                self._remember_lunatone_ability(_existing_ranked)
+                _selected = _existing_ranked[:self.select.maxCount]
+
+            try:
+                from experiments.learning.runtime_trace import trace_enabled, build_trace_entry, write_advisor_trace
+                if trace_enabled():
+                    trace = build_trace_entry(
+                        _adv_state, _adv_candidates, _adv_ranked,
+                        scores, _existing_ranked, _selected, _adv_fallback,
+                    )
+                    write_advisor_trace(trace)
             except Exception:
                 pass
+
+            return _selected
 
         ranked = [i for i, _ in sorted(enumerate(scores), key=lambda item: item[1], reverse=True)]
         self._remember_lunatone_ability(ranked)

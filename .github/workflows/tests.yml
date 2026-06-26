@@ -130,5 +130,8 @@ jobs:
       - name: Run learning runtime candidate builder tests
         run: python experiments/test_learning_runtime_candidate_builder.py
 
+      - name: Run learning runtime trace tests
+        run: python experiments/test_learning_runtime_trace.py
+
       - name: Run advise_action CLI smoke test
         run: python experiments/learning/advise_action.py --logs experiments/learning/sample_logs/raging_ogerpon_sample.jsonl --weights experiments/learning/params/raging_ogerpon_default.json --show-mismatches 1

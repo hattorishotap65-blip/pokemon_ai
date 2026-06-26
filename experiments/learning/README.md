@@ -92,6 +92,28 @@ The runtime hook builds rich advisor candidates from actual runtime options:
 - Builds runtime state (active/bench/hand/discard/prizes)
 - Falls back safely when card data is unavailable
 
+## Decision Trace Logging
+
+Enable trace logging to see what the advisor decided:
+
+```bash
+POKEMON_AI_USE_LEARNED_WEIGHTS=1
+POKEMON_AI_TRACE_LEARNED_WEIGHTS=1
+POKEMON_AI_TRACE_PATH=experiments/learning/runtime_traces/advisor_trace.jsonl
+```
+
+Each trace entry (JSONL) includes:
+- `used_advisor`: whether advisor ranking was used
+- `fallback_reason`: why fallback to existing logic (or null)
+- `advisor_top`: advisor's top candidate id
+- `existing_top_index`: existing scoring's top index
+- `advisor_scores`: top-5 advisor scores
+- `existing_scores_top3`: top-3 existing scores
+- `candidates`: normalized candidate summaries
+- `state_summary`: active/prizes/opponent
+
+Trace logging never crashes runtime — all errors are silently ignored.
+
 ## Scope
 
 - Target deck: Raging Bolt ex + Teal Mask Ogerpon ex

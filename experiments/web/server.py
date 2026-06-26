@@ -122,17 +122,16 @@ def render_card_png(cid):
 
 # ── strong decks: selectable for BOTH player and opponent ────────────────────
 try:
-    from deck_registry import DECKS, resolve_deck_dir, available_decks
-    def _resolve_deck_dir(name):
-        return resolve_deck_dir(name, ROOT)
-    def _find_available_decks():
-        return available_decks(ROOT)
+    from deck_registry import (DECKS, resolve_deck_dir, available_decks,
+                               deck_csv_path as _deck_csv_path,
+                               agent_main_path as _agent_main_path)
 except ImportError:
-    from experiments.web.deck_registry import DECKS, resolve_deck_dir, available_decks
-    def _resolve_deck_dir(name):
-        return resolve_deck_dir(name, ROOT)
-    def _find_available_decks():
-        return available_decks(ROOT)
+    from experiments.web.deck_registry import (DECKS, resolve_deck_dir, available_decks,
+                                               deck_csv_path as _deck_csv_path,
+                                               agent_main_path as _agent_main_path)
+
+def _find_available_decks():
+    return available_decks(ROOT)
 
 ME = {'mod': None, 'deck': None, 'Policy': None, 'name': None}
 _LOADED = {}   # name -> {deck, mod, Policy}
@@ -144,22 +143,24 @@ def _load_deck(name):
         name = list(DECKS.keys())[0]
     if name in _LOADED:
         return _LOADED[name]
-    d = _resolve_deck_dir(name)
-    if d is None:
-        raise FileNotFoundError(
-            "agents/%s not found under ROOT=%s. "
-            "Copy agent decks to %s/agents/ first." % (name, ROOT, ROOT))
-    print("[load] deck=%s dir=%s" % (name, d))
-    deck = [int(l) for l in open(d + '/deck.csv') if l.strip()]
+    dc = _deck_csv_path(name, ROOT)
+    ag = _agent_main_path(name, ROOT)
+    if dc is None or not os.path.exists(dc):
+        raise FileNotFoundError("deck.csv not found for '%s'" % name)
+    if ag is None or not os.path.exists(ag):
+        raise FileNotFoundError("main.py not found for '%s'" % name)
+    print("[load] deck=%s csv=%s agent=%s" % (name, dc, ag))
+    deck = [int(l) for l in open(dc) if l.strip()]
     mod = types.ModuleType('deck_' + name)
-    mod.__dict__['__file__'] = d + '/main.py'
+    agent_dir = os.path.dirname(os.path.abspath(ag))
+    mod.__dict__['__file__'] = os.path.abspath(ag)
     base_dir = ROOT + '/agents/_base'
     if os.path.isdir(base_dir):
         sys.path.insert(0, base_dir)
-    sys.path.insert(0, d)
-    cur = os.getcwd(); os.chdir(d)
+    sys.path.insert(0, agent_dir)
+    cur = os.getcwd(); os.chdir(agent_dir)
     try:
-        exec(compile(open(d + '/main.py').read(), d + '/main.py', 'exec'), mod.__dict__)
+        exec(compile(open(ag).read(), ag, 'exec'), mod.__dict__)
     finally:
         os.chdir(cur)
     cands = [v for k, v in mod.__dict__.items()
@@ -479,12 +480,12 @@ def deck_page_html(name):
     if name not in DECKS:
         body = '<h1>デッキ図鑑</h1><p>上のデッキ名をクリックすると、デッキリストと戦略を表示します。</p>'
         return _DECK_HTML.replace('{{nav}}', nav).replace('{{body}}', body).replace('{{title}}', 'デッキ図鑑')
-    d = _resolve_deck_dir(name)
-    if d is None:
+    dc = _deck_csv_path(name, ROOT)
+    if dc is None or not os.path.exists(dc):
         body = f'<h1>{DECKS[name][0]}</h1><p>deck.csv が見つかりません。agents/ をコピーしてください。</p>'
         return _DECK_HTML.replace('{{nav}}', nav).replace('{{body}}', body).replace('{{title}}', DECKS[name][0])
     from collections import Counter
-    deck = [int(l) for l in open(d + '/deck.csv') if l.strip()]
+    deck = [int(l) for l in open(dc) if l.strip()]
     cnt = Counter(deck)
     groups = {'poke': [], 'trainer': [], 'energy': []}
     for cid, n in sorted(cnt.items(), key=lambda kv: (-kv[1], kv[0])):

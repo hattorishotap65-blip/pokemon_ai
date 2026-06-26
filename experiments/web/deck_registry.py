@@ -10,10 +10,17 @@ import os
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", ".."))
 
-# path value: relative to root (for agents/) or starts with "/" for absolute-style
-# Special: "@@PROJECT_ROOT" resolves to the project root directory
+# Each entry: (display_name, deck_spec)
+# deck_spec types:
+#   "agents/<name>"           - agents/ subdir with deck.csv + main.py
+#   "@@PROJECT_ROOT"          - project root deck.csv + main.py
+#   {"deck": <path>, "agent": <path>}  - explicit paths relative to project root
 DECKS = {
-    'my_deck':        ('自分のデッキ (project root)', '@@PROJECT_ROOT'),
+    'my_deck':        ('自分のデッキ (Lucario)', '@@PROJECT_ROOT'),
+    'raging_bolt':    ('タケルライコex + オーガポンex', {
+        'deck': 'experiments/decks/raging_bolt_ogerpon.csv',
+        'agent': 'main.py',
+    }),
     'dragapult':      ('Dragapult ex ドラパルト', 'agents/dragapult'),
     'megastarmie':    ('Mega Starmie ex + Cinderace', 'agents/megastarmie'),
     'megastarmie_v2': ('Mega Starmie v2', 'agents/megastarmie_v2'),
@@ -26,38 +33,69 @@ DECKS = {
 }
 
 
-def resolve_deck_dir(name, root=None):
-    """Return absolute path to a deck agent dir, or None if not found."""
+def _resolve_spec(name, root=None):
+    """Return (deck_csv_path, agent_main_path) or (None, None)."""
     if name not in DECKS:
-        return None
+        return None, None
     if root is None:
         root = _SCRIPT_DIR
-    path_spec = DECKS[name][1]
-    if path_spec == '@@PROJECT_ROOT':
-        d = _PROJECT_ROOT
-    else:
-        d = os.path.join(root, path_spec)
-    if os.path.isdir(d) and os.path.exists(os.path.join(d, 'deck.csv')):
-        return d
-    return None
+    spec = DECKS[name][1]
+
+    if spec == '@@PROJECT_ROOT':
+        dc = os.path.join(_PROJECT_ROOT, 'deck.csv')
+        ag = os.path.join(_PROJECT_ROOT, 'main.py')
+        if os.path.exists(dc):
+            return dc, ag if os.path.exists(ag) else None
+        return None, None
+
+    if isinstance(spec, dict):
+        dc = os.path.join(_PROJECT_ROOT, spec['deck'])
+        ag = os.path.join(_PROJECT_ROOT, spec['agent'])
+        if os.path.exists(dc):
+            return dc, ag if os.path.exists(ag) else None
+        return None, None
+
+    # agents/<name> style
+    d = os.path.join(root, spec)
+    dc = os.path.join(d, 'deck.csv')
+    ag = os.path.join(d, 'main.py')
+    if os.path.isdir(d) and os.path.exists(dc):
+        return dc, ag if os.path.exists(ag) else None
+    return None, None
+
+
+def resolve_deck_dir(name, root=None):
+    """Return absolute path to a deck agent dir, or None if not found.
+
+    For dict-spec entries (split deck/agent), returns the agent's directory.
+    """
+    if name not in DECKS:
+        return None
+    spec = DECKS[name][1]
+    if isinstance(spec, dict):
+        ag = os.path.join(_PROJECT_ROOT, spec['agent'])
+        dc = os.path.join(_PROJECT_ROOT, spec['deck'])
+        if os.path.exists(dc):
+            return os.path.dirname(ag)
+        return None
+    dc, _ = _resolve_spec(name, root)
+    if dc is None:
+        return None
+    return os.path.dirname(dc)
 
 
 def available_decks(root=None):
-    """Return list of deck names whose agent dirs exist."""
-    return [k for k in DECKS if resolve_deck_dir(k, root) is not None]
+    """Return list of deck names whose deck files exist."""
+    return [k for k in DECKS if _resolve_spec(k, root)[0] is not None]
 
 
 def deck_csv_path(name, root=None):
     """Return path to deck.csv for a given deck name, or None."""
-    d = resolve_deck_dir(name, root)
-    if d is None:
-        return None
-    return os.path.join(d, 'deck.csv')
+    dc, _ = _resolve_spec(name, root)
+    return dc
 
 
 def agent_main_path(name, root=None):
     """Return path to main.py for a given deck name, or None."""
-    d = resolve_deck_dir(name, root)
-    if d is None:
-        return None
-    return os.path.join(d, 'main.py')
+    _, ag = _resolve_spec(name, root)
+    return ag

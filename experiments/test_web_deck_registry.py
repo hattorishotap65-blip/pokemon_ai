@@ -32,17 +32,29 @@ print("=== DECKS registry ===")
 check("DECKS has entries", len(DECKS) >= 5)
 check("lucario_v3 in DECKS", "lucario_v3" in DECKS)
 check("dragapult in DECKS", "dragapult" in DECKS)
-for name, (display, path) in DECKS.items():
+for name, (display, spec) in DECKS.items():
     check("%s display is string" % name, isinstance(display, str) and len(display) > 0)
-    check("%s path is valid spec" % name, path.startswith("agents/") or path == "@@PROJECT_ROOT")
+    valid = (isinstance(spec, str) and (spec.startswith("agents/") or spec == "@@PROJECT_ROOT")) \
+            or isinstance(spec, dict)
+    check("%s spec is valid" % name, valid)
 
 print("\n=== my_deck (project root) ===")
 check("my_deck in DECKS", "my_deck" in DECKS)
-my_dir = resolve_deck_dir("my_deck")
-check("my_deck resolves", my_dir is not None)
-if my_dir:
-    check("my_deck has deck.csv", os.path.exists(os.path.join(my_dir, "deck.csv")))
-    check("my_deck has main.py", os.path.exists(os.path.join(my_dir, "main.py")))
+check("my_deck resolves", resolve_deck_dir("my_deck") is not None)
+check("my_deck deck_csv", deck_csv_path("my_deck") is not None)
+check("my_deck agent_main", agent_main_path("my_deck") is not None)
+
+print("\n=== raging_bolt (dict spec) ===")
+check("raging_bolt in DECKS", "raging_bolt" in DECKS)
+check("raging_bolt resolves", resolve_deck_dir("raging_bolt") is not None)
+rb_csv = deck_csv_path("raging_bolt")
+check("raging_bolt deck_csv exists", rb_csv is not None and os.path.exists(rb_csv))
+rb_agent = agent_main_path("raging_bolt")
+check("raging_bolt agent_main exists", rb_agent is not None and os.path.exists(rb_agent))
+if rb_csv:
+    with open(rb_csv) as f:
+        cards = [l.strip() for l in f if l.strip()]
+    check("raging_bolt has 60 cards", len(cards) == 60)
 
 print("\n=== resolve_deck_dir (no agents) ===")
 tmp = tempfile.mkdtemp()

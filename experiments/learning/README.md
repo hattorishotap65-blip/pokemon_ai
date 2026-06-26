@@ -51,6 +51,28 @@ The trainer uses a loss-aware multiplier on the learning rate:
 - Fast wins (<=5 turns) are slightly reinforced (x1.1)
 - Multiplier is clamped to [0.2, 2.0]
 
+## Runtime Weight Adapter
+
+Learned weights can be applied to runtime candidate actions:
+
+- `weight_profile.py`: safe weight loader with fallback
+- `agent_action_adapter.py`: normalize runtime actions into learning format
+- `decision_advisor.py`: rank candidates with learned weights
+- `advise_action.py`: CLI to evaluate advisor on sample logs
+
+Default agent behavior is unchanged. Optional runtime integration
+must be explicitly enabled via env vars.
+
+```bash
+python experiments/learning/advise_action.py \
+    --logs experiments/learning/sample_logs/raging_ogerpon_sample.jsonl \
+    --weights experiments/learning/params/raging_ogerpon_default.json
+```
+
+Currently the advisor is not connected to the runtime agent.
+To integrate, call `decision_advisor.rank_candidates()` from the
+agent's action selection hook with `POKEMON_AI_USE_LEARNED_WEIGHTS=1`.
+
 ## Scope
 
 - Target deck: Raging Bolt ex + Teal Mask Ogerpon ex

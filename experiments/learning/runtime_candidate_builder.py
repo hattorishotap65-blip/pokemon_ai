@@ -59,11 +59,15 @@ def _attack_name(policy, option) -> str:
         attack_id = _safe_attr(option, "attackId")
         if not attack_id:
             return ""
-        from main import card_table
-        for card_data in card_table.values():
-            attacks = _safe_attr(card_data, "attacks") or []
-            if attack_id in attacks:
-                return _safe_attr(card_data, "name", "") or ""
+        try:
+            from cg.api import all_attack
+            for atk in all_attack():
+                if _safe_attr(atk, "attackId") == attack_id:
+                    name = _safe_attr(atk, "name", "")
+                    if name:
+                        return name
+        except Exception:
+            pass
         return "attack_%s" % attack_id
     except Exception:
         return ""
@@ -72,25 +76,28 @@ def _attack_name(policy, option) -> str:
 def _infer_option_type(option) -> str:
     """Map OptionType enum to learning action type string."""
     try:
-        from cg.api import OptionType, CardType
+        from cg.api import OptionType
         otype = _safe_attr(option, "type")
-        if otype == OptionType.ATTACK:
-            return "attack"
-        if otype == OptionType.ABILITY:
-            return "ability"
-        if otype == OptionType.RETREAT:
-            return "retreat"
-        if otype == OptionType.ATTACH:
-            return "attach"
-        if otype == OptionType.EVOLVE:
-            return "evolve"
-        if otype == OptionType.END:
-            return "end"
-        if otype == OptionType.PLAY:
-            return "play"
-        if otype in (OptionType.YES, OptionType.NO, OptionType.NUMBER,
-                     OptionType.CARD, OptionType.ENERGY_CARD, OptionType.ENERGY):
-            return "choice"
+        if otype is None:
+            return "unknown"
+
+        _MAP = {
+            getattr(OptionType, "ATTACK", None): "attack",
+            getattr(OptionType, "ABILITY", None): "ability",
+            getattr(OptionType, "RETREAT", None): "retreat",
+            getattr(OptionType, "ATTACH", None): "attach",
+            getattr(OptionType, "EVOLVE", None): "evolve",
+            getattr(OptionType, "END", None): "end",
+            getattr(OptionType, "PLAY", None): "play",
+            getattr(OptionType, "YES", None): "choice",
+            getattr(OptionType, "NO", None): "choice",
+            getattr(OptionType, "NUMBER", None): "choice",
+            getattr(OptionType, "CARD", None): "choice",
+            getattr(OptionType, "ENERGY_CARD", None): "choice",
+            getattr(OptionType, "ENERGY", None): "choice",
+        }
+        _MAP.pop(None, None)
+        return _MAP.get(otype, "unknown")
     except Exception:
         pass
     return "unknown"
@@ -99,7 +106,7 @@ def _infer_option_type(option) -> str:
 def _refine_play_type(card_name: str, policy, option) -> str:
     """Refine 'play' into supporter/item/play_pokemon using card data."""
     try:
-        from cg.api import AreaType, CardType
+        from cg.api import CardType
         area = _safe_attr(option, "area")
         index = _safe_attr(option, "index")
         player_index = _safe_attr(option, "playerIndex", policy.my_index)
@@ -118,13 +125,21 @@ def _refine_play_type(card_name: str, policy, option) -> str:
             return "play_pokemon"
 
         ctype = _safe_attr(data, "cardType")
-        if ctype == CardType.SUPPORTER:
+        ct_supporter = getattr(CardType, "SUPPORTER", None)
+        ct_item = getattr(CardType, "ITEM", None)
+        ct_tool = getattr(CardType, "TOOL", None)
+        ct_stadium = getattr(CardType, "STADIUM", None)
+        ct_pokemon = getattr(CardType, "POKEMON", None)
+
+        if ct_supporter is not None and ctype == ct_supporter:
             return "supporter"
-        if ctype in (CardType.ITEM, CardType.TOOL):
+        if ct_item is not None and ctype == ct_item:
             return "item"
-        if ctype == CardType.STADIUM:
+        if ct_tool is not None and ctype == ct_tool:
+            return "item"
+        if ct_stadium is not None and ctype == ct_stadium:
             return "stadium"
-        if ctype == CardType.POKEMON:
+        if ct_pokemon is not None and ctype == ct_pokemon:
             return "play_pokemon"
         return "trainer"
     except Exception:

@@ -115,6 +115,37 @@ print("\n=== build_runtime_state ===")
 state = build_runtime_state(policy)
 check("returns dict", isinstance(state, dict))
 
+print("\n=== _infer_option_type with enum values ===")
+
+try:
+    from cg.api import OptionType
+    _has_cg = True
+except ImportError:
+    _has_cg = False
+
+if _has_cg:
+    _enum_cases = [
+        ("ATTACK", "attack"), ("ABILITY", "ability"), ("RETREAT", "retreat"),
+        ("ATTACH", "attach"), ("EVOLVE", "evolve"), ("PLAY", "play"),
+        ("YES", "choice"), ("NO", "choice"), ("NUMBER", "choice"),
+        ("CARD", "choice"), ("ENERGY_CARD", "choice"), ("ENERGY", "choice"),
+    ]
+    for enum_name, expected in _enum_cases:
+        enum_val = getattr(OptionType, enum_name, None)
+        if enum_val is not None:
+            result = _infer_option_type(DummyOption(type=enum_val))
+            check("OptionType.%s -> %s" % (enum_name, expected), result == expected)
+        else:
+            check("OptionType.%s skipped (not in cg.api)" % enum_name, True)
+    check("None type -> unknown", _infer_option_type(DummyOption(type=None)) == "unknown")
+else:
+    check("cg.api not available, enum tests skipped", True)
+
+print("\n=== _infer_option_type without cg.api ===")
+
+check("unknown type string -> unknown", _infer_option_type(DummyOption(type="random_string")) == "unknown")
+check("no type attr -> unknown", _infer_option_type(DummyOption()) == "unknown")
+
 print("\n=== edge cases ===")
 
 bad_opt = "not an option"

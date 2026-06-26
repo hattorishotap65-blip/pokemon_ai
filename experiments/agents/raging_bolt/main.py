@@ -45,7 +45,10 @@ MYRIAD_LEAF_SHOWER = 120
 
 BASIC_ENERGY_IDS = {C.BASIC_GRASS_ENERGY, C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY}
 
-_PARAMS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "params.json")
+_PARAMS_PATH = os.environ.get(
+    "POKEMON_AI_PARAMS_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "params.json"),
+)
 if not os.path.exists(_PARAMS_PATH):
     _PARAMS_PATH = os.path.join(os.path.dirname(__file__), "params.json")
 
@@ -300,8 +303,8 @@ class RagingBoltPolicy:
 
         if cid == C.BOSS_ORDERS:
             if self.opp_active and self._can_ko_active():
-                return self.p("score_supporter_boss", 900)
-            return self.p("score_supporter_boss_can_ko", 1200) - 500
+                return self.p("score_supporter_boss_can_ko", 1200)
+            return self.p("score_supporter_boss", 900)
 
         if cid == C.ULTRA_BALL:
             return self.p("score_item_ultra_ball", 500)

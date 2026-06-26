@@ -145,6 +145,9 @@ jobs:
       - name: Run raging bolt agent tests
         run: python experiments/test_raging_bolt_agent.py
 
+      - name: Run human trace tests
+        run: python experiments/test_human_trace.py
+
       - name: Run learning trace analyzer tests
         run: python experiments/test_learning_trace_analyzer.py
 

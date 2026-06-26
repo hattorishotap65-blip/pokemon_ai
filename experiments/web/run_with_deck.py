@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--label", default="")
     parser.add_argument("--weights", default="", help="Path to learned weights JSON")
     parser.add_argument("--fallback-weights", default="", help="Path to fallback weights JSON")
+    parser.add_argument("--params", default="", help="Path to params.json (sets POKEMON_AI_PARAMS_PATH)")
     args = parser.parse_args()
 
     avail = available_decks(SCRIPT_DIR)
@@ -78,8 +79,13 @@ def main():
     if args.fallback_weights:
         cmd.extend(["--fallback-weights", args.fallback_weights])
 
+    env = dict(os.environ)
+    if args.params:
+        env["POKEMON_AI_PARAMS_PATH"] = os.path.abspath(args.params)
+        print("[run_with_deck] params=%s" % args.params)
+
     print("[run_with_deck] command: %s" % " ".join(cmd))
-    r = subprocess.run(cmd)
+    r = subprocess.run(cmd, env=env)
     sys.exit(r.returncode)
 
 

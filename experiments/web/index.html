@@ -393,14 +393,21 @@ function render(s){
   if(MULTI) $('#confirm').style.display='block';
 }
 function togCon(i,el){ if(el.checked) CONSIDERED.add(i); else CONSIDERED.delete(i); }
+function _checkRecTags(){
+  if(!REC) return true;
+  if(!TURN_GOAL){alert('「このターンの目標」を選んでください');return false;}
+  if(REASONS.size===0){alert('「行動理由」を1つ以上選んでください');return false;}
+  return true;
+}
 function pick(i,btn){
   if(MULTI){ const k=SEL.indexOf(i);
     if(k>=0){SEL.splice(k,1);btn.classList.remove('sel');} else {SEL.push(i);btn.classList.add('sel');}
-  } else send([i]);
+  } else { if(!_checkRecTags()) return; send([i]); }
 }
 function confirmMulti(){
   const min=STATE.multi?.min??0, max=STATE.multi?.max??999;
   if(SEL.length<min||SEL.length>max){alert(`${min}〜${max}個を選んでください`);return;}
+  if(!_checkRecTags()) return;
   send(SEL.slice());
 }
 function detailLive(el){

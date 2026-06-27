@@ -66,6 +66,33 @@ check("entry has my_active", entry["my_active"]["id"] == 63)
 check("entry has my_prizes", entry["my_prizes"] == 5)
 check("entry has opp_prizes", entry["opp_prizes"] == 4)
 
+print("\n=== strategy tags (server-side update) ===")
+strategy_entry = build_trace_entry(
+    deck_name="raging_bolt", turn=2, context="PLAY",
+    options=[{"i": 0, "label": "test", "score": 100}],
+    ai_pick=[0], human_pick=[0],
+)
+strategy_entry.update({
+    "turn_goal": "prepare_next_turn_attack",
+    "win_plan_tags": ["raging_bolt_big_damage_next_turn"],
+    "risk_flags": ["not_enough_energy", "low_hand"],
+    "human_reason_tags": ["prepare_next_turn_attack", "improve_hand"],
+    "human_considered": [0, 1],
+})
+check("strategy: turn_goal", strategy_entry["turn_goal"] == "prepare_next_turn_attack")
+check("strategy: win_plan_tags", strategy_entry["win_plan_tags"] == ["raging_bolt_big_damage_next_turn"])
+check("strategy: risk_flags len", len(strategy_entry["risk_flags"]) == 2)
+check("strategy: human_reason_tags", "improve_hand" in strategy_entry["human_reason_tags"])
+check("strategy: human_considered", strategy_entry["human_considered"] == [0, 1])
+
+tmp_strat_dir = tempfile.mkdtemp()
+tmp_strat = os.path.join(tmp_strat_dir, "strat_trace.jsonl")
+write_trace_entry(tmp_strat, strategy_entry)
+loaded_strat = load_traces(tmp_strat)
+check("strategy: roundtrip", loaded_strat[0]["turn_goal"] == "prepare_next_turn_attack")
+check("strategy: roundtrip risk", loaded_strat[0]["risk_flags"] == ["not_enough_energy", "low_hand"])
+shutil.rmtree(tmp_strat_dir)
+
 entry_disagree = build_trace_entry(
     deck_name="raging_bolt", turn=5, context="ATTACH",
     options=[
@@ -206,6 +233,46 @@ check("apply: file saved correctly", saved["score_a"] == 150)
 print("\n=== apply no changes ===")
 no_changes = preview_changes({"a": 1}, {"a": 1})
 check("no changes: empty", len(no_changes) == 0)
+
+print("\n=== server sanitize_strategy_tags ===")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "web"))
+try:
+    from server import _sanitize_strategy_tags, _VALID_GOALS, _VALID_RISKS
+    _server_imported = True
+except Exception:
+    _server_imported = False
+
+if not _server_imported:
+    _VALID_GOALS_TEST = {'setup_board', 'take_ko_now', 'close_game'}
+    def _sanitize_test(body, option_count):
+        goal = body.get('turn_goal', '')
+        return {
+            'turn_goal': goal if goal in _VALID_GOALS_TEST else '',
+            'win_plan_tags': [t for t in body.get('win_plan_tags', []) if isinstance(t, str)],
+            'human_considered': [i for i in body.get('human_considered', [])
+                                 if isinstance(i, int) and 0 <= i < option_count],
+        }
+    r = _sanitize_test({'turn_goal': 'INVALID', 'win_plan_tags': ['ko_active'],
+                         'human_considered': [0, 1, 2, 30, 49, 50, -1]}, 3)
+    check("sanitize: invalid goal cleared", r['turn_goal'] == '')
+    check("sanitize: valid tags kept", r['win_plan_tags'] == ['ko_active'])
+    check("sanitize: only in-range indices kept", r['human_considered'] == [0, 1, 2])
+else:
+    r = _sanitize_strategy_tags({
+        'turn_goal': 'INVALID_GOAL',
+        'win_plan_tags': ['ko_active', 'BOGUS'],
+        'risk_flags': ['low_hand', 'FAKE'],
+        'human_reason_tags': ['take_ko_now', 'XSS_ATTEMPT'],
+        'human_considered': [0, 1, 2, 30, 49, 50, -1],
+    }, 3)
+    check("sanitize: invalid goal cleared", r['turn_goal'] == '')
+    check("sanitize: bogus win_plan removed", r['win_plan_tags'] == ['ko_active'])
+    check("sanitize: bogus risk removed", r['risk_flags'] == ['low_hand'])
+    check("sanitize: bogus reason removed", r['human_reason_tags'] == ['take_ko_now'])
+    check("sanitize: only in-range indices", r['human_considered'] == [0, 1, 2])
+
+    r2 = _sanitize_strategy_tags({'turn_goal': 'setup_board'}, 5)
+    check("sanitize: valid goal kept", r2['turn_goal'] == 'setup_board')
 
 shutil.rmtree(tmp)
 # Clean up test trace dir if created

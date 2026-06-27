@@ -241,6 +241,9 @@ class RagingBoltPolicy:
         if t in (OptionType.CARD, OptionType.TOOL_CARD, OptionType.ENERGY_CARD):
             return self._score_card_select(i, opt)
 
+        if t == OptionType.ENERGY:
+            return self._score_energy_select(i, opt)
+
         if t == OptionType.NUMBER:
             return self._score_number(opt)
 
@@ -372,11 +375,25 @@ class RagingBoltPolicy:
                 ogre_on_field, _ = _find_pokemon_on_field(self.me, C.TEAL_MASK_OGERPON_EX)
                 return 850 if ogre_on_field is None else 400
             if c.id == C.CRISPIN:
-                return 700
+                return 700 if self.energy_in_hand < 3 else 400
             if c.id == C.LILLIE_DETERMINATION:
-                return 600
+                return 650 if len(self.hand_ids) <= 4 else 450
             if c.id == C.BOSS_ORDERS:
+                return 750 if self._can_ko_active() else 500
+            if c.id == C.ULTRA_BALL:
+                return 600
+            if c.id == C.TERA_ORB:
+                return 580
+            if c.id == C.ENERGY_RETRIEVAL:
+                return 620 if self.energy_in_discard >= 2 else 450
+            if c.id == C.POKEMON_CATCHER:
                 return 500
+            if c.id == C.BUG_CATCHING_SET:
+                return 520
+            if c.id == C.POKEGEAR:
+                return 480
+            if c.id == C.UNFAIR_STAMP:
+                return 550
             if c.id in BASIC_ENERGY_IDS:
                 return 550
             return 400
@@ -437,9 +454,30 @@ class RagingBoltPolicy:
 
         return 400
 
+    def _score_energy_select(self, i, opt):
+        """Score ENERGY type options (e.g. Bellowing Thunder energy discard)."""
+        ctx = self.context
+        if ctx in (SelectContext.DISCARD_ENERGY_CARD, SelectContext.DISCARD_ENERGY,
+                   getattr(SelectContext, 'DISCARD', -1)):
+            c = get_card(self.obs,
+                         getattr(opt, 'area', None) or AreaType.HAND,
+                         opt.index, self.my_index)
+            if c and c.id in BASIC_ENERGY_IDS:
+                return 600
+            return 500
+        return 400
+
     def _score_number(self, opt):
         num = opt.number if hasattr(opt, 'number') else 0
-        if self.context == SelectContext.DISCARD_ENERGY:
+        ctx = self.context
+        if ctx == SelectContext.DRAW_COUNT:
+            return 500 + num * 50
+        if ctx in (SelectContext.DISCARD_ENERGY_CARD, SelectContext.DISCARD_ENERGY):
+            if self.active_id == C.RAGING_BOLT_EX and self.opp_active:
+                needed = (self.opp_active_hp + 69) // 70
+                if num >= needed:
+                    return 900
+                return 500 + num * 70
             return 500 + num * 100
         return 500
 

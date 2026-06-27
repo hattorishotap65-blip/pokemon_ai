@@ -253,13 +253,20 @@ class RagingBoltPolicy:
         aid = opt.attackId
 
         if aid == BELLOWING_THUNDER:
-            energy_count = _count_energy(self.active) if self.active else 0
+            if not self.active:
+                return 400
+            energy_count = _count_energy(self.active)
             potential_damage = energy_count * 70
             if self.opp_active and potential_damage >= self.opp_active_hp:
-                return self.p("score_attack_bellowing_thunder", 900) + 300
-            if energy_count >= self.p("bellowing_thunder_base_threshold", 2):
+                prize = self._opp_prize_value()
+                return 1500 + prize * 200
+            if energy_count >= 4:
+                return self.p("score_attack_bellowing_thunder", 900) + 200
+            if energy_count >= 3:
                 return self.p("score_attack_bellowing_thunder", 900)
-            return self.p("score_attack_bellowing_thunder", 900) - 200
+            if energy_count >= 2:
+                return 800
+            return 600
 
         if aid == MYRIAD_LEAF_SHOWER:
             my_energy = _count_energy(self.active) if self.active else 0
@@ -267,7 +274,10 @@ class RagingBoltPolicy:
             total_energy = my_energy + opp_energy
             potential_damage = 30 + total_energy * 30
             if self.opp_active and potential_damage >= self.opp_active_hp:
-                return self.p("score_attack_myriad_leaf_shower", 700) + 300
+                prize = self._opp_prize_value()
+                return 1500 + prize * 200
+            if total_energy >= 3:
+                return self.p("score_attack_myriad_leaf_shower", 700) + total_energy * 30
             return self.p("score_attack_myriad_leaf_shower", 700)
 
         if aid == BURST_ROAR:
@@ -281,9 +291,10 @@ class RagingBoltPolicy:
     def _score_ability(self, i, opt):
         c = get_card(self.obs, opt.area, opt.index, self.my_index)
         if c and c.id == C.TEAL_MASK_OGERPON_EX:
-            if self.energy_in_hand > 0:
+            grass_in_hand = sum(1 for cid in self.hand_ids if cid == C.BASIC_GRASS_ENERGY)
+            if grass_in_hand > 0:
                 return self.p("score_ability_teal_dance", 850)
-            return 100
+            return 200
         return 500
 
     def _score_play(self, i, opt):
@@ -298,8 +309,12 @@ class RagingBoltPolicy:
             return self.p("score_play_pokemon_ogerpon", 600)
 
         if cid == C.CRISPIN:
-            if self.energy_in_hand >= self.p("crispin_energy_threshold", 3):
-                return self.p("score_supporter_crispin_with_energy", 300)
+            if self.energy_in_hand >= 3:
+                return 300
+            ogerpon_count = sum(1 for p in (self.me.bench or [])
+                                if p and p.id == C.TEAL_MASK_OGERPON_EX)
+            if ogerpon_count > 0 and self.energy_in_hand < 2:
+                return 950
             return self.p("score_supporter_crispin", 700)
 
         if cid == C.LILLIE_DETERMINATION:
@@ -308,6 +323,8 @@ class RagingBoltPolicy:
             return self.p("score_supporter_lillie", 600)
 
         if cid == C.BOSS_ORDERS:
+            if self.active_hp_pct <= 20:
+                return 200
             if self.opp_active and self._can_ko_active():
                 return self.p("score_supporter_boss_can_ko", 1200)
             return self.p("score_supporter_boss", 900)
@@ -340,20 +357,40 @@ class RagingBoltPolicy:
             return self.p("score_attach_energy_other", 200)
 
         is_active = getattr(opt, 'inPlayArea', None) == AreaType.ACTIVE
+        target_energy = _count_energy(target) if target else 0
+
+        energy_card = get_card(self.obs, AreaType.HAND, opt.index, self.my_index)
+        energy_id = energy_card.id if energy_card else 0
+
+        if target.id == C.RAGING_BOLT_EX:
+            has_lightning = any(e == 4 for e in target.energies) if target else False
+            has_fighting = any(e == 6 for e in target.energies) if target else False
+            needed_for_bt = (0 if has_lightning else 1) + (0 if has_fighting else 1)
+            fills_bt_req = (energy_id == C.BASIC_LIGHTNING_ENERGY and not has_lightning) or \
+                           (energy_id == C.BASIC_FIGHTING_ENERGY and not has_fighting)
+            if is_active:
+                if fills_bt_req:
+                    return 1200
+                if self.opp_active and (target_energy + 1) * 70 >= self.opp_active_hp:
+                    return 1100
+                return self.p("score_attach_energy_raging_bolt_active", 800)
+            if fills_bt_req:
+                return 900
+            return self.p("score_attach_energy_raging_bolt_bench", 500)
 
         if target.id == C.TEAL_MASK_OGERPON_EX:
             if is_active:
                 return self.p("score_attach_energy_ogerpon_active", 700)
             return self.p("score_attach_energy_ogerpon_bench", 500)
 
-        if target.id == C.RAGING_BOLT_EX:
-            if is_active:
-                return self.p("score_attach_energy_raging_bolt_active", 600)
-            return self.p("score_attach_energy_raging_bolt_bench", 400)
-
         return self.p("score_attach_energy_other", 200)
 
     def _score_retreat(self):
+        if self.active_hp_pct <= 15:
+            bench_attackers = sum(1 for p in (self.me.bench or [])
+                                  if p and _count_energy(p) >= 1)
+            if bench_attackers > 0:
+                return 900
         if self.active_hp_pct <= self.p("retreat_hp_threshold_pct", 30):
             return self.p("score_retreat_damaged_active", 400)
         return self.p("score_retreat", 100)
@@ -480,6 +517,14 @@ class RagingBoltPolicy:
                 return 500 + num * 70
             return 500 + num * 100
         return 500
+
+    def _opp_prize_value(self):
+        if not self.opp_active:
+            return 1
+        data = card_table.get(self.opp_active.id)
+        if data is None:
+            return 1
+        return 3 if data.megaEx else 2 if data.ex else 1
 
     def _can_ko_active(self):
         if not self.active or not self.opp_active:

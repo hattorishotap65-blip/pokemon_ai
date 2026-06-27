@@ -47,6 +47,9 @@ code = code.replace(
     "ROOT = '%s'" % SCRIPT_DIR.replace("\\", "/"),
 )
 
+# server.py expects ROOT/web/ for static files, but ROOT is already experiments/web/
+code = code.replace("ROOT + '/web/", "ROOT + '/")
+
 port = 8000
 if "--port" in sys.argv:
     idx = sys.argv.index("--port")

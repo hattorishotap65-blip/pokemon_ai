@@ -489,9 +489,8 @@ async function send(indices){
     payload.risk_flags=[...RISKS];
     payload.human_reason_tags=[...REASONS];
     payload.human_considered=[...CONSIDERED];
-    CONSIDERED=new Set();
-    REASONS=new Set();
-    buildChips($('#reasonChips'), REASON_TAGS, REASONS, false, '');
+    TURN_GOAL=''; WIN_PLAN=new Set(); RISKS=new Set();
+    REASONS=new Set(); CONSIDERED=new Set();
   }
   const r=await fetch('/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   render(await r.json());
@@ -502,6 +501,8 @@ function toggleRec(){
   b.textContent=REC?'⏺ 記録ON':'⏺ 記録OFF';
   b.style.background=REC?'var(--accent2)':'';
   b.style.color=REC?'#fff':'';
+  const show=REC && STATE && STATE.yourTurn && !STATE.over;
+  renderThoughtPanel(show);
 }
 async function newGame(){ LASTSEQ=-1; $('#logbox').innerHTML=''; const r=await fetch('/new?me='+$('#me').value+'&opp='+$('#opp').value+'&rec='+(REC?1:0)); render(await r.json()); }
 async function loadDecks(){

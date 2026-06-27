@@ -542,6 +542,43 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')document.get
 </script></body></html>"""
 
 
+_VALID_GOALS = {
+    'setup_board', 'prepare_next_turn_attack', 'take_ko_now', 'take_two_prizes',
+    'close_game', 'prevent_loss', 'improve_hand', 'preserve_resources', 'disrupt_opponent',
+}
+_VALID_WIN_PLANS = {
+    'ko_active', 'boss_two_prize_target', 'raging_bolt_big_damage_next_turn',
+    'ogerpon_energy_engine', 'remove_main_attacker', 'win_by_prize_race',
+    'win_by_resource', 'win_by_deck_out_avoidance',
+}
+_VALID_RISKS = {
+    'active_may_be_ko_next_turn', 'no_next_attacker', 'not_enough_energy',
+    'low_hand', 'low_deck', 'boss_needed_for_win', 'bench_liability', 'behind_prize_race',
+}
+_VALID_REASONS = {
+    'take_ko_now', 'take_two_prizes', 'prepare_next_turn_attack',
+    'build_raging_bolt_damage', 'prioritize_energy_acceleration',
+    'improve_hand', 'avoid_bad_hand', 'preserve_resources', 'avoid_deck_out',
+    'gust_win_condition', 'disrupt_opponent', 'setup_board',
+    'retreat_or_switch_safety', 'other',
+}
+
+
+def _sanitize_strategy_tags(body, max_option_index):
+    """Validate and sanitize strategy tags from client."""
+    goal = body.get('turn_goal', '')
+    if goal not in _VALID_GOALS:
+        goal = ''
+    return {
+        'turn_goal': goal,
+        'win_plan_tags': [t for t in body.get('win_plan_tags', []) if t in _VALID_WIN_PLANS],
+        'risk_flags': [t for t in body.get('risk_flags', []) if t in _VALID_RISKS],
+        'human_reason_tags': [t for t in body.get('human_reason_tags', []) if t in _VALID_REASONS],
+        'human_considered': [i for i in body.get('human_considered', [])
+                             if isinstance(i, int) and 0 <= i < max(max_option_index + 1, 50)],
+    }
+
+
 def _record_game_result(state):
     """Record game result to trace JSONL. Never raises."""
     try:
@@ -687,6 +724,7 @@ class H(BaseHTTPRequestHandler):
             GAME['opp_mod'], GAME['opp_deck'] = m, deck
             GAME['opp_name'] = opp
             GAME['human'] = 0
+            GAME['recording'] = q.get('rec', ['0'])[0] == '1'
             GAME['log'] = []; GAME['logseq'] = 0
             try:
                 from human_trace_writer import trace_path as _tp
@@ -714,13 +752,7 @@ class H(BaseHTTPRequestHandler):
             idx = body.get('indices', [])
             recording = body.get('recording', False)
             GAME['recording'] = recording
-            strategy_tags = {
-                'turn_goal': body.get('turn_goal', ''),
-                'win_plan_tags': body.get('win_plan_tags', []),
-                'risk_flags': body.get('risk_flags', []),
-                'human_reason_tags': body.get('human_reason_tags', []),
-                'human_considered': body.get('human_considered', []),
-            } if recording else {}
+            strategy_tags = _sanitize_strategy_tags(body, len(idx)) if recording else {}
             try:
                 if recording:
                     _record_human_trace(idx, strategy_tags)

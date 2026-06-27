@@ -285,6 +285,16 @@ def _build_improvement_candidates(summary):
                 "avg_score_gap": gap_info.get("avg_gap", 0),
                 "suggestion": _HINTS.get(tag, "このタグが付いた局面でAI推奨と人間選択のズレが多いです。関連する評価値や条件分岐を確認してください。"),
             })
+    seen_tags = set()
+    deduped = []
+    for c in candidates:
+        key = (c["kind"], c["tag"])
+        if key in seen_tags:
+            continue
+        seen_tags.add(key)
+        deduped.append(c)
+    candidates = deduped
+
     for card, count in list(summary.get("disagree_by_card", {}).items())[:5]:
         candidates.append({
             "kind": "option_label",

@@ -84,6 +84,38 @@ report = format_report(summary)
 check("report includes improvement section", "Improvement Candidates" in report)
 check("report includes strategy tag", "prepare_next_turn_attack" in report)
 
+print("\n=== empty input ===")
+empty = analyze([])
+check("empty total", empty["total"] == 0)
+check("empty agree_pct", empty["agree_pct"] == 0.0)
+check("empty candidates", empty["improvement_candidates"] == [])
+check("empty game_results", empty["game_results"] == {})
+
+print("\n=== game_result only ===")
+result_only = analyze([build_game_result_entry("rb", "drag", "win", 8)])
+check("result_only total=0", result_only["total"] == 0)
+check("result_only game_results", result_only["game_results"]["win"] == 1)
+
+print("\n=== duplicate tag across fields ===")
+e_dup = build_trace_entry(
+    deck_name="rb", turn=1, context="PLAY",
+    options=[{"i": 0, "label": "A", "score": 100}, {"i": 1, "label": "B", "score": 900}],
+    ai_pick=[1], human_pick=[0],
+)
+e_dup.update({
+    "turn_goal": "take_ko_now",
+    "human_reason_tags": ["take_ko_now"],
+})
+dup_summary = analyze([e_dup])
+candidates = dup_summary["improvement_candidates"]
+dup_tags = [c["tag"] for c in candidates if c["tag"] == "take_ko_now"]
+check("duplicate tag produces entries", len(dup_tags) >= 1)
+
+print("\n=== format_report on empty ===")
+empty_report = format_report(empty)
+check("empty report is string", isinstance(empty_report, str))
+check("empty report has header", "Human Trace Analysis" in empty_report)
+
 print("\n%d checks, %d failures" % (_total, _failures))
 if _failures:
     sys.exit(1)

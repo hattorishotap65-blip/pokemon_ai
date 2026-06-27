@@ -14,6 +14,7 @@ from experiments.web.human_trace_writer import (
 )
 from experiments.web.human_trace_analyzer import analyze, format_report
 from experiments.web.params_recommender import recommend
+from experiments.web.apply_params import preview_changes, apply_changes
 
 PASS = "[PASS]"
 FAIL = "[FAIL]"
@@ -168,6 +169,35 @@ check("recs summary agree", recs["summary"]["agreement_pct"] == 50.0)
 print("\n=== recommend empty ===")
 empty_recs = recommend([], {})
 check("empty recs no adjustments", len(empty_recs["adjustments"]) == 0)
+
+# === apply_params ===
+print("\n=== preview_changes ===")
+cur = {"score_a": 100, "score_b": 200, "score_c": 300}
+prop = {"score_a": 120, "score_c": 300, "score_d": 50}
+changes = preview_changes(cur, prop)
+check("preview: 2 changes", len(changes) == 2)
+check("preview: score_a 100->120", changes[0] == ("score_a", 100, 120, 20))
+check("preview: score_d new", changes[1] == ("score_d", None, 50, 50))
+
+print("\n=== apply_changes ===")
+params_file = os.path.join(tmp, "test_params.json")
+with open(params_file, "w", encoding="utf-8") as f:
+    json.dump({"score_a": 100, "score_b": 200, "_comment": "test"}, f)
+
+result = apply_changes(params_file, {"score_a": 150, "score_new": 999})
+check("apply: score_a updated", result["score_a"] == 150)
+check("apply: score_b unchanged", result["score_b"] == 200)
+check("apply: score_new added", result["score_new"] == 999)
+check("apply: _comment preserved", result["_comment"] == "test")
+check("apply: backup created", os.path.exists(params_file + ".bak"))
+
+with open(params_file, encoding="utf-8") as f:
+    saved = json.load(f)
+check("apply: file saved correctly", saved["score_a"] == 150)
+
+print("\n=== apply no changes ===")
+no_changes = preview_changes({"a": 1}, {"a": 1})
+check("no changes: empty", len(no_changes) == 0)
 
 shutil.rmtree(tmp)
 # Clean up test trace dir if created

@@ -7,6 +7,7 @@ Run via launch.py:
 Based on wmh/ptcg-abc. Japanese localized.
 """
 import sys, os, json, ctypes, types
+import time as _time
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -202,7 +203,8 @@ def load_opp(name):
 
 
 # ── game session (single global game; single-threaded server) ────────────────
-GAME = {'obs_dict': None, 'opp_mod': None, 'opp_deck': None, 'human': 0, 'over': True, 'log': [], 'logseq': 0}
+GAME = {'obs_dict': None, 'opp_mod': None, 'opp_deck': None, 'human': 0, 'over': True, 'log': [], 'logseq': 0,
+        'trace_path': None, 'last_state': None, 'recording': False}
 
 AREA = {AreaType.DECK: 'deck', AreaType.HAND: 'hand', AreaType.DISCARD: 'discard',
         AreaType.ACTIVE: 'active', AreaType.BENCH: 'bench', AreaType.PRIZE: 'prize'}
@@ -300,6 +302,8 @@ def _advance_opponent():
         obs = to_observation_class(g['obs_dict'])
         if obs.current.result != -1 or obs.select is None:
             g['over'] = obs.current.result != -1
+            if g['over']:
+                _record_game_result(obs.current)
             return
         if obs.current.yourIndex == g['human']:
             return
@@ -538,6 +542,106 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')document.get
 </script></body></html>"""
 
 
+def _record_game_result(state):
+    """Record game result to trace JSONL. Never raises."""
+    try:
+        if not GAME.get('recording'):
+            return
+        tp = GAME.get('trace_path')
+        if not tp:
+            return
+        try:
+            from human_trace_writer import build_game_result_entry, write_trace_entry
+        except ImportError:
+            from experiments.web.human_trace_writer import build_game_result_entry, write_trace_entry
+
+        if state.result == GAME['human']:
+            result = "win"
+        elif state.result == 1 - GAME['human']:
+            result = "loss"
+        else:
+            result = "draw"
+
+        entry = build_game_result_entry(
+            deck_name=ME.get('name', ''),
+            opp_deck=GAME.get('opp_name', ''),
+            result=result,
+            turns=state.turn,
+        )
+        write_trace_entry(tp, entry)
+    except Exception:
+        pass
+
+
+def _record_human_trace(human_indices):
+    """Record a human decision to the trace JSONL. Never raises."""
+    try:
+        tp = GAME.get('trace_path')
+        if not tp:
+            return
+        obs = to_observation_class(GAME['obs_dict']) if GAME['obs_dict'] else None
+        if obs is None or obs.select is None:
+            return
+        if obs.current.yourIndex != GAME['human']:
+            return
+
+        st = obs.current
+        options_info = []
+        scores = [0] * len(obs.select.option)
+        ai_pick = []
+        try:
+            if ME['Policy'] is not None:
+                policy = ME['Policy'](obs)
+                ranked, scores = policy.rank()
+                ai_pick = normalize_selection(ranked, scores, obs.select)
+            elif ME['mod'].__dict__.get('agent') is not None:
+                ai_pick = sorted(set(ME['mod'].agent(GAME['obs_dict'])))
+        except Exception:
+            pass
+
+        for i, opt in enumerate(obs.select.option):
+            cid, aid = option_ids(obs, opt, GAME['human'])
+            options_info.append({
+                'i': i,
+                'label': label_option(obs, opt, GAME['human']),
+                'score': round(float(scores[i]), 1) if i < len(scores) else 0,
+                'type': int(opt.type) if opt.type is not None else -1,
+                'cardId': cid,
+                'attackId': aid,
+            })
+
+        try:
+            from human_trace_writer import build_trace_entry, write_trace_entry
+        except ImportError:
+            from experiments.web.human_trace_writer import build_trace_entry, write_trace_entry
+
+        me = st.players[GAME['human']]
+        op = st.players[1 - GAME['human']]
+        my_act = me.active[0] if me.active else None
+        op_act = op.active[0] if op.active else None
+
+        params_path = os.environ.get("POKEMON_AI_PARAMS_PATH", "")
+        entry = build_trace_entry(
+            deck_name=ME.get('name', ''),
+            turn=st.turn,
+            context=CTX.get(obs.select.context, str(obs.select.context)),
+            options=options_info,
+            ai_pick=ai_pick,
+            human_pick=human_indices,
+            params_path=params_path,
+            opp_deck=GAME.get('opp_name', ''),
+            opp_active={'id': op_act.id, 'name': cname(op_act.id), 'hp': op_act.hp,
+                        'maxHp': op_act.maxHp, 'energy': len(op_act.energies)} if op_act else None,
+            my_active={'id': my_act.id, 'name': cname(my_act.id), 'hp': my_act.hp,
+                       'maxHp': my_act.maxHp, 'energy': len(my_act.energies)} if my_act else None,
+            my_prizes=len(me.prize),
+            opp_prizes=len(op.prize),
+        )
+        write_trace_entry(tp, entry)
+    except Exception:
+        pass
+
+
 class H(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype='application/json'):
         data = body.encode() if isinstance(body, str) else body
@@ -579,8 +683,18 @@ class H(BaseHTTPRequestHandler):
             load_me(q.get('me', ['megastarmie'])[0])   # which deck you pilot
             m, deck = load_opp(opp)
             GAME['opp_mod'], GAME['opp_deck'] = m, deck
+            GAME['opp_name'] = opp
             GAME['human'] = 0
             GAME['log'] = []; GAME['logseq'] = 0
+            try:
+                from human_trace_writer import trace_path as _tp
+                GAME['trace_path'] = _tp(_time.strftime("%Y%m%d_%H%M%S"))
+            except ImportError:
+                try:
+                    from experiments.web.human_trace_writer import trace_path as _tp
+                    GAME['trace_path'] = _tp(_time.strftime("%Y%m%d_%H%M%S"))
+                except ImportError:
+                    GAME['trace_path'] = None
             GAME['obs_dict'], _ = battle_start(ME['deck'], deck)
             GAME['over'] = False
             _advance_opponent()
@@ -596,7 +710,11 @@ class H(BaseHTTPRequestHandler):
             ln = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(ln) or '{}')
             idx = body.get('indices', [])
+            recording = body.get('recording', False)
+            GAME['recording'] = recording
             try:
+                if recording:
+                    _record_human_trace(idx)
                 _note_action(GAME['obs_dict'], idx)
                 GAME['obs_dict'] = _select(idx)
                 _advance_opponent()

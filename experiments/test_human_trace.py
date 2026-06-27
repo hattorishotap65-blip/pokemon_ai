@@ -66,6 +66,33 @@ check("entry has my_active", entry["my_active"]["id"] == 63)
 check("entry has my_prizes", entry["my_prizes"] == 5)
 check("entry has opp_prizes", entry["opp_prizes"] == 4)
 
+print("\n=== strategy tags (server-side update) ===")
+strategy_entry = build_trace_entry(
+    deck_name="raging_bolt", turn=2, context="PLAY",
+    options=[{"i": 0, "label": "test", "score": 100}],
+    ai_pick=[0], human_pick=[0],
+)
+strategy_entry.update({
+    "turn_goal": "prepare_next_turn_attack",
+    "win_plan_tags": ["raging_bolt_big_damage_next_turn"],
+    "risk_flags": ["not_enough_energy", "low_hand"],
+    "human_reason_tags": ["prepare_next_turn_attack", "improve_hand"],
+    "human_considered": [0, 1],
+})
+check("strategy: turn_goal", strategy_entry["turn_goal"] == "prepare_next_turn_attack")
+check("strategy: win_plan_tags", strategy_entry["win_plan_tags"] == ["raging_bolt_big_damage_next_turn"])
+check("strategy: risk_flags len", len(strategy_entry["risk_flags"]) == 2)
+check("strategy: human_reason_tags", "improve_hand" in strategy_entry["human_reason_tags"])
+check("strategy: human_considered", strategy_entry["human_considered"] == [0, 1])
+
+tmp_strat_dir = tempfile.mkdtemp()
+tmp_strat = os.path.join(tmp_strat_dir, "strat_trace.jsonl")
+write_trace_entry(tmp_strat, strategy_entry)
+loaded_strat = load_traces(tmp_strat)
+check("strategy: roundtrip", loaded_strat[0]["turn_goal"] == "prepare_next_turn_attack")
+check("strategy: roundtrip risk", loaded_strat[0]["risk_flags"] == ["not_enough_energy", "low_hand"])
+shutil.rmtree(tmp_strat_dir)
+
 entry_disagree = build_trace_entry(
     deck_name="raging_bolt", turn=5, context="ATTACH",
     options=[

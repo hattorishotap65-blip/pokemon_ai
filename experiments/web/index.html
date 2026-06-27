@@ -147,6 +147,26 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
 .reveal.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 .reveal img{width:100%;height:100%;object-fit:cover}
 .reveal .rl{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);color:#fff;text-align:center;padding:5px;font-weight:700;font-size:14px}
+
+/* strategy thought panel (recording mode) */
+.thought-panel{display:none;margin-bottom:12px;border:1px solid var(--accent2);border-radius:10px;padding:12px;background:rgba(255,107,107,.06)}
+.thought-panel.show{display:block}
+.thought-panel h4{margin:0 0 8px;font-size:14px;color:var(--accent2);letter-spacing:.5px}
+.tp-section{margin-bottom:10px}
+.tp-label{font-size:12px;color:var(--text-dim);margin-bottom:4px;font-weight:700}
+.tp-chips{display:flex;flex-wrap:wrap;gap:4px}
+.tp-chip{font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);
+  color:var(--text-dim);cursor:pointer;transition:.12s;user-select:none}
+.tp-chip:hover{border-color:var(--accent)}
+.tp-chip.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.tp-chip.goal{border-radius:8px}
+.tp-chip.goal.on{background:var(--accent);color:#000;border-color:var(--accent)}
+/* considered checkbox */
+.opt .cbox{width:16px;height:16px;accent-color:var(--gold);cursor:pointer;flex-shrink:0}
+/* reason tags under options */
+.reason-area{display:none;margin:8px 0 4px;padding:8px;border:1px dashed var(--border);border-radius:8px}
+.reason-area.show{display:block}
+.reason-area .tp-label{margin-bottom:4px}
 </style>
 </head>
 <body>
@@ -201,8 +221,27 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
   <div class="sidepanel">
     <div class="result" id="result" style="display:none"></div>
     <div class="ctx" id="ctx">「新しい対戦」を押して開始</div>
+    <div class="thought-panel" id="thoughtPanel">
+      <h4>🧠 ターン思考 (記録用)</h4>
+      <div class="tp-section">
+        <div class="tp-label">このターンの目標</div>
+        <div class="tp-chips" id="goalChips"></div>
+      </div>
+      <div class="tp-section">
+        <div class="tp-label">勝ち筋プラン</div>
+        <div class="tp-chips" id="winPlanChips"></div>
+      </div>
+      <div class="tp-section">
+        <div class="tp-label">リスク</div>
+        <div class="tp-chips" id="riskChips"></div>
+      </div>
+    </div>
     <div class="aihint" id="aihint" style="display:none"></div>
     <div id="options"></div>
+    <div class="reason-area" id="reasonArea">
+      <div class="tp-label">行動理由</div>
+      <div class="tp-chips" id="reasonChips"></div>
+    </div>
     <button class="btn" id="confirm" style="display:none;width:100%;margin-top:8px;background:var(--gold);color:#000;font-weight:700;font-size:16px" onclick="confirmMulti()">決定する</button>
     <div class="logpanel"><h4>📜 対戦ログ</h4><div class="logbox" id="logbox"></div></div>
   </div>
@@ -215,7 +254,34 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
 
 <script>
 let STATE=null, SEL=[], MULTI=false, DB={}, IMG={}, LASTSEQ=-1, REC=false;
+let TURN_GOAL='', WIN_PLAN=new Set(), RISKS=new Set(), REASONS=new Set(), CONSIDERED=new Set();
 const $=s=>document.querySelector(s);
+
+const GOALS=[
+  ['setup_board','盤面展開'],['prepare_next_turn_attack','次ターン攻撃準備'],
+  ['take_ko_now','今KOを狙う'],['take_two_prizes','サイド2枚取り'],
+  ['close_game','勝ち切り'],['prevent_loss','負け筋を消す'],
+  ['improve_hand','手札を整える'],['preserve_resources','リソース温存'],
+  ['disrupt_opponent','相手妨害']
+];
+const WIN_PLANS=[
+  ['ko_active','バトル場KO'],['boss_two_prize_target','ボスで2枚取り'],
+  ['raging_bolt_big_damage_next_turn','次ターン高火力'],['ogerpon_energy_engine','オーガポンエネ加速'],
+  ['remove_main_attacker','主力除去'],['win_by_prize_race','サイドレース勝ち'],
+  ['win_by_resource','リソース差勝ち'],['win_by_deck_out_avoidance','山切れ回避']
+];
+const RISK_FLAGS=[
+  ['active_may_be_ko_next_turn','次ターンKOされそう'],['no_next_attacker','次アタッカーなし'],
+  ['not_enough_energy','エネ不足'],['low_hand','手札弱い'],['low_deck','山札少ない'],
+  ['boss_needed_for_win','ボス温存したい'],['bench_liability','ベンチ負け筋'],['behind_prize_race','サイド遅れ']
+];
+const REASON_TAGS=[
+  ['take_ko_now','今KO'],['take_two_prizes','2枚取り'],['prepare_next_turn_attack','次ターン準備'],
+  ['build_raging_bolt_damage','タケルライコ火力準備'],['prioritize_energy_acceleration','エネ加速優先'],
+  ['improve_hand','手札改善'],['avoid_bad_hand','事故回避'],['preserve_resources','リソース温存'],
+  ['avoid_deck_out','山切れ回避'],['gust_win_condition','ボス勝ち筋'],['disrupt_opponent','妨害'],
+  ['setup_board','盤面整備'],['retreat_or_switch_safety','入替安全'],['other','その他']
+];
 const TYPES={GRASS:'--grass',FIRE:'--fire',WATER:'--water',LIGHTNING:'--lightning',PSYCHIC:'--psychic',
   FIGHTING:'--fighting',DARKNESS:'--darkness',METAL:'--metal',DRAGON:'--dragon',FAIRY:'--fairy',COLORLESS:'--colorless'};
 const TC={GRASS:'草',FIRE:'炎',WATER:'水',LIGHTNING:'雷',PSYCHIC:'超',FIGHTING:'闘',DARKNESS:'悪',METAL:'鋼',DRAGON:'竜',FAIRY:'妖',COLORLESS:'無'};
@@ -261,9 +327,34 @@ function statHTML(o,isOpp){
     <div class="zone-stat">✋ 手札 <span class="val">${hand}</span></div>
     <div class="zone-stat">📚 山札 <span class="val">${o.deck}</span></div>`;
 }
+function buildChips(container, items, selectedSet, isRadio, cls){
+  container.innerHTML='';
+  items.forEach(([key,label])=>{
+    const c=document.createElement('span');
+    c.className='tp-chip'+(cls?' '+cls:'')+(selectedSet.has?selectedSet.has(key)?(' on'):'':selectedSet===key?' on':'');
+    if(isRadio) c.classList.toggle('on', selectedSet===key);
+    else c.classList.toggle('on', selectedSet.has(key));
+    c.textContent=label;
+    c.onclick=()=>{
+      if(isRadio){ TURN_GOAL=TURN_GOAL===key?'':key; buildChips(container,items,TURN_GOAL,true,cls); }
+      else { selectedSet.has(key)?selectedSet.delete(key):selectedSet.add(key); c.classList.toggle('on'); }
+    };
+    container.appendChild(c);
+  });
+}
+function renderThoughtPanel(show){
+  const p=$('#thoughtPanel'); p.classList.toggle('show',show);
+  const r=$('#reasonArea'); r.classList.toggle('show',show);
+  if(show){
+    buildChips($('#goalChips'), GOALS, TURN_GOAL, true, 'goal');
+    buildChips($('#winPlanChips'), WIN_PLANS, WIN_PLAN, false, '');
+    buildChips($('#riskChips'), RISK_FLAGS, RISKS, false, '');
+    buildChips($('#reasonChips'), REASON_TAGS, REASONS, false, '');
+  }
+}
 function render(s){
-  STATE=s; SEL=[];
-  if(!s.started){ $('#ctx').textContent='「新しい対戦」を押して開始'; return; }
+  STATE=s; SEL=[]; CONSIDERED=new Set();
+  if(!s.started){ $('#ctx').textContent='「新しい対戦」を押して開始'; renderThoughtPanel(false); return; }
   $('#oppActive').innerHTML=cardHTML(s.opp.active,true);
   $('#oppBench').innerHTML=(s.opp.bench||[]).map(p=>cardHTML(p)).join('')||'<div class="empty-slot">空き</div>';
   $('#oppStats').innerHTML=statHTML(s.opp,true);
@@ -280,7 +371,9 @@ function render(s){
   $('#result').textContent=s.result||''; $('#result').style.display=s.result?'block':'none';
   $('#ctx').textContent = s.over?'対戦終了':(s.yourTurn?('あなたのターン · '+(s.context||'')):'CPU思考中…');
   const optDiv=$('#options'); optDiv.innerHTML=''; $('#confirm').style.display='none';
-  if(s.over || !s.yourTurn){ $('#aihint').style.display='none'; return; }
+  if(s.over || !s.yourTurn){ $('#aihint').style.display='none'; renderThoughtPanel(false); return; }
+  const showRec = REC && s.yourTurn && !s.over;
+  renderThoughtPanel(showRec);
   MULTI = s.multi && s.multi.max>1;
   const recs=(s.options||[]).filter(o=>o.recommended).map(o=>o.label).join(' + ');
   $('#aihint').style.display='block';
@@ -290,13 +383,16 @@ function render(s){
     const b=document.createElement('div');
     b.className='opt'+(o.recommended?' rec':'');
     const pct=Math.max(0,Math.round(100*(o.score||0)/mx));
-    b.innerHTML=`<span>${o.label}${o.recommended?'<span class="tag">AI</span>':''}</span>
+    let cboxHtml='';
+    if(showRec) cboxHtml=`<input type="checkbox" class="cbox" title="検討候補" onclick="event.stopPropagation();togCon(${o.i},this)">`;
+    b.innerHTML=`${cboxHtml}<span>${o.label}${o.recommended?'<span class="tag">AI</span>':''}</span>
       <span class="barwrap"><i style="width:${pct}%"></i></span><span class="sc">${o.score}</span>`;
     b.onclick=()=>pick(o.i,b);
     optDiv.appendChild(b);
   });
   if(MULTI) $('#confirm').style.display='block';
 }
+function togCon(i,el){ if(el.checked) CONSIDERED.add(i); else CONSIDERED.delete(i); }
 function pick(i,btn){
   if(MULTI){ const k=SEL.indexOf(i);
     if(k>=0){SEL.splice(k,1);btn.classList.remove('sel');} else {SEL.push(i);btn.classList.add('sel');}
@@ -386,7 +482,18 @@ function processLog(log){
   fresh.slice(-12).forEach((e,k)=>setTimeout(()=>animateEntry(e), k*130));   // stagger, cap burst
 }
 async function send(indices){
-  const r=await fetch('/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({indices,recording:REC})});
+  const payload={indices,recording:REC};
+  if(REC){
+    payload.turn_goal=TURN_GOAL||'';
+    payload.win_plan_tags=[...WIN_PLAN];
+    payload.risk_flags=[...RISKS];
+    payload.human_reason_tags=[...REASONS];
+    payload.human_considered=[...CONSIDERED];
+    CONSIDERED=new Set();
+    REASONS=new Set();
+    buildChips($('#reasonChips'), REASON_TAGS, REASONS, false, '');
+  }
+  const r=await fetch('/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   render(await r.json());
 }
 function toggleRec(){

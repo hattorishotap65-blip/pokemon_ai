@@ -573,7 +573,7 @@ def _record_game_result(state):
         pass
 
 
-def _record_human_trace(human_indices):
+def _record_human_trace(human_indices, strategy_tags=None):
     """Record a human decision to the trace JSONL. Never raises."""
     try:
         tp = GAME.get('trace_path')
@@ -637,6 +637,8 @@ def _record_human_trace(human_indices):
             my_prizes=len(me.prize),
             opp_prizes=len(op.prize),
         )
+        if strategy_tags:
+            entry.update(strategy_tags)
         write_trace_entry(tp, entry)
     except Exception:
         pass
@@ -712,9 +714,16 @@ class H(BaseHTTPRequestHandler):
             idx = body.get('indices', [])
             recording = body.get('recording', False)
             GAME['recording'] = recording
+            strategy_tags = {
+                'turn_goal': body.get('turn_goal', ''),
+                'win_plan_tags': body.get('win_plan_tags', []),
+                'risk_flags': body.get('risk_flags', []),
+                'human_reason_tags': body.get('human_reason_tags', []),
+                'human_considered': body.get('human_considered', []),
+            } if recording else {}
             try:
                 if recording:
-                    _record_human_trace(idx)
+                    _record_human_trace(idx, strategy_tags)
                 _note_action(GAME['obs_dict'], idx)
                 GAME['obs_dict'] = _select(idx)
                 _advance_opponent()

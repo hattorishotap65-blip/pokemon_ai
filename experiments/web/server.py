@@ -564,7 +564,7 @@ _VALID_REASONS = {
 }
 
 
-def _sanitize_strategy_tags(body, max_option_index):
+def _sanitize_strategy_tags(body, option_count):
     """Validate and sanitize strategy tags from client."""
     goal = body.get('turn_goal', '')
     if goal not in _VALID_GOALS:
@@ -575,7 +575,7 @@ def _sanitize_strategy_tags(body, max_option_index):
         'risk_flags': [t for t in body.get('risk_flags', []) if t in _VALID_RISKS],
         'human_reason_tags': [t for t in body.get('human_reason_tags', []) if t in _VALID_REASONS],
         'human_considered': [i for i in body.get('human_considered', [])
-                             if isinstance(i, int) and 0 <= i < max(max_option_index + 1, 50)],
+                             if isinstance(i, int) and 0 <= i < option_count],
     }
 
 
@@ -752,7 +752,9 @@ class H(BaseHTTPRequestHandler):
             idx = body.get('indices', [])
             recording = body.get('recording', False)
             GAME['recording'] = recording
-            strategy_tags = _sanitize_strategy_tags(body, len(idx)) if recording else {}
+            obs_for_san = to_observation_class(GAME['obs_dict']) if GAME.get('obs_dict') else None
+            opt_count = len(obs_for_san.select.option) if obs_for_san and obs_for_san.select else 0
+            strategy_tags = _sanitize_strategy_tags(body, opt_count) if recording else {}
             try:
                 if recording:
                     _record_human_trace(idx, strategy_tags)

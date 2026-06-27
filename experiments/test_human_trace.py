@@ -243,34 +243,35 @@ except Exception:
     _server_imported = False
 
 if not _server_imported:
-    # Can't import server (needs cabt), test the whitelist logic inline
     _VALID_GOALS_TEST = {'setup_board', 'take_ko_now', 'close_game'}
-    def _sanitize_test(body, mx):
+    def _sanitize_test(body, option_count):
         goal = body.get('turn_goal', '')
         return {
             'turn_goal': goal if goal in _VALID_GOALS_TEST else '',
             'win_plan_tags': [t for t in body.get('win_plan_tags', []) if isinstance(t, str)],
-            'human_considered': [i for i in body.get('human_considered', []) if isinstance(i, int) and 0 <= i < mx],
+            'human_considered': [i for i in body.get('human_considered', [])
+                                 if isinstance(i, int) and 0 <= i < option_count],
         }
-    r = _sanitize_test({'turn_goal': 'INVALID', 'win_plan_tags': ['ko_active'], 'human_considered': [0, 99, -1]}, 10)
+    r = _sanitize_test({'turn_goal': 'INVALID', 'win_plan_tags': ['ko_active'],
+                         'human_considered': [0, 1, 2, 30, 49, 50, -1]}, 3)
     check("sanitize: invalid goal cleared", r['turn_goal'] == '')
     check("sanitize: valid tags kept", r['win_plan_tags'] == ['ko_active'])
-    check("sanitize: out-of-range index removed", r['human_considered'] == [0])
+    check("sanitize: only in-range indices kept", r['human_considered'] == [0, 1, 2])
 else:
     r = _sanitize_strategy_tags({
         'turn_goal': 'INVALID_GOAL',
         'win_plan_tags': ['ko_active', 'BOGUS'],
         'risk_flags': ['low_hand', 'FAKE'],
         'human_reason_tags': ['take_ko_now', 'XSS_ATTEMPT'],
-        'human_considered': [0, 1, -5, 999],
-    }, 5)
+        'human_considered': [0, 1, 2, 30, 49, 50, -1],
+    }, 3)
     check("sanitize: invalid goal cleared", r['turn_goal'] == '')
     check("sanitize: bogus win_plan removed", r['win_plan_tags'] == ['ko_active'])
     check("sanitize: bogus risk removed", r['risk_flags'] == ['low_hand'])
     check("sanitize: bogus reason removed", r['human_reason_tags'] == ['take_ko_now'])
-    check("sanitize: negative index removed", -5 not in r['human_considered'])
+    check("sanitize: only in-range indices", r['human_considered'] == [0, 1, 2])
 
-    r2 = _sanitize_strategy_tags({'turn_goal': 'setup_board'}, 3)
+    r2 = _sanitize_strategy_tags({'turn_goal': 'setup_board'}, 5)
     check("sanitize: valid goal kept", r2['turn_goal'] == 'setup_board')
 
 shutil.rmtree(tmp)

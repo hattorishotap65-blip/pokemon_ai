@@ -364,25 +364,24 @@ class RagingBoltPolicy:
 
         ctx = self.context
 
-        if ctx == SelectContext.SEARCH_POKEMON:
+        if ctx == SelectContext.TO_HAND:
             if c.id == C.RAGING_BOLT_EX:
                 bolt_on_field, _ = _find_pokemon_on_field(self.me, C.RAGING_BOLT_EX)
                 return 800 if bolt_on_field is None else 400
             if c.id == C.TEAL_MASK_OGERPON_EX:
                 ogre_on_field, _ = _find_pokemon_on_field(self.me, C.TEAL_MASK_OGERPON_EX)
                 return 850 if ogre_on_field is None else 400
-            return 300
-
-        if ctx == SelectContext.SEARCH_SUPPORTER:
             if c.id == C.CRISPIN:
                 return 700
             if c.id == C.LILLIE_DETERMINATION:
                 return 600
             if c.id == C.BOSS_ORDERS:
                 return 500
+            if c.id in BASIC_ENERGY_IDS:
+                return 550
             return 400
 
-        if ctx in (SelectContext.DISCARD, SelectContext.DISCARD_ENERGY):
+        if ctx in (SelectContext.DISCARD, SelectContext.DISCARD_ENERGY_CARD):
             if c.id in BASIC_ENERGY_IDS:
                 return 600
             data = card_table.get(c.id)
@@ -390,7 +389,44 @@ class RagingBoltPolicy:
                 return 500
             return 400
 
-        if ctx == SelectContext.SEARCH_BASIC_ENERGY:
+        if ctx == SelectContext.ATTACH_TO:
+            if c.id == C.TEAL_MASK_OGERPON_EX:
+                return 750
+            if c.id == C.RAGING_BOLT_EX:
+                return 700
+            return 400
+
+        if ctx == SelectContext.ATTACH_FROM:
+            if c.id in BASIC_ENERGY_IDS:
+                return 600
+            return 400
+
+        if ctx == SelectContext.SETUP_ACTIVE_POKEMON:
+            if c.id == C.TEAL_MASK_OGERPON_EX:
+                return 800
+            if c.id == C.RAGING_BOLT_EX:
+                return 700
+            return 300
+
+        if ctx == SelectContext.SETUP_BENCH_POKEMON:
+            if c.id == C.RAGING_BOLT_EX:
+                return 800
+            if c.id == C.TEAL_MASK_OGERPON_EX:
+                return 700
+            return 300
+
+        if ctx == SelectContext.SWITCH:
+            if c.id == C.RAGING_BOLT_EX:
+                bolt_energy = _count_energy(c) if hasattr(c, 'energies') else 0
+                return 700 + bolt_energy * 50
+            if c.id == C.TEAL_MASK_OGERPON_EX:
+                return 600
+            return 300
+
+        if ctx == SelectContext.TO_DECK:
+            return 400
+
+        if ctx == SelectContext.TO_HAND_ENERGY:
             if c.id == C.BASIC_GRASS_ENERGY:
                 return 700
             if c.id == C.BASIC_LIGHTNING_ENERGY:
@@ -398,28 +434,6 @@ class RagingBoltPolicy:
             if c.id == C.BASIC_FIGHTING_ENERGY:
                 return 500
             return 400
-
-        if hasattr(SelectContext, 'SETUP_ACTIVE_POKEMON') and ctx == SelectContext.SETUP_ACTIVE_POKEMON:
-            if c.id == C.TEAL_MASK_OGERPON_EX:
-                return 800
-            if c.id == C.RAGING_BOLT_EX:
-                return 700
-            return 300
-
-        if hasattr(SelectContext, 'SETUP_BENCH_POKEMON') and ctx == SelectContext.SETUP_BENCH_POKEMON:
-            if c.id == C.RAGING_BOLT_EX:
-                return 800
-            if c.id == C.TEAL_MASK_OGERPON_EX:
-                return 700
-            return 300
-
-        if ctx == SelectContext.SWITCH_POKEMON:
-            if c.id == C.RAGING_BOLT_EX:
-                bolt_energy = _count_energy(c) if hasattr(c, 'energies') else 0
-                return 700 + bolt_energy * 50
-            if c.id == C.TEAL_MASK_OGERPON_EX:
-                return 600
-            return 300
 
         return 400
 

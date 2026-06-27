@@ -347,6 +347,34 @@ def option_ids(obs, opt, my_index):
     return None, None
 
 
+def _pos_label(area, index):
+    """Return a position label like 'バトル場' or 'ベンチ2'."""
+    if area == AreaType.ACTIVE:
+        return 'バトル場'
+    if area == AreaType.BENCH:
+        return f'ベンチ{index + 1}' if index is not None else 'ベンチ'
+    if area == AreaType.HAND:
+        return '手札'
+    if area == AreaType.DISCARD:
+        return 'トラッシュ'
+    return ''
+
+
+def _card_detail(c):
+    """Return short detail string for a Pokemon (HP/energy) to distinguish copies."""
+    if c is None:
+        return ''
+    hp = getattr(c, 'hp', None)
+    maxhp = getattr(c, 'maxHp', None)
+    energies = getattr(c, 'energies', None)
+    parts = []
+    if hp is not None and maxhp:
+        parts.append(f'HP{hp}/{maxhp}')
+    if energies is not None:
+        parts.append(f'エネ{len(energies)}')
+    return f' [{", ".join(parts)}]' if parts else ''
+
+
 def label_option(obs, opt, my_index):
     t = opt.type
     if t == OptionType.END:
@@ -366,35 +394,43 @@ def label_option(obs, opt, my_index):
         return '↩ にげる'
     if t == OptionType.ABILITY:
         c = get_card(obs, opt.area, opt.index, my_index)
-        return f'✨ 特性 {cname(c.id) if c else ""}'
+        pos = _pos_label(opt.area, opt.index)
+        detail = _card_detail(c) if c else ''
+        return f'✨ 特性 {cname(c.id) if c else ""} ({pos}){detail}'
     if t == OptionType.EVOLVE:
         c = get_card(obs, AreaType.HAND, opt.index, my_index)
         return f'⬆ 進化 → {cname(c.id) if c else ""}'
-    cn = CTX.get(obs.select.context, '') or ''   # context name, e.g. 'DISCARD_ENERGY'
+    cn = CTX.get(obs.select.context, '') or ''
     if t in (OptionType.ENERGY, OptionType.ATTACH):
         tgt = get_card(obs, opt.inPlayArea, opt.inPlayIndex, my_index)
         tn = cname(tgt.id).replace(chr(39), '') if tgt else '?'
+        pos = _pos_label(opt.inPlayArea, opt.inPlayIndex)
+        detail = _card_detail(tgt) if tgt else ''
         if 'DISCARD' in cn:
-            return f'🗑 エネルギーをトラッシュ ({tn})'
+            return f'🗑 エネルギーをトラッシュ ({tn} {pos}){detail}'
         if 'TO_HAND' in cn:
-            return f'✋ エネルギーを手札に ({tn})'
-        return f'🔋 エネルギーをつける → {tn}'
+            return f'✋ エネルギーを手札に ({tn} {pos}){detail}'
+        return f'🔋 エネルギーをつける → {tn} ({pos}){detail}'
     if t in (OptionType.PLAY, OptionType.CARD, OptionType.TOOL_CARD, OptionType.ENERGY_CARD):
-        c = get_card(obs, getattr(opt, 'area', None) or AreaType.HAND, opt.index, my_index)
+        area = getattr(opt, 'area', None) or AreaType.HAND
+        c = get_card(obs, area, opt.index, my_index)
         nm = cname(c.id) if c else 'card'
+        pos = _pos_label(area, opt.index)
+        detail = _card_detail(c) if c and area != AreaType.HAND else ''
+        pos_suffix = f' ({pos})' if pos and area != AreaType.HAND else ''
         if t == OptionType.PLAY:
             return f'▶ {nm} を使う'
         if 'DISCARD' in cn:
-            return f'🗑 {nm} をトラッシュ'
+            return f'🗑 {nm} をトラッシュ{pos_suffix}{detail}'
         if 'TO_HAND' in cn:
-            return f'🔍 {nm} を手札に加える'
+            return f'🔍 {nm} を手札に加える{pos_suffix}{detail}'
         if 'TO_DECK' in cn or 'TO_PRIZE' in cn:
-            return f'↩ {nm} を戻す'
+            return f'↩ {nm} を戻す{pos_suffix}{detail}'
         if 'SWITCH' in cn or 'ACTIVE' in cn:
-            return f'⬆ {nm} をバトル場に'
+            return f'⬆ {nm} をバトル場に{pos_suffix}{detail}'
         if 'BENCH' in cn or 'FIELD' in cn:
-            return f'➕ {nm} をベンチに'
-        return f'▶ {nm}'
+            return f'➕ {nm} をベンチに{pos_suffix}{detail}'
+        return f'▶ {nm}{pos_suffix}{detail}'
     return f'option(type={t})'
 
 

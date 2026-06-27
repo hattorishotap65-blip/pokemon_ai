@@ -175,25 +175,28 @@ class RagingBoltPolicy:
     def p(self, key, default=0):
         return P.get(key, default)
 
+    def rank(self):
+        """Return (ranked_indices, scores_list) for all options."""
+        if not self.select.option:
+            return [], []
+        scores = [self._score_option(i, opt) for i, opt in enumerate(self.select.option)]
+        ranked = [i for i, _ in sorted(enumerate(scores), key=lambda x: -x[1])]
+        return ranked, scores
+
     def choose(self):
         if not self.select.option or self.select.maxCount == 0:
             return []
 
+        ranked, scores = self.rank()
         n = len(self.select.option)
         min_c = max(0, min(self.select.minCount, n))
         max_c = max(min_c, min(self.select.maxCount, n))
 
-        scores = []
-        for i, opt in enumerate(self.select.option):
-            scores.append((self._score_option(i, opt), i))
-
-        scores.sort(key=lambda x: -x[0])
-
         result = []
-        for score, i in scores:
+        for i in ranked:
             if len(result) >= max_c:
                 break
-            if score > 0 or len(result) < min_c:
+            if scores[i] > 0 or len(result) < min_c:
                 result.append(i)
 
         if not result and min_c > 0:

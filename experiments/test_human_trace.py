@@ -77,6 +77,7 @@ entry_disagree = build_trace_entry(
 )
 check("disagree entry agree=False", entry_disagree["agree"] is False)
 check("disagree has opp_deck", entry_disagree["opp_deck"] == "megastarmie")
+check("entry has type=decision", entry["type"] == "decision")
 
 print("\n=== build_game_result_entry ===")
 result_entry = build_game_result_entry("raging_bolt", "dragapult", "win", 12)
@@ -136,6 +137,13 @@ check("agree_pct=50", summary["agree_pct"] == 50.0)
 check("has disagree_by_context", "disagree_by_context" in summary)
 check("has human_low_score", "human_low_score_choices" in summary)
 check("has ai_ignored", "ai_ignored_choices" in summary)
+
+print("\n=== analyze filters game_result ===")
+entries_with_result = entries + [
+    build_game_result_entry("rb", "dragapult", "win", 10),
+]
+summary_filtered = analyze(entries_with_result)
+check("game_result excluded from total", summary_filtered["total"] == 4)
 
 print("\n=== analyze empty ===")
 empty_summary = analyze([])

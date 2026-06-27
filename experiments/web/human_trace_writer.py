@@ -55,6 +55,7 @@ def build_trace_entry(
     """
     return {
         "ts": time.time(),
+        "type": "decision",
         "deck": deck_name,
         "opp_deck": opp_deck,
         "turn": turn,

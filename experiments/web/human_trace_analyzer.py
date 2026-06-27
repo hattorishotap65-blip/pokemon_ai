@@ -15,6 +15,7 @@ from human_trace_writer import load_traces
 
 def analyze(entries):
     """Analyze a list of trace entries. Returns summary dict."""
+    entries = [e for e in entries if e.get("type", "decision") == "decision"]
     total = len(entries)
     if total == 0:
         return {"total": 0, "agree": 0, "disagree": 0, "agree_pct": 0.0}

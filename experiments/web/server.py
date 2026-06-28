@@ -347,6 +347,15 @@ def option_ids(obs, opt, my_index):
     return None, None
 
 
+_ENERGY_NAMES = {1: '草', 2: '炎', 3: '水', 4: '雷', 5: '超', 6: '闘', 7: '悪', 8: '鋼', 9: '竜', 0: '無'}
+
+
+def _energy_type_label(card_id):
+    """Return energy type name for a basic energy card."""
+    _ID_TO_TYPE = {1: '草', 2: '炎', 3: '水', 4: '雷', 5: '超', 6: '闘', 7: '悪', 8: '鋼'}
+    return _ID_TO_TYPE.get(card_id, '')
+
+
 def _pos_label(area, index):
     """Return a position label like 'バトル場' or 'ベンチ2'."""
     if area == AreaType.ACTIVE:
@@ -358,6 +367,13 @@ def _pos_label(area, index):
     if area == AreaType.DISCARD:
         return 'トラッシュ'
     return ''
+
+
+def _is_opponent_select(context):
+    """Return True if the current select targets opponent's field."""
+    return context in (SelectContext.SWITCH, SelectContext.TO_ACTIVE,
+                       SelectContext.EFFECT_TARGET, SelectContext.DAMAGE,
+                       SelectContext.DAMAGE_COUNTER, SelectContext.DAMAGE_COUNTER_ANY)
 
 
 def _card_detail(c):
@@ -406,18 +422,26 @@ def label_option(obs, opt, my_index):
         tn = cname(tgt.id).replace(chr(39), '') if tgt else '?'
         pos = _pos_label(opt.inPlayArea, opt.inPlayIndex)
         detail = _card_detail(tgt) if tgt else ''
+        src = get_card(obs, AreaType.HAND, opt.index, my_index)
+        etype = _energy_type_label(src.id) if src else ''
+        etype_s = f'{etype}エネ ' if etype else ''
         if 'DISCARD' in cn:
-            return f'🗑 エネルギーをトラッシュ ({tn} {pos}){detail}'
+            return f'🗑 {etype_s}エネルギーをトラッシュ ({tn} {pos}){detail}'
         if 'TO_HAND' in cn:
-            return f'✋ エネルギーを手札に ({tn} {pos}){detail}'
-        return f'🔋 エネルギーをつける → {tn} ({pos}){detail}'
+            return f'✋ {etype_s}エネルギーを手札に ({tn} {pos}){detail}'
+        return f'🔋 {etype_s}エネルギーをつける → {tn} ({pos}){detail}'
     if t in (OptionType.PLAY, OptionType.CARD, OptionType.TOOL_CARD, OptionType.ENERGY_CARD):
         area = getattr(opt, 'area', None) or AreaType.HAND
-        c = get_card(obs, area, opt.index, my_index)
+        pi = (1 - my_index) if _is_opponent_select(obs.select.context) else my_index
+        c = get_card(obs, area, opt.index, pi)
         nm = cname(c.id) if c else 'card'
+        etype = _energy_type_label(c.id) if c and t == OptionType.ENERGY_CARD else ''
+        if etype:
+            nm = f'{etype}エネ ({nm})'
         pos = _pos_label(area, opt.index)
         detail = _card_detail(c) if c and area != AreaType.HAND else ''
-        pos_suffix = f' ({pos})' if pos and area != AreaType.HAND else ''
+        opp_tag = ' [相手]' if pi != my_index and area in (AreaType.ACTIVE, AreaType.BENCH) else ''
+        pos_suffix = f' ({pos}){opp_tag}' if pos and area != AreaType.HAND else ''
         if t == OptionType.PLAY:
             return f'▶ {nm} を使う'
         if 'DISCARD' in cn:

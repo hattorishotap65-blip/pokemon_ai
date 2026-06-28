@@ -353,7 +353,28 @@ _ENERGY_NAMES = {1: '草', 2: '炎', 3: '水', 4: '雷', 5: '超', 6: '闘', 7: 
 def _energy_type_label(card_id):
     """Return energy type name for a basic energy card."""
     _ID_TO_TYPE = {1: '草', 2: '炎', 3: '水', 4: '雷', 5: '超', 6: '闘', 7: '悪', 8: '鋼'}
-    return _ID_TO_TYPE.get(card_id, '')
+    label = _ID_TO_TYPE.get(card_id, '')
+    if label:
+        return label
+    cd = CT.get(card_id)
+    if cd:
+        et = getattr(cd, 'energyType', None)
+        if et is not None:
+            return _ENERGY_NAMES.get(et, '')
+    return ''
+
+
+def _energy_label_from_card(c):
+    """Return energy type label from a card object (energy card or attached energy)."""
+    if c is None:
+        return ''
+    label = _energy_type_label(c.id)
+    if label:
+        return label
+    et = getattr(c, 'energyType', None)
+    if et is not None:
+        return _ENERGY_NAMES.get(et, '')
+    return ''
 
 
 def _pos_label(area, index):
@@ -430,20 +451,28 @@ def label_option(obs, opt, my_index):
         tn = cname(tgt.id).replace(chr(39), '') if tgt else '?'
         pos = _pos_label(opt.inPlayArea, opt.inPlayIndex)
         detail = _card_detail(tgt) if tgt else ''
-        src = get_card(obs, AreaType.HAND, opt.index, my_index)
-        etype = _energy_type_label(src.id) if src else ''
-        etype_s = f'{etype}エネ ' if etype else ''
+        src = get_card(obs, getattr(opt, 'area', None) or AreaType.HAND, opt.index, my_index)
+        etype = _energy_label_from_card(src)
+        if not etype and src:
+            etype = _energy_type_label(src.id)
+        etype_s = f'{etype}エネ ' if etype else 'エネルギー'
         if 'DISCARD' in cn:
-            return f'🗑 {etype_s}エネルギーをトラッシュ ({tn} {pos}){detail}'
+            return f'🗑 {etype_s}をトラッシュ ({tn} {pos}){detail}'
         if 'TO_HAND' in cn:
-            return f'✋ {etype_s}エネルギーを手札に ({tn} {pos}){detail}'
-        return f'🔋 {etype_s}エネルギーをつける → {tn} ({pos}){detail}'
+            return f'✋ {etype_s}を手札に ({tn} {pos}){detail}'
+        return f'🔋 {etype_s}をつける → {tn} ({pos}){detail}'
     if t in (OptionType.PLAY, OptionType.CARD, OptionType.TOOL_CARD, OptionType.ENERGY_CARD):
         area = getattr(opt, 'area', None) or AreaType.HAND
         pi = _resolve_player_index(obs, opt, my_index)
         c = get_card(obs, area, opt.index, pi)
         nm = cname(c.id) if c else 'card'
-        etype = _energy_type_label(c.id) if c and t == OptionType.ENERGY_CARD else ''
+        etype = ''
+        if c:
+            cd = CT.get(c.id)
+            is_energy = t == OptionType.ENERGY_CARD or (
+                cd and cd.cardType in (CardType.BASIC_ENERGY, CardType.SPECIAL_ENERGY))
+            if is_energy:
+                etype = _energy_label_from_card(c)
         if etype:
             nm = f'{etype}エネ ({nm})'
         pos = _pos_label(area, opt.index)

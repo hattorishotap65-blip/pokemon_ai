@@ -313,7 +313,7 @@ function cardHTML(p,active){
       <div class="hp-bar"><div class="hp-bar-fill ${cls}" style="width:${pct}%"></div></div>
       <div class="meta"><span>${p.hp}/${p.maxHp}</span><span>${eDisp}${tools}</span></div></div>` : '';
   return `<div class="card ${active?'active small':'small'} ${url?'imgc':''}" data-id="${p.id}"
-    data-hp="${p.hp}" data-mhp="${p.maxHp}" data-e="${p.energy}" data-tools="${(p.tools||[]).join('、')}"
+    data-hp="${p.hp}" data-mhp="${p.maxHp}" data-e="${p.energy}" data-ed="${(p.energyDetail||[]).join(',')}" data-tools="${(p.tools||[]).join('、')}"
     onclick="detailLive(this)">${body}${imgLayer}</div>`;
 }
 function handHTML(c){
@@ -421,7 +421,7 @@ function confirmMulti(){
   send(SEL.slice());
 }
 function detailLive(el){
-  detail(+el.dataset.id, {hp:el.dataset.hp, mhp:el.dataset.mhp, e:el.dataset.e, tools:el.dataset.tools});
+  detail(+el.dataset.id, {hp:el.dataset.hp, mhp:el.dataset.mhp, e:el.dataset.e, ed:el.dataset.ed, tools:el.dataset.tools});
 }
 function detail(id, live){
   const d=DB[id]; if(!d) return;
@@ -435,8 +435,12 @@ function detail(id, live){
   if(d.weak) h+=`<div class="detail-row"><span class="label">弱点</span><span>${TC[d.weak]||d.weak}</span></div>`;
   if(d.stage!=null) h+=`<div class="detail-row"><span class="label">進化段階</span><span>${d.ex?'ex ':''}${['たね','1進化','2進化'][d.stage]??d.stage}</span></div>`;
   h+='</div></div>';
-  if(live) h+=`<div class="atk" style="border:1px solid var(--gold)"><div class="nm">📍 場の状態</div>
-    <div class="tx">HP ${live.hp}/${live.mhp}　·　🔋 エネルギー ${live.e} 個　·　🛡 どうぐ:${live.tools||'無'}</div></div>`;
+  if(live){
+    const edArr=live.ed?live.ed.split(',').filter(Boolean):[];
+    const eDisp=edArr.length?edArr.map(e=>EC[e]||e).join(' '):`${live.e} 個`;
+    h+=`<div class="atk" style="border:1px solid var(--gold)"><div class="nm">📍 場の状態</div>
+    <div class="tx">HP ${live.hp}/${live.mhp}　·　エネルギー ${eDisp}　·　🛡 どうぐ:${live.tools||'無'}</div></div>`;
+  }
   (d.abilities||[]).forEach(a=>h+=`<div class="atk"><div class="nm">✨ 特性(アビリティ)</div><div class="tx">${a}</div></div>`);
   (d.attacks||[]).forEach(a=>{
     const cost=(a.cost||[]).map(c=>TC[c]||c[0]).join('');

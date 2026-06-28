@@ -290,6 +290,8 @@ const tColor=t=>`var(${TYPES[t]||'--colorless'})`;
 const short=n=>(n||'').replace("Ethan's ","").replace("Iono's ","");
 const imgURL=id=>{const slug=IMG[String(id)]; return slug?`https://images.pokemontcg.io/${slug}_hires.png`:`/card_img/${id}.png`;};
 
+const EC={'草':'🟢','炎':'🔴','水':'🔵','雷':'🟡','超':'🟣','闘':'🟤','悪':'⚫','鋼':'⚪','竜':'🟠','無':'⬜'};
+function eIcons(detail){ return (detail||[]).map(e=>EC[e]||'⬜').join(''); }
 function cardHTML(p,active){
   if(!p) return active?'<div class="empty-slot">—</div>':'';
   const d=DB[p.id]||{}; const c=tColor(d.type);
@@ -297,18 +299,19 @@ function cardHTML(p,active){
   const cls=pct>50?'high':pct>20?'mid':'low';
   const ex=d.ex?'<span class="ex-badge">ex</span>':'';
   const tools=(p.tools&&p.tools.length)?` 🛡${p.tools.length}`:'';
+  const eDisp=p.energyDetail&&p.energyDetail.length?eIcons(p.energyDetail):`🔋${p.energy}`;
   const body=`<div class="card-type-bar" style="background:${c}"></div>
     <div class="card-body">
       <div class="card-name">${short(p.name)} ${ex}</div>
       <div class="hp-bar"><div class="hp-bar-fill ${cls}" style="width:${pct}%"></div></div>
       <div class="card-row"><span class="hp-text">${p.hp}<span class="max">/${p.maxHp}</span></span>
-        <span class="energy-row">🔋${p.energy}${tools}</span></div>
+        <span class="energy-row">${eDisp}${tools}</span></div>
     </div>`;
   const url=imgURL(p.id);
   const imgLayer = url ? `<img class="cimg" src="${url}" onerror="this.closest('.card').classList.add('noimg')">
     <div class="ovl"><div class="nm">${short(p.name)} ${ex}</div>
       <div class="hp-bar"><div class="hp-bar-fill ${cls}" style="width:${pct}%"></div></div>
-      <div class="meta"><span>${p.hp}/${p.maxHp}</span><span>🔋${p.energy}${tools}</span></div></div>` : '';
+      <div class="meta"><span>${p.hp}/${p.maxHp}</span><span>${eDisp}${tools}</span></div></div>` : '';
   return `<div class="card ${active?'active small':'small'} ${url?'imgc':''}" data-id="${p.id}"
     data-hp="${p.hp}" data-mhp="${p.maxHp}" data-e="${p.energy}" data-tools="${(p.tools||[]).join('、')}"
     onclick="detailLive(this)">${body}${imgLayer}</div>`;

@@ -318,8 +318,10 @@ def _advance_opponent():
 def poke_json(p):
     if p is None:
         return None
+    energy_detail = [_ENERGY_NAMES.get(e, '?') for e in (p.energies or [])]
     return {'id': p.id, 'name': cname(p.id).replace("Ethan's ", "").replace("Iono's ", ""),
             'hp': p.hp, 'maxHp': p.maxHp, 'energy': len(p.energies),
+            'energyDetail': energy_detail,
             'tools': [cname(t.id) for t in p.tools]}
 
 

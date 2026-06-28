@@ -332,11 +332,15 @@ class RagingBoltPolicy:
 
         if aid == BURST_ROAR:
             hand_size = len(self.hand_ids)
-            if hand_size <= 2:
-                return 900
-            if hand_size <= 4:
+            has_bt = any(o.type == OptionType.ATTACK and o.attackId == BELLOWING_THUNDER
+                         for o in self.select.option)
+            has_mls = any(o.type == OptionType.ATTACK and o.attackId == MYRIAD_LEAF_SHOWER
+                          for o in self.select.option)
+            if has_bt or has_mls:
+                return 50
+            if hand_size <= 1 and self.energy_in_hand == 0:
                 return 700
-            return 300
+            return 100
 
         return 500
 

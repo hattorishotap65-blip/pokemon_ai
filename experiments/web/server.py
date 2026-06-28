@@ -377,6 +377,32 @@ def _energy_label_from_card(c):
     return ''
 
 
+def _resolve_energy_type(obs, opt, player_index):
+    """Get energy type from a Pokemon's energyCards using energyIndex."""
+    ei = getattr(opt, 'energyIndex', None)
+    area = getattr(opt, 'area', None)
+    idx = opt.index
+    if ei is None or area is None:
+        return ''
+    try:
+        player = obs.current.players[player_index]
+        poke = None
+        if area == AreaType.ACTIVE and player.active:
+            poke = player.active[idx] if idx < len(player.active) else player.active[0]
+        elif area == AreaType.BENCH and player.bench:
+            poke = player.bench[idx] if idx < len(player.bench) else None
+        if poke and hasattr(poke, 'energyCards') and poke.energyCards:
+            if ei < len(poke.energyCards):
+                ec = poke.energyCards[ei]
+                return _energy_type_label(ec.id)
+        if poke and hasattr(poke, 'energies') and poke.energies:
+            if ei < len(poke.energies):
+                return _ENERGY_NAMES.get(poke.energies[ei], '')
+    except Exception:
+        pass
+    return ''
+
+
 def _pos_label(area, index):
     """Return a position label like 'バトル場' or 'ベンチ2'."""
     if area == AreaType.ACTIVE:
@@ -451,10 +477,12 @@ def label_option(obs, opt, my_index):
         tn = cname(tgt.id).replace(chr(39), '') if tgt else '?'
         pos = _pos_label(opt.inPlayArea, opt.inPlayIndex)
         detail = _card_detail(tgt) if tgt else ''
-        src = get_card(obs, getattr(opt, 'area', None) or AreaType.HAND, opt.index, my_index)
-        etype = _energy_label_from_card(src)
-        if not etype and src:
-            etype = _energy_type_label(src.id)
+        etype = ''
+        if t == OptionType.ATTACH:
+            src = get_card(obs, getattr(opt, 'area', None) or AreaType.HAND, opt.index, my_index)
+            etype = _energy_label_from_card(src)
+        elif t == OptionType.ENERGY:
+            etype = _resolve_energy_type(obs, opt, my_index)
         etype_s = f'{etype}エネ ' if etype else 'エネルギー'
         if 'DISCARD' in cn:
             return f'🗑 {etype_s}をトラッシュ ({tn} {pos}){detail}'
@@ -467,11 +495,13 @@ def label_option(obs, opt, my_index):
         c = get_card(obs, area, opt.index, pi)
         nm = cname(c.id) if c else 'card'
         etype = ''
-        if c:
+        if t == OptionType.ENERGY_CARD:
+            etype = _resolve_energy_type(obs, opt, pi)
+            if not etype and c:
+                etype = _energy_label_from_card(c)
+        elif c:
             cd = CT.get(c.id)
-            is_energy = t == OptionType.ENERGY_CARD or (
-                cd and cd.cardType in (CardType.BASIC_ENERGY, CardType.SPECIAL_ENERGY))
-            if is_energy:
+            if cd and cd.cardType in (CardType.BASIC_ENERGY, CardType.SPECIAL_ENERGY):
                 etype = _energy_label_from_card(c)
         if etype:
             nm = f'{etype}エネ ({nm})'

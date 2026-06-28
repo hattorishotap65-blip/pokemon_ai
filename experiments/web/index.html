@@ -255,6 +255,7 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
 <script>
 let STATE=null, SEL=[], MULTI=false, DB={}, IMG={}, LASTSEQ=-1, REC=false;
 let TURN_GOAL='', WIN_PLAN=new Set(), RISKS=new Set(), REASONS=new Set(), CONSIDERED=new Set();
+let _lastTurn=-1;
 const $=s=>document.querySelector(s);
 
 const GOALS=[
@@ -354,6 +355,10 @@ function renderThoughtPanel(show){
 }
 function render(s){
   STATE=s; SEL=[]; CONSIDERED=new Set();
+  if(s.turn!=null && s.turn!==_lastTurn){
+    _lastTurn=s.turn;
+    TURN_GOAL=''; WIN_PLAN=new Set(); RISKS=new Set(); REASONS=new Set();
+  }
   if(!s.started){ $('#ctx').textContent='「新しい対戦」を押して開始'; renderThoughtPanel(false); return; }
   $('#oppActive').innerHTML=cardHTML(s.opp.active,true);
   $('#oppBench').innerHTML=(s.opp.bench||[]).map(p=>cardHTML(p)).join('')||'<div class="empty-slot">空き</div>';
@@ -397,6 +402,7 @@ const _SKIP_TAG_CTX=new Set(['IS_FIRST','DRAW_COUNT','SETUP_ACTIVE_POKEMON','SET
 function _checkRecTags(){
   if(!REC) return true;
   if(STATE && _SKIP_TAG_CTX.has(STATE.context)) return true;
+  if(!TURN_GOAL){alert('「このターンの目標」を選んでください');return false;}
   if(REASONS.size===0){alert('「行動理由」を1つ以上選んでください');return false;}
   return true;
 }
@@ -497,8 +503,7 @@ async function send(indices){
     payload.risk_flags=[...RISKS];
     payload.human_reason_tags=[...REASONS];
     payload.human_considered=[...CONSIDERED];
-    TURN_GOAL=''; WIN_PLAN=new Set(); RISKS=new Set();
-    REASONS=new Set(); CONSIDERED=new Set();
+    CONSIDERED=new Set();
   }
   const r=await fetch('/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   render(await r.json());

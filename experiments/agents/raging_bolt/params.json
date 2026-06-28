@@ -1,9 +1,7 @@
 {
-  "_comment": "Raging Bolt ex + Teal Mask Ogerpon ex priority params (v2)",
+  "_comment": "Raging Bolt ex + Teal Mask Ogerpon ex (v3 strategy planning)",
   "score_attack_bellowing_thunder": 900,
   "score_attack_myriad_leaf_shower": 700,
-  "score_attack_burst_roar": 400,
-  "score_attack_burst_roar_low_hand": 800,
   "score_ability_teal_dance": 850,
   "score_play_pokemon_raging_bolt": 840,
   "score_play_pokemon_ogerpon": 870,

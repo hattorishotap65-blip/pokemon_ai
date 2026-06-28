@@ -411,6 +411,8 @@ class RagingBoltPolicy:
 
         if t == OptionType.ATTACK:
             base = self._score_attack(opt)
+            if opt.attackId == BURST_ROAR:
+                return base
             return base + self._strategy_bonus("attack", attack_id=opt.attackId)
 
         if t == OptionType.ABILITY:

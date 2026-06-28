@@ -397,7 +397,6 @@ const _SKIP_TAG_CTX=new Set(['IS_FIRST','DRAW_COUNT','SETUP_ACTIVE_POKEMON','SET
 function _checkRecTags(){
   if(!REC) return true;
   if(STATE && _SKIP_TAG_CTX.has(STATE.context)) return true;
-  if(!TURN_GOAL){alert('「このターンの目標」を選んでください');return false;}
   if(REASONS.size===0){alert('「行動理由」を1つ以上選んでください');return false;}
   return true;
 }

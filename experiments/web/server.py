@@ -806,6 +806,13 @@ def _record_human_trace(human_indices, strategy_tags=None):
         )
         if strategy_tags:
             entry.update(strategy_tags)
+        try:
+            if ME['Policy'] is not None:
+                p = ME['Policy'](obs)
+                entry['agent_goals'] = sorted(p.goals) if hasattr(p, 'goals') else []
+                entry['agent_risks'] = sorted(p.risks) if hasattr(p, 'risks') else []
+        except Exception:
+            pass
         write_trace_entry(tp, entry)
     except Exception:
         pass

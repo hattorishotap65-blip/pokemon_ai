@@ -350,9 +350,8 @@ class RagingBoltPolicy:
     def _score_ability(self, i, opt):
         c = get_card(self.obs, opt.area, opt.index, self.my_index)
         if c and c.id == C.TEAL_MASK_OGERPON_EX:
-            grass_in_hand = sum(1 for cid in self.hand_ids if cid == C.BASIC_GRASS_ENERGY)
-            if grass_in_hand > 0:
-                return self.p("score_ability_teal_dance", 850)
+            if self.grass_in_hand > 0:
+                return 1300
             return 200
         return 500
 
@@ -429,23 +428,16 @@ class RagingBoltPolicy:
         if target.id == C.RAGING_BOLT_EX:
             has_lightning = any(e == 4 for e in target.energies) if target else False
             has_fighting = any(e == 6 for e in target.energies) if target else False
-            needed_for_bt = (0 if has_lightning else 1) + (0 if has_fighting else 1)
             fills_bt_req = (energy_id == C.BASIC_LIGHTNING_ENERGY and not has_lightning) or \
                            (energy_id == C.BASIC_FIGHTING_ENERGY and not has_fighting)
-            if is_active:
-                if fills_bt_req:
-                    return 1200
-                if self.opp_active and (target_energy + 1) * 70 >= self.opp_active_hp:
-                    return 1100
-                return self.p("score_attach_energy_raging_bolt_active", 800)
             if fills_bt_req:
-                return 900
-            return self.p("score_attach_energy_raging_bolt_bench", 500)
+                return 1400
+            if is_active:
+                return 800 + target_energy * 50
+            return 500 + target_energy * 50
 
         if target.id == C.TEAL_MASK_OGERPON_EX:
-            if is_active:
-                return self.p("score_attach_energy_ogerpon_active", 700)
-            return self.p("score_attach_energy_ogerpon_bench", 500)
+            return 400
 
         return self.p("score_attach_energy_other", 200)
 
@@ -456,11 +448,12 @@ class RagingBoltPolicy:
                                 and any(e == 4 for e in p.energies)
                                 and any(e == 6 for e in p.energies)]
             if bench_bolt_ready:
-                return 1100
+                return 1500
+        if self.active_id != C.RAGING_BOLT_EX:
             bench_bolt_any = [p for p in (self.me.bench or [])
-                              if p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 1]
+                              if p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 2]
             if bench_bolt_any:
-                return 600
+                return 800
         if self.active_hp_pct <= 15:
             bench_any = [p for p in (self.me.bench or []) if p and _count_energy(p) >= 1]
             if bench_any:

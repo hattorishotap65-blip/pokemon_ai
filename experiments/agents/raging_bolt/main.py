@@ -171,6 +171,57 @@ class RagingBoltPolicy:
         self.energy_in_hand = _count_basic_energy_in_hand(self.me.hand)
         self.energy_in_discard = _count_basic_energy_in_discard(self.me.discard)
         self.total_field_energy = _total_energy_on_field(self.me)
+        self.grass_in_hand = sum(1 for cid in self.hand_ids if cid == C.BASIC_GRASS_ENERGY)
+
+        self._analyze_field()
+
+    def _analyze_field(self):
+        """Pre-compute strategic state for scoring."""
+        all_pokemon = list(self.me.active or []) + list(self.me.bench or [])
+
+        self.bt_total_energy = 0
+        for p in all_pokemon:
+            if p:
+                self.bt_total_energy += _count_energy(p)
+        self.bt_potential_damage = self.bt_total_energy * 70
+
+        self.can_ko_with_bt = (
+            self.active_id == C.RAGING_BOLT_EX
+            and self.opp_active
+            and self.bt_potential_damage >= self.opp_active_hp
+        )
+
+        self.ogerpon_on_field = []
+        self.bolt_on_field = []
+        for p in all_pokemon:
+            if not p:
+                continue
+            if p.id == C.TEAL_MASK_OGERPON_EX:
+                self.ogerpon_on_field.append(p)
+            elif p.id == C.RAGING_BOLT_EX:
+                self.bolt_on_field.append(p)
+
+        self.bolt_has_lightning = False
+        self.bolt_has_fighting = False
+        bolt_active = self.active if self.active_id == C.RAGING_BOLT_EX else None
+        if bolt_active:
+            self.bolt_has_lightning = any(e == 4 for e in bolt_active.energies)
+            self.bolt_has_fighting = any(e == 6 for e in bolt_active.energies)
+
+        self.bolt_ready = self.bolt_has_lightning and self.bolt_has_fighting
+
+        self.supporter_used_this_turn = not any(
+            opt.type == OptionType.PLAY
+            and self._is_supporter(opt)
+            for opt in (self.select.option or [])
+        ) if self.context == SelectContext.MAIN else True
+
+    def _is_supporter(self, opt):
+        c = get_card(self.obs, AreaType.HAND, opt.index, self.my_index)
+        if c:
+            cd = card_table.get(c.id)
+            return cd and cd.cardType == CardType.SUPPORTER
+        return False
 
     def p(self, key, default=0):
         return P.get(key, default)
@@ -208,7 +259,7 @@ class RagingBoltPolicy:
         t = opt.type
 
         if t == OptionType.END:
-            return self.p("score_end_turn", 50)
+            return 50
 
         if t == OptionType.YES:
             if self.context == SelectContext.IS_FIRST:
@@ -253,20 +304,18 @@ class RagingBoltPolicy:
         aid = opt.attackId
 
         if aid == BELLOWING_THUNDER:
-            if not self.active:
+            if not self.active or self.active_id != C.RAGING_BOLT_EX:
                 return 400
-            energy_count = _count_energy(self.active)
-            potential_damage = energy_count * 70
-            if self.opp_active and potential_damage >= self.opp_active_hp:
+            if not self.bolt_ready:
+                return 300
+            if self.can_ko_with_bt:
                 prize = self._opp_prize_value()
-                return 1500 + prize * 200
-            if energy_count >= 4:
-                return self.p("score_attack_bellowing_thunder", 900) + 200
-            if energy_count >= 3:
-                return self.p("score_attack_bellowing_thunder", 900)
-            if energy_count >= 2:
-                return 800
-            return 600
+                return 2000 + prize * 300
+            if self.bt_total_energy >= 4:
+                return 1200
+            if self.bt_total_energy >= 3:
+                return 1000
+            return 800
 
         if aid == MYRIAD_LEAF_SHOWER:
             my_energy = _count_energy(self.active) if self.active else 0
@@ -275,16 +324,16 @@ class RagingBoltPolicy:
             potential_damage = 30 + total_energy * 30
             if self.opp_active and potential_damage >= self.opp_active_hp:
                 prize = self._opp_prize_value()
-                return 1500 + prize * 200
-            if total_energy >= 3:
-                return self.p("score_attack_myriad_leaf_shower", 700) + total_energy * 30
-            return self.p("score_attack_myriad_leaf_shower", 700)
+                return 1800 + prize * 200
+            return 600 + total_energy * 40
 
         if aid == BURST_ROAR:
             hand_size = len(self.hand_ids)
-            if hand_size <= self.p("burst_roar_hand_threshold", 3):
-                return self.p("score_attack_burst_roar_low_hand", 800)
-            return self.p("score_attack_burst_roar", 400)
+            if hand_size <= 2:
+                return 900
+            if hand_size <= 4:
+                return 700
+            return 300
 
         return 500
 
@@ -311,23 +360,28 @@ class RagingBoltPolicy:
         if cid == C.CRISPIN:
             if self.energy_in_hand >= 3:
                 return 300
-            ogerpon_count = sum(1 for p in (self.me.bench or [])
-                                if p and p.id == C.TEAL_MASK_OGERPON_EX)
-            if ogerpon_count > 0 and self.energy_in_hand < 2:
-                return 950
-            return self.p("score_supporter_crispin", 700)
+            if len(self.ogerpon_on_field) > 0 and self.grass_in_hand == 0:
+                return 1100
+            if self.energy_in_discard >= 2:
+                return 900
+            return 600
 
         if cid == C.LILLIE_DETERMINATION:
-            if len(self.hand_ids) <= self.p("lillie_hand_threshold", 3):
-                return self.p("score_supporter_lillie_low_hand", 800)
-            return self.p("score_supporter_lillie", 600)
+            if len(self.hand_ids) <= 2:
+                return 950
+            if len(self.hand_ids) <= 4:
+                return 750
+            return 400
 
         if cid == C.BOSS_ORDERS:
             if self.active_hp_pct <= 20:
                 return 200
-            if self.opp_active and self._can_ko_active():
-                return self.p("score_supporter_boss_can_ko", 1200)
-            return self.p("score_supporter_boss", 900)
+            best_target = self._best_boss_target()
+            if best_target:
+                return 1500
+            if self.can_ko_with_bt:
+                return 300
+            return 700
 
         if cid == C.ULTRA_BALL:
             return self.p("score_item_ultra_ball", 500)
@@ -387,13 +441,18 @@ class RagingBoltPolicy:
 
     def _score_retreat(self):
         if self.active_hp_pct <= 15:
-            bench_attackers = sum(1 for p in (self.me.bench or [])
-                                  if p and _count_energy(p) >= 1)
-            if bench_attackers > 0:
-                return 900
-        if self.active_hp_pct <= self.p("retreat_hp_threshold_pct", 30):
-            return self.p("score_retreat_damaged_active", 400)
-        return self.p("score_retreat", 100)
+            bench_ready = [p for p in (self.me.bench or [])
+                           if p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 2]
+            if bench_ready:
+                return 1000
+            bench_any = [p for p in (self.me.bench or []) if p and _count_energy(p) >= 1]
+            if bench_any:
+                return 800
+        if self.active_id != C.RAGING_BOLT_EX and self.active_id != C.TEAL_MASK_OGERPON_EX:
+            return 500
+        if self.active_hp_pct <= 30:
+            return 400
+        return 100
 
     def _score_card_select(self, i, opt):
         c = get_card(self.obs,
@@ -517,6 +576,21 @@ class RagingBoltPolicy:
                 return 500 + num * 70
             return 500 + num * 100
         return 500
+
+    def _best_boss_target(self):
+        """Check if there's a high-value KO target on opponent's bench."""
+        if not self.opp_active:
+            return None
+        for p in (self.opponent.bench or []):
+            if not p:
+                continue
+            data = card_table.get(p.id)
+            if not data:
+                continue
+            prize = 3 if data.megaEx else 2 if data.ex else 1
+            if prize >= 2 and p.hp <= self.bt_potential_damage:
+                return p
+        return None
 
     def _opp_prize_value(self):
         if not self.opp_active:

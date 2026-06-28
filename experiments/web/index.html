@@ -372,7 +372,7 @@ function render(s){
   $('#ctx').textContent = s.over?'対戦終了':(s.yourTurn?('あなたのターン · '+(s.context||'')):'CPU思考中…');
   const optDiv=$('#options'); optDiv.innerHTML=''; $('#confirm').style.display='none';
   if(s.over || !s.yourTurn){ $('#aihint').style.display='none'; renderThoughtPanel(false); return; }
-  const showRec = REC && s.yourTurn && !s.over;
+  const showRec = REC && s.yourTurn && !s.over && !_SKIP_TAG_CTX.has(s.context);
   renderThoughtPanel(showRec);
   MULTI = s.multi && s.multi.max>1;
   const recs=(s.options||[]).filter(o=>o.recommended).map(o=>o.label).join(' + ');
@@ -393,8 +393,10 @@ function render(s){
   if(MULTI) $('#confirm').style.display='block';
 }
 function togCon(i,el){ if(el.checked) CONSIDERED.add(i); else CONSIDERED.delete(i); }
+const _SKIP_TAG_CTX=new Set(['IS_FIRST','DRAW_COUNT','SETUP_ACTIVE_POKEMON','SETUP_BENCH_POKEMON','MULLIGAN']);
 function _checkRecTags(){
   if(!REC) return true;
+  if(STATE && _SKIP_TAG_CTX.has(STATE.context)) return true;
   if(!TURN_GOAL){alert('「このターンの目標」を選んでください');return false;}
   if(REASONS.size===0){alert('「行動理由」を1つ以上選んでください');return false;}
   return true;

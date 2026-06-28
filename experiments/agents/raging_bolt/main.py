@@ -585,9 +585,14 @@ class RagingBoltPolicy:
             return 500 + num * 100
         return 500
 
+    def _can_bellowing_thunder(self):
+        if self.active_id != C.RAGING_BOLT_EX:
+            return False
+        return self.bolt_ready or self.bt_total_energy >= 2
+
     def _best_boss_target(self):
         """Check if there's a high-value KO target on opponent's bench."""
-        if not self.opp_active:
+        if not self._can_bellowing_thunder():
             return None
         for p in (self.opponent.bench or []):
             if not p:
@@ -612,8 +617,7 @@ class RagingBoltPolicy:
         if not self.active or not self.opp_active:
             return False
         if self.active_id == C.RAGING_BOLT_EX:
-            energy = _count_energy(self.active)
-            return energy * 70 >= self.opp_active_hp
+            return self._can_bellowing_thunder() and self.bt_potential_damage >= self.opp_active_hp
         if self.active_id == C.TEAL_MASK_OGERPON_EX:
             my_e = _count_energy(self.active)
             opp_e = _count_energy(self.opp_active)

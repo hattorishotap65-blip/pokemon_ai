@@ -1,40 +1,32 @@
 {
   "_comment": "Raging Bolt ex + Teal Mask Ogerpon ex priority params (v2)",
-
   "score_attack_bellowing_thunder": 900,
   "score_attack_myriad_leaf_shower": 700,
   "score_attack_burst_roar": 400,
   "score_attack_burst_roar_low_hand": 800,
-
   "score_ability_teal_dance": 850,
-
-  "score_play_pokemon_raging_bolt": 500,
-  "score_play_pokemon_ogerpon": 600,
-
-  "score_supporter_crispin": 700,
-  "score_supporter_lillie": 600,
+  "score_play_pokemon_raging_bolt": 650,
+  "score_play_pokemon_ogerpon": 750,
+  "score_supporter_crispin": 900,
+  "score_supporter_lillie": 550,
   "score_supporter_boss": 900,
   "score_supporter_boss_can_ko": 1200,
-
   "score_item_ultra_ball": 500,
-  "score_item_pokegear": 400,
-  "score_item_bug_catching_set": 450,
-  "score_item_tera_orb": 550,
-  "score_item_energy_retrieval": 500,
+  "score_item_pokegear": 600,
+  "score_item_bug_catching_set": 650,
+  "score_item_tera_orb": 650,
+  "score_item_energy_retrieval": 650,
   "score_item_energy_retrieval_low_energy": 700,
   "energy_retrieval_threshold": 2,
   "score_item_pokemon_catcher": 300,
   "score_item_unfair_stamp": 600,
-
   "score_attach_energy_ogerpon_active": 700,
   "score_attach_energy_ogerpon_bench": 500,
   "score_attach_energy_raging_bolt_active": 800,
   "score_attach_energy_raging_bolt_bench": 500,
   "score_attach_energy_other": 200,
-
   "score_retreat": 100,
   "score_retreat_damaged_active": 400,
   "retreat_hp_threshold_pct": 30,
-
   "score_end_turn": 50
 }

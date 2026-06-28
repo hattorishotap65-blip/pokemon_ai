@@ -263,12 +263,12 @@ class RagingBoltPolicy:
 
         if t == OptionType.YES:
             if self.context == SelectContext.IS_FIRST:
-                return 900
+                return 100
             return 500
 
         if t == OptionType.NO:
             if self.context == SelectContext.IS_FIRST:
-                return 100
+                return 900
             return 400
 
         if t == OptionType.ATTACK:
@@ -325,6 +325,9 @@ class RagingBoltPolicy:
             if self.opp_active and potential_damage >= self.opp_active_hp:
                 prize = self._opp_prize_value()
                 return 1800 + prize * 200
+            has_bolt_bench = any(p and p.id == C.RAGING_BOLT_EX for p in (self.me.bench or []))
+            if has_bolt_bench and self.bt_total_energy >= 3:
+                return 400
             return 600 + total_energy * 40
 
         if aid == BURST_ROAR:
@@ -440,16 +443,21 @@ class RagingBoltPolicy:
         return self.p("score_attach_energy_other", 200)
 
     def _score_retreat(self):
+        if self.active_id == C.TEAL_MASK_OGERPON_EX:
+            bench_bolt_ready = [p for p in (self.me.bench or [])
+                                if p and p.id == C.RAGING_BOLT_EX
+                                and any(e == 4 for e in p.energies)
+                                and any(e == 6 for e in p.energies)]
+            if bench_bolt_ready:
+                return 1100
+            bench_bolt_any = [p for p in (self.me.bench or [])
+                              if p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 1]
+            if bench_bolt_any:
+                return 600
         if self.active_hp_pct <= 15:
-            bench_ready = [p for p in (self.me.bench or [])
-                           if p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 2]
-            if bench_ready:
-                return 1000
             bench_any = [p for p in (self.me.bench or []) if p and _count_energy(p) >= 1]
             if bench_any:
-                return 800
-        if self.active_id != C.RAGING_BOLT_EX and self.active_id != C.TEAL_MASK_OGERPON_EX:
-            return 500
+                return 900
         if self.active_hp_pct <= 30:
             return 400
         return 100

@@ -216,6 +216,144 @@ class RagingBoltPolicy:
             for opt in (self.select.option or [])
         ) if self.context == SelectContext.MAIN else True
 
+        self._detect_strategy()
+
+    def _detect_strategy(self):
+        """Auto-detect turn_goal and risk_flags from game state."""
+        self.goals = set()
+        self.risks = set()
+
+        opp_prizes = len(self.opponent.prize)
+        my_prizes = len(self.me.prize)
+        bench_count = len([p for p in (self.me.bench or []) if p])
+
+        # === Goals ===
+        if self.can_ko_with_bt:
+            self.goals.add("take_ko_now")
+            opp_prize_val = self._opp_prize_value()
+            if opp_prize_val >= 2:
+                self.goals.add("take_two_prizes")
+        elif self.active_id == C.TEAL_MASK_OGERPON_EX and self.opp_active:
+            my_e = _count_energy(self.active) if self.active else 0
+            opp_e = _count_energy(self.opp_active) if self.opp_active else 0
+            if 30 + (my_e + opp_e) * 30 >= self.opp_active_hp:
+                self.goals.add("take_ko_now")
+
+        if my_prizes <= 2:
+            self.goals.add("close_game")
+
+        any_bolt_ready = any(
+            p and p.id == C.RAGING_BOLT_EX
+            and any(e == 4 for e in p.energies)
+            and any(e == 6 for e in p.energies)
+            for p in (list(self.me.active or []) + list(self.me.bench or []))
+        )
+        if not any_bolt_ready:
+            self.goals.add("prepare_next_turn_attack")
+
+        if not self.ogerpon_on_field or not self.bolt_on_field:
+            self.goals.add("setup_board")
+
+        if len(self.hand_ids) <= 2:
+            self.goals.add("improve_hand")
+
+        # === Risks ===
+        if self.active and self.opp_active:
+            opp_can_deal = 200
+            if self.active.hp <= opp_can_deal:
+                self.risks.add("active_may_be_ko_next_turn")
+
+        has_bench_bolt_with_energy = any(
+            p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 1
+            for p in (self.me.bench or [])
+        )
+        if not has_bench_bolt_with_energy and self.active_id != C.RAGING_BOLT_EX:
+            self.risks.add("no_next_attacker")
+
+        if self.bt_total_energy < 2:
+            self.risks.add("not_enough_energy")
+
+        if len(self.hand_ids) <= 2:
+            self.risks.add("low_hand")
+
+        if my_prizes > opp_prizes + 1:
+            self.risks.add("behind_prize_race")
+
+        if self.me.deckCount and self.me.deckCount <= 10:
+            self.risks.add("low_deck")
+
+    def _strategy_bonus(self, action_type, card_id=None, attack_id=None):
+        """Return score modifier based on detected goals and risks."""
+        bonus = 0
+
+        if "take_ko_now" in self.goals:
+            if action_type == "attack":
+                bonus += 400
+            if action_type == "attach" and card_id == C.RAGING_BOLT_EX:
+                bonus += 200
+            if action_type == "supporter" and card_id == C.BOSS_ORDERS:
+                bonus += 300
+
+        if "take_two_prizes" in self.goals:
+            if action_type == "attack":
+                bonus += 200
+            if action_type == "supporter" and card_id == C.BOSS_ORDERS:
+                bonus += 500
+
+        if "prepare_next_turn_attack" in self.goals:
+            if action_type == "supporter" and card_id == C.CRISPIN:
+                bonus += 300
+            if action_type == "ability":
+                bonus += 200
+            if action_type == "attach":
+                bonus += 150
+            if action_type == "attack" and attack_id == BURST_ROAR:
+                bonus -= 200
+
+        if "setup_board" in self.goals:
+            if action_type == "play_pokemon":
+                bonus += 300
+            if action_type == "search_item":
+                bonus += 200
+
+        if "improve_hand" in self.goals:
+            if action_type == "supporter" and card_id == C.LILLIE_DETERMINATION:
+                bonus += 400
+            if action_type == "supporter" and card_id == C.CRISPIN:
+                bonus += 200
+
+        if "close_game" in self.goals:
+            if action_type == "attack":
+                bonus += 300
+            if action_type == "supporter" and card_id == C.BOSS_ORDERS:
+                bonus += 500
+
+        if "not_enough_energy" in self.risks:
+            if action_type == "supporter" and card_id == C.CRISPIN:
+                bonus += 400
+            if action_type == "ability":
+                bonus += 200
+            if action_type == "search_item":
+                bonus += 100
+
+        if "active_may_be_ko_next_turn" in self.risks:
+            if action_type == "retreat":
+                bonus += 300
+            if action_type == "attach" and card_id != C.RAGING_BOLT_EX:
+                bonus -= 100
+
+        if "behind_prize_race" in self.risks:
+            if action_type == "attack":
+                bonus += 300
+            if action_type == "supporter" and card_id == C.BOSS_ORDERS:
+                bonus += 200
+
+        if "low_hand" in self.risks:
+            if action_type == "supporter" and card_id == C.LILLIE_DETERMINATION:
+                bonus += 300
+
+        return bonus
+
     def _is_supporter(self, opt):
         c = get_card(self.obs, AreaType.HAND, opt.index, self.my_index)
         if c:
@@ -272,19 +410,35 @@ class RagingBoltPolicy:
             return 400
 
         if t == OptionType.ATTACK:
-            return self._score_attack(opt)
+            base = self._score_attack(opt)
+            return base + self._strategy_bonus("attack", attack_id=opt.attackId)
 
         if t == OptionType.ABILITY:
-            return self._score_ability(i, opt)
+            base = self._score_ability(i, opt)
+            return base + self._strategy_bonus("ability")
 
         if t == OptionType.PLAY:
-            return self._score_play(i, opt)
+            base = self._score_play(i, opt)
+            c = get_card(self.obs, AreaType.HAND, opt.index, self.my_index)
+            cid = c.id if c else 0
+            cd = card_table.get(cid)
+            if cd and cd.cardType == CardType.SUPPORTER:
+                return base + self._strategy_bonus("supporter", card_id=cid)
+            if cd and cd.hp and cd.hp > 0:
+                return base + self._strategy_bonus("play_pokemon", card_id=cid)
+            if cid in (C.ULTRA_BALL, C.BUG_CATCHING_SET, C.TERA_ORB, C.POKEGEAR):
+                return base + self._strategy_bonus("search_item", card_id=cid)
+            return base
 
         if t == OptionType.ATTACH:
-            return self._score_attach(i, opt)
+            base = self._score_attach(i, opt)
+            target = get_card(self.obs, getattr(opt, 'inPlayArea', None),
+                              getattr(opt, 'inPlayIndex', None), self.my_index)
+            return base + self._strategy_bonus("attach", card_id=target.id if target else 0)
 
         if t == OptionType.RETREAT:
-            return self._score_retreat()
+            base = self._score_retreat()
+            return base + self._strategy_bonus("retreat")
 
         if t == OptionType.EVOLVE:
             return 800

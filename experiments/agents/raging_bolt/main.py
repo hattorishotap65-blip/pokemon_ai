@@ -367,20 +367,20 @@ class RagingBoltPolicy:
             return self.p("score_play_pokemon_ogerpon", 600)
 
         if cid == C.CRISPIN:
-            if self.energy_in_hand >= 3:
+            if self.energy_in_hand >= 4:
                 return 500
-            if len(self.ogerpon_on_field) > 0 and self.grass_in_hand == 0:
+            if not self.bolt_ready and self.energy_in_discard >= 1:
+                return 1600
+            if self.energy_in_discard >= 1:
                 return 1500
-            if self.energy_in_discard >= 2:
-                return 1400
-            return 1200
+            return 800
 
         if cid == C.LILLIE_DETERMINATION:
             if len(self.hand_ids) <= 2:
-                return 1500
-            if len(self.hand_ids) <= 4:
                 return 1400
-            return 1200
+            if len(self.hand_ids) <= 4:
+                return 1300
+            return 1100
 
         if cid == C.BOSS_ORDERS:
             if self.active_hp_pct <= 20:

@@ -368,29 +368,29 @@ class RagingBoltPolicy:
 
         if cid == C.CRISPIN:
             if self.energy_in_hand >= 3:
-                return 300
+                return 500
             if len(self.ogerpon_on_field) > 0 and self.grass_in_hand == 0:
-                return 1100
+                return 1500
             if self.energy_in_discard >= 2:
-                return 900
-            return 600
+                return 1400
+            return 1200
 
         if cid == C.LILLIE_DETERMINATION:
             if len(self.hand_ids) <= 2:
-                return 950
+                return 1500
             if len(self.hand_ids) <= 4:
-                return 750
-            return 400
+                return 1400
+            return 1200
 
         if cid == C.BOSS_ORDERS:
             if self.active_hp_pct <= 20:
                 return 200
             best_target = self._best_boss_target()
             if best_target:
-                return 1500
+                return 1600
             if self.can_ko_with_bt:
-                return 300
-            return 700
+                return 400
+            return 800
 
         if cid == C.ULTRA_BALL:
             return self.p("score_item_ultra_ball", 500)

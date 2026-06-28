@@ -369,11 +369,19 @@ def _pos_label(area, index):
     return ''
 
 
-def _is_opponent_select(context):
-    """Return True if the current select targets opponent's field."""
-    return context in (SelectContext.SWITCH, SelectContext.TO_ACTIVE,
-                       SelectContext.EFFECT_TARGET, SelectContext.DAMAGE,
-                       SelectContext.DAMAGE_COUNTER, SelectContext.DAMAGE_COUNTER_ANY)
+def _resolve_player_index(obs, opt, my_index):
+    """Determine which player's card an option refers to.
+    Try my_index first; if no card found, try opponent."""
+    area = getattr(opt, 'area', None)
+    if area is None or area not in (AreaType.ACTIVE, AreaType.BENCH):
+        return my_index
+    c = get_card(obs, area, opt.index, my_index)
+    if c is not None:
+        return my_index
+    c2 = get_card(obs, area, opt.index, 1 - my_index)
+    if c2 is not None:
+        return 1 - my_index
+    return my_index
 
 
 def _card_detail(c):
@@ -432,7 +440,7 @@ def label_option(obs, opt, my_index):
         return f'🔋 {etype_s}エネルギーをつける → {tn} ({pos}){detail}'
     if t in (OptionType.PLAY, OptionType.CARD, OptionType.TOOL_CARD, OptionType.ENERGY_CARD):
         area = getattr(opt, 'area', None) or AreaType.HAND
-        pi = (1 - my_index) if _is_opponent_select(obs.select.context) else my_index
+        pi = _resolve_player_index(obs, opt, my_index)
         c = get_card(obs, area, opt.index, pi)
         nm = cname(c.id) if c else 'card'
         etype = _energy_type_label(c.id) if c and t == OptionType.ENERGY_CARD else ''

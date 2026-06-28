@@ -443,8 +443,9 @@ def _card_detail(c):
     parts = []
     if hp is not None and maxhp:
         parts.append(f'HP{hp}/{maxhp}')
-    if energies is not None:
-        parts.append(f'エネ{len(energies)}')
+    if energies:
+        e_types = [_ENERGY_NAMES.get(e, '?') for e in energies]
+        parts.append(''.join(e_types))
     return f' [{", ".join(parts)}]' if parts else ''
 
 

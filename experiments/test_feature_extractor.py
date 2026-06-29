@@ -30,5 +30,11 @@ expected = {"my_prizes", "opp_prizes", "prize_diff", "bolt_ready",
             "hand_size", "deck_count", "field_ready", "active_ko_risk"}
 check("expected keys subset", expected.issubset(set(FEATURE_KEYS)))
 
+print("\n=== energy card IDs are correct ===")
+from experiments.agents.raging_bolt.feature_extractor import GRASS, LIGHTNING, FIGHTING
+check("GRASS == 1", GRASS == 1)
+check("LIGHTNING == 4", LIGHTNING == 4)
+check("FIGHTING == 6", FIGHTING == 6)
+
 print("\n%d/%d passed" % (_t - _f, _t))
 if _f: sys.exit(1)

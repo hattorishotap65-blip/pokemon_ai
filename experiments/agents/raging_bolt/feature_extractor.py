@@ -8,9 +8,10 @@ LILLIE = 1227
 BOSS = 1182
 ENERGY_RETRIEVAL = 1118
 SEARCH_ITEMS = {1121, 1122, 1094, 1127}  # Ultra Ball, Pokegear, Bug Catching, Tera Orb
-GRASS = 1
-LIGHTNING = 4
-FIGHTING = 6
+# Card IDs for basic energy (same as C.BASIC_*_ENERGY in main.py)
+GRASS = 1       # Basic {G} Energy card ID
+LIGHTNING = 4   # Basic {L} Energy card ID
+FIGHTING = 6    # Basic {F} Energy card ID
 
 
 def extract_features(obs, my_index):

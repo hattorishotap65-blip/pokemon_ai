@@ -1105,8 +1105,8 @@ class RagingBoltPolicy:
 
             if self.p("use_value_model", False):
                 try:
-                    from value_model import predict_state_value
-                    v = predict_state_value(self.obs, self.my_index)
+                    from value_model import predict_action_value
+                    v = predict_action_value(self.obs, self.my_index, opt)
                     if v is not None:
                         w_val = self.p("value_model_weight", 0.2)
                         final += v * w_val * 1000

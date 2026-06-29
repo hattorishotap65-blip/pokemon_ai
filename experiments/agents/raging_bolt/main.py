@@ -501,6 +501,8 @@ class RagingBoltPolicy:
         c = get_card(self.obs, opt.area, opt.index, self.my_index)
         if c and c.id == C.TEAL_MASK_OGERPON_EX:
             if self.grass_in_hand > 0:
+                if self.bolt_ready:
+                    return 1500
                 return 1300
             return 200
         return 500
@@ -653,8 +655,16 @@ class RagingBoltPolicy:
             return 400
 
         if ctx in (SelectContext.DISCARD, SelectContext.DISCARD_ENERGY_CARD):
-            if c.id in BASIC_ENERGY_IDS:
+            last_ko = self.my_prizes <= self._opp_prize_value()
+            low_hp = self.active_hp_pct <= 50
+            if last_ko or low_hp:
+                if c.id in BASIC_ENERGY_IDS:
+                    return 700
                 return 600
+            if c.id == C.BASIC_GRASS_ENERGY:
+                return 800
+            if c.id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                return 200
             data = card_table.get(c.id)
             if data and data.cardType in (CardType.BASIC_ENERGY, CardType.SPECIAL_ENERGY):
                 return 500
@@ -713,13 +723,41 @@ class RagingBoltPolicy:
         ctx = self.context
         if ctx in (SelectContext.DISCARD_ENERGY_CARD, SelectContext.DISCARD_ENERGY,
                    getattr(SelectContext, 'DISCARD', -1)):
-            c = get_card(self.obs,
-                         getattr(opt, 'area', None) or AreaType.HAND,
-                         opt.index, self.my_index)
-            if c and c.id in BASIC_ENERGY_IDS:
-                return 600
+            energy_type = self._get_energy_type_from_opt(opt)
+            last_ko = self.my_prizes <= self._opp_prize_value()
+            low_hp = self.active_hp_pct <= 50
+
+            if last_ko or low_hp:
+                return 700
+
+            if energy_type == C.BASIC_GRASS_ENERGY:
+                return 800
+            if energy_type == C.BASIC_LIGHTNING_ENERGY:
+                return 200
+            if energy_type == C.BASIC_FIGHTING_ENERGY:
+                return 200
             return 500
         return 400
+
+    def _get_energy_type_from_opt(self, opt):
+        """Get the energy card ID from an ENERGY/ENERGY_CARD option."""
+        ei = getattr(opt, 'energyIndex', None)
+        area = getattr(opt, 'area', None)
+        idx = opt.index
+        if ei is not None and area is not None:
+            try:
+                player = self.obs.current.players[self.my_index]
+                poke = None
+                if area == AreaType.ACTIVE and player.active:
+                    poke = player.active[0]
+                elif area == AreaType.BENCH and player.bench and idx < len(player.bench):
+                    poke = player.bench[idx]
+                if poke and hasattr(poke, 'energyCards') and poke.energyCards:
+                    if ei < len(poke.energyCards):
+                        return poke.energyCards[ei].id
+            except Exception:
+                pass
+        return 0
 
     def _score_number(self, opt):
         num = opt.number if hasattr(opt, 'number') else 0

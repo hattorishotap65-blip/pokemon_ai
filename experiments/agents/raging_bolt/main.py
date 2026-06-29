@@ -227,7 +227,7 @@ class RagingBoltPolicy:
         my_prizes = len(self.me.prize)
 
         # === Goals ===
-        if self.can_ko_with_bt and self.bolt_ready:
+        if self.can_ko_with_bt:
             self.goals.add("take_ko_now")
             opp_prize_val = self._opp_prize_value()
             if opp_prize_val >= 2:
@@ -237,7 +237,6 @@ class RagingBoltPolicy:
             opp_e = _count_energy(self.opp_active) if self.opp_active else 0
             if 30 + (my_e + opp_e) * 30 >= self.opp_active_hp:
                 self.goals.add("take_ko_now")
-
         if my_prizes <= 1:
             self.goals.add("close_game")
 
@@ -252,8 +251,7 @@ class RagingBoltPolicy:
 
         # === Risks ===
         if self.active and self.opp_active:
-            opp_can_deal = 200
-            if self.active.hp <= opp_can_deal:
+            if self.active.hp <= 120:
                 self.risks.add("active_may_be_ko_next_turn")
 
         has_bench_attacker = any(
@@ -262,13 +260,11 @@ class RagingBoltPolicy:
         )
         if not has_bench_attacker and self.active_id != C.RAGING_BOLT_EX:
             self.risks.add("no_next_attacker")
-        if not has_bench_attacker and self.active_id == C.RAGING_BOLT_EX and not self.bolt_ready:
-            self.risks.add("no_next_attacker")
 
-        if self.bt_total_energy < 3:
+        if self.bt_total_energy < 4:
             self.risks.add("not_enough_energy")
 
-        if len(self.hand_ids) <= 3:
+        if len(self.hand_ids) <= 4:
             self.risks.add("low_hand")
 
         if len(self.hand_ids) <= 2:

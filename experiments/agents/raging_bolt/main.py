@@ -593,11 +593,15 @@ class RagingBoltPolicy:
                            (energy_id == C.BASIC_FIGHTING_ENERGY and not has_fighting)
             if fills_bt_req:
                 return 1400
+            if energy_id == C.BASIC_GRASS_ENERGY:
+                return 100
             if is_active:
-                return 800 + target_energy * 50
-            return 500 + target_energy * 50
+                return 500 + target_energy * 30
+            return 400
 
         if target.id == C.TEAL_MASK_OGERPON_EX:
+            if energy_id == C.BASIC_GRASS_ENERGY:
+                return 600
             return 400
 
         return self.p("score_attach_energy_other", 200)
@@ -665,16 +669,29 @@ class RagingBoltPolicy:
 
         if ctx in (SelectContext.DISCARD, SelectContext.DISCARD_ENERGY_CARD):
             energy_id = self._get_energy_type_from_opt(opt) if ctx == SelectContext.DISCARD_ENERGY_CARD else c.id
+            is_on_bolt = False
+            if ctx == SelectContext.DISCARD_ENERGY_CARD:
+                area_d = getattr(opt, 'area', None)
+                try:
+                    player = self.obs.current.players[self.my_index]
+                    poke = None
+                    if area_d == AreaType.ACTIVE and player.active:
+                        poke = player.active[0]
+                    elif area_d == AreaType.BENCH and player.bench and opt.index < len(player.bench):
+                        poke = player.bench[opt.index]
+                    if poke and poke.id == C.RAGING_BOLT_EX:
+                        is_on_bolt = True
+                except Exception:
+                    pass
+            if is_on_bolt and energy_id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                return 50
             last_ko = self.my_prizes <= self._opp_prize_value()
-            low_hp = self.active_hp_pct <= 50
-            if last_ko or low_hp:
+            if last_ko:
                 return 700
             if energy_id == C.BASIC_GRASS_ENERGY:
                 return 800
             if energy_id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
                 return 200
-            if c.id in BASIC_ENERGY_IDS:
-                return 600
             return 400
 
         if ctx == SelectContext.ATTACH_TO:
@@ -734,15 +751,34 @@ class RagingBoltPolicy:
             last_ko = self.my_prizes <= self._opp_prize_value()
             low_hp = self.active_hp_pct <= 50
 
+            area = getattr(opt, 'area', None)
+            is_on_bolt = False
+            if area is not None:
+                poke = None
+                try:
+                    player = self.obs.current.players[self.my_index]
+                    if area == AreaType.ACTIVE and player.active:
+                        poke = player.active[0]
+                    elif area == AreaType.BENCH and player.bench and opt.index < len(player.bench):
+                        poke = player.bench[opt.index]
+                except Exception:
+                    pass
+                if poke and poke.id == C.RAGING_BOLT_EX:
+                    is_on_bolt = True
+
             if last_ko or low_hp:
+                if is_on_bolt and energy_type in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                    return 50
                 return 700
 
             if energy_type == C.BASIC_GRASS_ENERGY:
                 return 800
+            if is_on_bolt and energy_type in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                return 50
             if energy_type == C.BASIC_LIGHTNING_ENERGY:
-                return 200
+                return 300
             if energy_type == C.BASIC_FIGHTING_ENERGY:
-                return 200
+                return 300
             return 500
         return 400
 

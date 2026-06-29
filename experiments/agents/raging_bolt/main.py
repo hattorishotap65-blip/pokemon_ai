@@ -841,8 +841,11 @@ class RagingBoltPolicy:
         if not opp_data:
             return 200
         opp_energy = _count_energy(self.opp_active)
-        from cg.api import all_attack
-        AT_local = {a.attackId: a for a in all_attack()}
+        try:
+            from cg.api import all_attack
+            AT_local = {a.attackId: a for a in all_attack()}
+        except Exception:
+            return 200
         max_dmg = 0
         for aid in (opp_data.attacks or []):
             a = AT_local.get(aid)
@@ -902,6 +905,265 @@ class RagingBoltPolicy:
         return False
 
 
+    # ── Board Evaluation ──
+
+    def evaluate_state(self):
+        """Evaluate current board state as a numeric score.
+        Higher = better position for us."""
+        score = 0.0
+        my_prizes = len(self.me.prize)
+        opp_prizes = len(self.opponent.prize)
+
+        # Prize race: fewer prizes = closer to winning
+        score += (6 - my_prizes) * 200
+        score -= (6 - opp_prizes) * 150
+
+        # Bellowing Thunder readiness
+        if self.bolt_ready:
+            score += 400
+        elif self.bolt_has_lightning or self.bolt_has_fighting:
+            score += 200
+
+        # Can KO this turn
+        if self._can_ko_active():
+            score += 500 + self._opp_prize_value() * 200
+
+        # Can KO next turn (have energy but need 1 more attach)
+        if not self._can_ko_active() and self.opp_active:
+            if self.bt_potential_damage + 70 >= self.opp_active_hp:
+                score += 200
+
+        # Energy engine strength
+        ogerpon_count = len(self.ogerpon_on_field)
+        score += ogerpon_count * 150
+        score += self.total_field_energy * 50
+
+        # Energy in hand (for Teal Dance)
+        score += self.grass_in_hand * 80
+
+        # Hand quality
+        has_supporter = any(cid in (C.CRISPIN, C.LILLIE_DETERMINATION, C.BOSS_ORDERS)
+                            for cid in self.hand_ids)
+        if has_supporter:
+            score += 100
+        score += min(len(self.hand_ids), 7) * 30
+
+        # Boss win condition
+        if my_prizes <= 2:
+            has_boss = C.BOSS_ORDERS in self.hand_ids
+            best_target = self._best_boss_target()
+            if has_boss and best_target:
+                prize_val = self._opp_prize_value()
+                if my_prizes <= prize_val:
+                    score += 800
+
+        # Bench setup
+        score += len(self.bolt_on_field) * 100
+
+        # Next attacker readiness
+        bench_bolt_ready = any(
+            p and p.id == C.RAGING_BOLT_EX
+            and any(e == 4 for e in p.energies)
+            and any(e == 6 for e in p.energies)
+            for p in (self.me.bench or [])
+        )
+        if bench_bolt_ready:
+            score += 300
+
+        # Risks (negative)
+        opp_max_dmg = self._estimate_opp_damage()
+        if self.active and self.active.hp <= opp_max_dmg:
+            score -= 300
+            if not bench_bolt_ready:
+                score -= 200
+
+        # Deck out risk
+        if self.me.deckCount and self.me.deckCount <= 5:
+            score -= 200
+
+        # Bench liability
+        bench_ex_count = sum(1 for p in (self.me.bench or [])
+                             if p and card_table.get(p.id) and card_table[p.id].ex)
+        if bench_ex_count >= 3:
+            score -= 100
+
+        return score
+
+    # ── Opponent Model ──
+
+    def _simulate_opponent_turn(self):
+        """Return list of (scenario_name, prize_change, risk_score) tuples."""
+        scenarios = []
+        if not self.opp_active:
+            return [("nothing", 0, 0)]
+
+        opp_max_dmg = self._estimate_opp_damage()
+
+        # Scenario 1: opponent KOs our active
+        if self.active and self.active.hp <= opp_max_dmg:
+            my_prize_val = prize_count(self.active)
+            scenarios.append(("ko_active", my_prize_val, -400))
+        else:
+            scenarios.append(("damage_active", 0, -100))
+
+        # Scenario 2: opponent uses Boss on bench ex
+        bench_targets = []
+        for p in (self.me.bench or []):
+            if not p:
+                continue
+            data = card_table.get(p.id)
+            if data and data.ex and p.hp <= opp_max_dmg:
+                bench_targets.append(p)
+        if bench_targets:
+            target = max(bench_targets, key=lambda p: prize_count(p))
+            scenarios.append(("boss_bench_ko", prize_count(target), -500))
+
+        # Scenario 3: opponent does nothing significant
+        scenarios.append(("nothing", 0, 0))
+
+        return scenarios
+
+    # ── Shallow Search ──
+
+    def choose_with_search(self):
+        """Choose action using shallow search + evaluation."""
+        if not self.select.option or self.select.maxCount == 0:
+            return []
+
+        if self.context != SelectContext.MAIN:
+            return self.choose()
+
+        ranked, scores = self.rank()
+        n = len(self.select.option)
+        min_c = max(0, min(self.select.minCount, n))
+        max_c = max(min_c, min(self.select.maxCount, n))
+
+        # Current state evaluation
+        current_eval = self.evaluate_state()
+
+        # Opponent risk
+        opp_scenarios = self._simulate_opponent_turn()
+        avg_risk = sum(s[2] for s in opp_scenarios) / len(opp_scenarios)
+
+        # Evaluate top candidates
+        top_k = min(5, n)
+        candidates = []
+        for rank_pos in range(top_k):
+            i = ranked[rank_pos]
+            opt = self.select.option[i]
+            immediate = scores[i]
+
+            # Estimate future state change
+            future_delta = self._estimate_action_impact(opt)
+
+            # Risk adjustment
+            risk_adj = 0
+            if opt.type == OptionType.ATTACK:
+                # After attacking, turn ends - opponent will respond
+                risk_adj = avg_risk
+            elif opt.type == OptionType.END:
+                risk_adj = avg_risk
+
+            final = immediate * 0.6 + future_delta * 0.3 + risk_adj * 0.1
+
+            candidates.append((final, i, immediate, future_delta, risk_adj))
+
+        candidates.sort(key=lambda x: -x[0])
+
+        result = []
+        for final, i, _, _, _ in candidates:
+            if len(result) >= max_c:
+                break
+            if final > 0 or len(result) < min_c:
+                result.append(i)
+
+        if not result and min_c > 0:
+            result = list(range(min(min_c, n)))
+
+        return result
+
+    def _estimate_action_impact(self, opt):
+        """Estimate how an action changes board evaluation (without simulation)."""
+        t = opt.type
+        delta = 0
+
+        if t == OptionType.ATTACK:
+            if opt.attackId == BELLOWING_THUNDER:
+                if self._can_ko_active():
+                    delta += self._opp_prize_value() * 300
+                    delta += self.bt_total_energy * 30
+                else:
+                    delta += self.bt_total_energy * 40
+                delta -= self.bt_total_energy * 20  # energy loss
+            elif opt.attackId == MYRIAD_LEAF_SHOWER:
+                my_e = _count_energy(self.active) if self.active else 0
+                opp_e = _count_energy(self.opp_active) if self.opp_active else 0
+                dmg = 30 + (my_e + opp_e) * 30
+                if self.opp_active and dmg >= self.opp_active_hp:
+                    delta += self._opp_prize_value() * 300
+                else:
+                    delta += dmg * 1.5
+            elif opt.attackId == BURST_ROAR:
+                delta += 50  # hand refresh
+                delta -= 100  # no damage dealt
+
+        elif t == OptionType.ABILITY:
+            c = get_card(self.obs, opt.area, opt.index, self.my_index)
+            if c and c.id == C.TEAL_MASK_OGERPON_EX and self.grass_in_hand > 0:
+                delta += 150  # energy + draw
+                if self.bolt_ready:
+                    delta += 100  # more BT fuel
+
+        elif t == OptionType.PLAY:
+            c = get_card(self.obs, AreaType.HAND, opt.index, self.my_index)
+            if c:
+                if c.id == C.CRISPIN:
+                    delta += min(self.energy_in_discard, 3) * 100
+                    if not self.bolt_ready:
+                        delta += 200
+                elif c.id == C.LILLIE_DETERMINATION:
+                    delta += max(0, 6 - len(self.hand_ids)) * 40
+                elif c.id == C.BOSS_ORDERS:
+                    best = self._best_boss_target()
+                    if best:
+                        delta += prize_count(best) * 300
+                elif c.id == C.RAGING_BOLT_EX:
+                    delta += 200
+                elif c.id == C.TEAL_MASK_OGERPON_EX:
+                    delta += 250
+                elif c.id in (C.ULTRA_BALL, C.BUG_CATCHING_SET, C.TERA_ORB):
+                    delta += 150
+                elif c.id == C.ENERGY_RETRIEVAL:
+                    delta += min(self.energy_in_discard, 2) * 80
+
+        elif t == OptionType.ATTACH:
+            energy_card = get_card(self.obs, AreaType.HAND, opt.index, self.my_index)
+            target = get_card(self.obs, getattr(opt, 'inPlayArea', None),
+                              getattr(opt, 'inPlayIndex', None), self.my_index)
+            if energy_card and target:
+                if target.id == C.RAGING_BOLT_EX:
+                    has_l = any(e == 4 for e in target.energies)
+                    has_f = any(e == 6 for e in target.energies)
+                    if (energy_card.id == C.BASIC_LIGHTNING_ENERGY and not has_l) or \
+                       (energy_card.id == C.BASIC_FIGHTING_ENERGY and not has_f):
+                        delta += 350
+                    else:
+                        delta += 50
+                elif target.id == C.TEAL_MASK_OGERPON_EX:
+                    delta += 80
+
+        elif t == OptionType.RETREAT:
+            if self.active and self.active.hp <= self._estimate_opp_damage():
+                delta += 200
+            else:
+                delta -= 50
+
+        elif t == OptionType.END:
+            delta -= 50
+
+        return delta
+
+
 def agent(obs_dict):
     obs = to_observation_class(obs_dict)
     if obs.select is None:
@@ -914,4 +1176,7 @@ def agent(obs_dict):
         pre_turn = obs.current.turn
         ability_used_teal_dance = False
 
-    return RagingBoltPolicy(obs).choose()
+    policy = RagingBoltPolicy(obs)
+    if obs.select.context == SelectContext.MAIN:
+        return policy.choose_with_search()
+    return policy.choose()

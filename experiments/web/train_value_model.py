@@ -43,6 +43,11 @@ def train(dataset_path, model_dir="experiments/agents/raging_bolt"):
         X.append(x)
         y.append(float(row[label_col]))
 
+    unique_labels = sorted(set(y))
+    if len(unique_labels) < 2:
+        print("ERROR: dataset has only one class (%s); need both win and loss rows" % unique_labels)
+        return None
+
     try:
         from sklearn.ensemble import GradientBoostingClassifier
         from sklearn.model_selection import train_test_split
@@ -51,7 +56,16 @@ def train(dataset_path, model_dir="experiments/agents/raging_bolt"):
         print("ERROR: sklearn not installed. pip install scikit-learn")
         return None
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y)
+    except ValueError:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42)
+
+    if len(set(y_train)) < 2 or len(set(y_test)) < 2:
+        print("WARNING: train/test split has only one class; need more data")
+        return None
 
     model = GradientBoostingClassifier(
         n_estimators=100, max_depth=4, learning_rate=0.1, random_state=42

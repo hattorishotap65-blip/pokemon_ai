@@ -45,5 +45,21 @@ else:
 import shutil
 shutil.rmtree(tmp)
 
+print("\n=== train with single class ===")
+try:
+    from experiments.web.train_value_model import train
+    tmp_train = tempfile.mkdtemp()
+    single_csv = os.path.join(tmp_train, "single.csv")
+    with open(single_csv, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["feat1", "feat2", "result_win", "turn", "final_turn", "final_prize_diff"])
+        for i in range(20):
+            writer.writerow([i, i*2, 0, 1, 10, -3])
+    result = train(single_csv, tmp_train)
+    check("single class: returns None", result is None)
+    shutil.rmtree(tmp_train)
+except ImportError:
+    print("  (skipped, sklearn not installed)")
+
 print("\n%d/%d passed" % (_t - _f, _t))
 if _f: sys.exit(1)

@@ -72,6 +72,6 @@
   "search_weight_immediate": 0.6,
   "search_weight_future": 0.3,
   "search_weight_risk": 0.1,
-  "use_value_model": true,
-  "value_model_weight": 0.2
+  "use_value_model": false,
+  "value_model_weight": 0.1
 }

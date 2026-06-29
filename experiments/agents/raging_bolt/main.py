@@ -412,6 +412,14 @@ class RagingBoltPolicy:
             base = self._score_attack(opt)
             if opt.attackId == BURST_ROAR:
                 return base
+            teal_dance_available = any(
+                o.type == OptionType.ABILITY
+                and get_card(self.obs, o.area, o.index, self.my_index)
+                and get_card(self.obs, o.area, o.index, self.my_index).id == C.TEAL_MASK_OGERPON_EX
+                for o in self.select.option
+            )
+            if teal_dance_available and self.grass_in_hand > 0:
+                return min(base, 1200)
             return base + self._strategy_bonus("attack", attack_id=opt.attackId)
 
         if t == OptionType.ABILITY:

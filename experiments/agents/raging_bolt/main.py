@@ -216,6 +216,12 @@ class RagingBoltPolicy:
             for opt in (self.select.option or [])
         ) if self.context == SelectContext.MAIN else True
 
+        self.field_ready = (
+            len(self.ogerpon_on_field) >= 1
+            and len(self.bolt_on_field) >= 1
+            and self.bolt_ready
+        )
+
         self._detect_strategy()
 
     def _detect_strategy(self):
@@ -540,18 +546,22 @@ class RagingBoltPolicy:
         if cid == C.CRISPIN:
             if self.energy_in_hand >= 4:
                 return 500
-            if not self.bolt_ready and self.energy_in_discard >= 1:
+            if self.field_ready and self.energy_in_discard >= 1:
                 return 1500
-            if self.energy_in_discard >= 1:
+            if not self.bolt_ready and self.energy_in_discard >= 1:
                 return 1300
+            if self.energy_in_discard >= 1:
+                return 1100
             return 600
 
         if cid == C.LILLIE_DETERMINATION:
+            if self.field_ready:
+                if len(self.hand_ids) <= 3:
+                    return 1000
+                return 700
             if len(self.hand_ids) <= 2:
-                return 1200
-            if len(self.hand_ids) <= 4:
-                return 1100
-            return 1100
+                return 1300
+            return 1200
 
         if cid == C.BOSS_ORDERS:
             if self.active_hp_pct <= 20:
@@ -563,18 +573,35 @@ class RagingBoltPolicy:
                 return 400
             return 800
 
-        if cid == C.ULTRA_BALL:
-            return self.p("score_item_ultra_ball", 500)
-        if cid == C.POKEGEAR:
-            return self.p("score_item_pokegear", 400)
-        if cid == C.BUG_CATCHING_SET:
-            return self.p("score_item_bug_catching_set", 450)
-        if cid == C.TERA_ORB:
-            return self.p("score_item_tera_orb", 550)
-        if cid == C.ENERGY_RETRIEVAL:
-            if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2):
-                return self.p("score_item_energy_retrieval_low_energy", 700)
-            return self.p("score_item_energy_retrieval", 500)
+        if self.field_ready:
+            if cid == C.ENERGY_RETRIEVAL:
+                if self.energy_in_discard >= 2:
+                    return 1200
+                if self.energy_in_discard >= 1:
+                    return 1000
+                return 400
+            if cid == C.ULTRA_BALL:
+                return 600
+            if cid == C.POKEGEAR:
+                return 500
+            if cid == C.BUG_CATCHING_SET:
+                return 500
+            if cid == C.TERA_ORB:
+                return 500
+        else:
+            if cid == C.ULTRA_BALL:
+                return 1100
+            if cid == C.BUG_CATCHING_SET:
+                return 1100
+            if cid == C.TERA_ORB:
+                return 1050
+            if cid == C.POKEGEAR:
+                return 1000
+            if cid == C.ENERGY_RETRIEVAL:
+                if self.energy_in_discard >= 2:
+                    return 900
+                return 500
+
         if cid == C.POKEMON_CATCHER:
             return self.p("score_item_pokemon_catcher", 300)
         if cid == C.UNFAIR_STAMP:

@@ -691,6 +691,10 @@ class RagingBoltPolicy:
                         is_on_bolt = True
                 except Exception:
                     pass
+            opp_dmg = self._estimate_opp_damage()
+            bolt_will_die = is_on_bolt and self.active and self.active.hp <= opp_dmg
+            if bolt_will_die:
+                return 900
             if is_on_bolt and energy_id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
                 return 50
             last_ko = self.my_prizes <= self._opp_prize_value()
@@ -774,10 +778,16 @@ class RagingBoltPolicy:
                 if poke and poke.id == C.RAGING_BOLT_EX:
                     is_on_bolt = True
 
-            if last_ko or low_hp:
-                if is_on_bolt and energy_type in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+            opp_dmg = self._estimate_opp_damage()
+            bolt_will_die = is_on_bolt and self.active and self.active.hp <= opp_dmg
+
+            if last_ko:
+                if is_on_bolt and energy_type in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY) and not bolt_will_die:
                     return 50
                 return 700
+
+            if bolt_will_die:
+                return 900
 
             if energy_type == C.BASIC_GRASS_ENERGY:
                 return 800
@@ -803,9 +813,13 @@ class RagingBoltPolicy:
                     poke = player.active[0]
                 elif area == AreaType.BENCH and player.bench and idx < len(player.bench):
                     poke = player.bench[idx]
-                if poke and hasattr(poke, 'energyCards') and poke.energyCards:
-                    if ei < len(poke.energyCards):
+                if poke:
+                    if hasattr(poke, 'energyCards') and poke.energyCards and ei < len(poke.energyCards):
                         return poke.energyCards[ei].id
+                    if hasattr(poke, 'energies') and poke.energies and ei < len(poke.energies):
+                        etype = poke.energies[ei]
+                        ETYPE_TO_CARD = {1: C.BASIC_GRASS_ENERGY, 4: C.BASIC_LIGHTNING_ENERGY, 6: C.BASIC_FIGHTING_ENERGY}
+                        return ETYPE_TO_CARD.get(etype, 0)
             except Exception:
                 pass
         return 0

@@ -254,12 +254,16 @@ class RagingBoltPolicy:
             if self.active.hp <= 120:
                 self.risks.add("active_may_be_ko_next_turn")
 
-        has_bench_attacker = any(
-            p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 2
+        bench_bolt_with_energy = any(
+            p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 1
             for p in (self.me.bench or [])
         )
-        if not has_bench_attacker and self.active_id != C.RAGING_BOLT_EX:
-            self.risks.add("no_next_attacker")
+        if self.active_id == C.RAGING_BOLT_EX:
+            if not bench_bolt_with_energy:
+                self.risks.add("no_next_attacker")
+        elif self.active_id == C.TEAL_MASK_OGERPON_EX:
+            if not any(p and p.id == C.RAGING_BOLT_EX for p in (self.me.bench or [])):
+                self.risks.add("no_next_attacker")
 
         if self.bt_total_energy < 4:
             self.risks.add("not_enough_energy")

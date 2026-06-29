@@ -225,10 +225,9 @@ class RagingBoltPolicy:
 
         opp_prizes = len(self.opponent.prize)
         my_prizes = len(self.me.prize)
-        bench_count = len([p for p in (self.me.bench or []) if p])
 
         # === Goals ===
-        if self.can_ko_with_bt:
+        if self.can_ko_with_bt and self.bolt_ready:
             self.goals.add("take_ko_now")
             opp_prize_val = self._opp_prize_value()
             if opp_prize_val >= 2:
@@ -239,22 +238,16 @@ class RagingBoltPolicy:
             if 30 + (my_e + opp_e) * 30 >= self.opp_active_hp:
                 self.goals.add("take_ko_now")
 
-        if my_prizes <= 2:
+        if my_prizes <= 1:
             self.goals.add("close_game")
 
-        any_bolt_ready = any(
-            p and p.id == C.RAGING_BOLT_EX
-            and any(e == 4 for e in p.energies)
-            and any(e == 6 for e in p.energies)
-            for p in (list(self.me.active or []) + list(self.me.bench or []))
-        )
-        if not any_bolt_ready:
+        if not self.bolt_ready:
             self.goals.add("prepare_next_turn_attack")
 
         if not self.ogerpon_on_field or not self.bolt_on_field:
             self.goals.add("setup_board")
 
-        if len(self.hand_ids) <= 2:
+        if len(self.hand_ids) <= 3:
             self.goals.add("improve_hand")
 
         # === Risks ===
@@ -263,15 +256,20 @@ class RagingBoltPolicy:
             if self.active.hp <= opp_can_deal:
                 self.risks.add("active_may_be_ko_next_turn")
 
-        has_bench_bolt_with_energy = any(
-            p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 1
+        has_bench_attacker = any(
+            p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 2
             for p in (self.me.bench or [])
         )
-        if not has_bench_bolt_with_energy and self.active_id != C.RAGING_BOLT_EX:
+        if not has_bench_attacker and self.active_id != C.RAGING_BOLT_EX:
+            self.risks.add("no_next_attacker")
+        if not has_bench_attacker and self.active_id == C.RAGING_BOLT_EX and not self.bolt_ready:
             self.risks.add("no_next_attacker")
 
-        if self.bt_total_energy < 2:
+        if self.bt_total_energy < 3:
             self.risks.add("not_enough_energy")
+
+        if len(self.hand_ids) <= 3:
+            self.risks.add("low_hand")
 
         if len(self.hand_ids) <= 2:
             self.risks.add("low_hand")

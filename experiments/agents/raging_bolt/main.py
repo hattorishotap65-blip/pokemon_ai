@@ -668,19 +668,17 @@ class RagingBoltPolicy:
             return 400
 
         if ctx in (SelectContext.DISCARD, SelectContext.DISCARD_ENERGY_CARD):
+            energy_id = self._get_energy_type_from_opt(opt) if ctx == SelectContext.DISCARD_ENERGY_CARD else c.id
             last_ko = self.my_prizes <= self._opp_prize_value()
             low_hp = self.active_hp_pct <= 50
             if last_ko or low_hp:
-                if c.id in BASIC_ENERGY_IDS:
-                    return 700
-                return 600
-            if c.id == C.BASIC_GRASS_ENERGY:
+                return 700
+            if energy_id == C.BASIC_GRASS_ENERGY:
                 return 800
-            if c.id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+            if energy_id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
                 return 200
-            data = card_table.get(c.id)
-            if data and data.cardType in (CardType.BASIC_ENERGY, CardType.SPECIAL_ENERGY):
-                return 500
+            if c.id in BASIC_ENERGY_IDS:
+                return 600
             return 400
 
         if ctx == SelectContext.ATTACH_TO:
@@ -780,10 +778,19 @@ class RagingBoltPolicy:
         if ctx in (SelectContext.DISCARD_ENERGY_CARD, SelectContext.DISCARD_ENERGY):
             if self.active_id == C.RAGING_BOLT_EX and self.opp_active:
                 needed = (self.opp_active_hp + 69) // 70
-                if num >= needed:
-                    return 900
+                last_ko = self.my_prizes <= self._opp_prize_value()
+                if last_ko:
+                    if num >= needed:
+                        return 1000
+                    return 500 + num * 70
+                if num == needed:
+                    return 950
+                if num > needed:
+                    return 800
+                if num >= needed - 1:
+                    return 850
                 return 500 + num * 70
-            return 500 + num * 100
+            return 500 + num * 50
         return 500
 
     def _estimate_opp_damage(self):

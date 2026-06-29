@@ -531,9 +531,11 @@ class RagingBoltPolicy:
 
         if cid == C.CRISPIN:
             if self.energy_in_hand >= 4:
-                return 400
+                return 500
+            if not self.bolt_ready and self.energy_in_discard >= 1:
+                return 1500
             if self.energy_in_discard >= 1:
-                return 1100
+                return 1300
             return 600
 
         if cid == C.LILLIE_DETERMINATION:

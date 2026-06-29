@@ -680,6 +680,7 @@ class RagingBoltPolicy:
         if ctx in (SelectContext.DISCARD, SelectContext.DISCARD_ENERGY_CARD):
             energy_id = self._get_energy_type_from_opt(opt) if ctx == SelectContext.DISCARD_ENERGY_CARD else c.id
             is_on_bolt = False
+            is_active_bolt = False
             if ctx == SelectContext.DISCARD_ENERGY_CARD:
                 area_d = getattr(opt, 'area', None)
                 try:
@@ -687,6 +688,8 @@ class RagingBoltPolicy:
                     poke = None
                     if area_d == AreaType.ACTIVE and player.active:
                         poke = player.active[0]
+                        if poke and poke.id == C.RAGING_BOLT_EX:
+                            is_active_bolt = True
                     elif area_d == AreaType.BENCH and player.bench and opt.index < len(player.bench):
                         poke = player.bench[opt.index]
                     if poke and poke.id == C.RAGING_BOLT_EX:
@@ -694,7 +697,7 @@ class RagingBoltPolicy:
                 except Exception:
                     pass
             opp_dmg = self._estimate_opp_damage()
-            bolt_will_die = is_on_bolt and self.active and self.active.hp <= opp_dmg
+            bolt_will_die = is_active_bolt and self.active and self.active.hp <= opp_dmg
             if bolt_will_die:
                 return 900
             if is_on_bolt and energy_id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
@@ -767,12 +770,15 @@ class RagingBoltPolicy:
 
             area = getattr(opt, 'area', None)
             is_on_bolt = False
+            is_active_bolt = False
             if area is not None:
                 poke = None
                 try:
                     player = self.obs.current.players[self.my_index]
                     if area == AreaType.ACTIVE and player.active:
                         poke = player.active[0]
+                        if poke and poke.id == C.RAGING_BOLT_EX:
+                            is_active_bolt = True
                     elif area == AreaType.BENCH and player.bench and opt.index < len(player.bench):
                         poke = player.bench[opt.index]
                 except Exception:
@@ -781,7 +787,7 @@ class RagingBoltPolicy:
                     is_on_bolt = True
 
             opp_dmg = self._estimate_opp_damage()
-            bolt_will_die = is_on_bolt and self.active and self.active.hp <= opp_dmg
+            bolt_will_die = is_active_bolt and self.active and self.active.hp <= opp_dmg
 
             if last_ko:
                 if is_on_bolt and energy_type in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY) and not bolt_will_die:

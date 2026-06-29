@@ -301,19 +301,21 @@ class RagingBoltPolicy:
 
         if "prepare_next_turn_attack" in self.goals:
             if action_type == "supporter" and card_id == C.CRISPIN:
-                bonus += 300
+                bonus += 400
             if action_type == "ability":
                 bonus += 200
             if action_type == "attach":
-                bonus += 150
+                bonus += 250
             if action_type == "attack" and attack_id == BURST_ROAR:
                 bonus -= 200
 
         if "setup_board" in self.goals:
             if action_type == "play_pokemon":
-                bonus += 300
+                bonus += 500
             if action_type == "search_item":
-                bonus += 200
+                bonus += 400
+            if action_type == "supporter" and card_id == C.LILLIE_DETERMINATION:
+                bonus += 300
 
         if "improve_hand" in self.goals:
             if action_type == "supporter" and card_id == C.LILLIE_DETERMINATION:

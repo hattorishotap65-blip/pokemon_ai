@@ -736,9 +736,7 @@ class RagingBoltPolicy:
         return 500
 
     def _can_bellowing_thunder(self):
-        if self.active_id != C.RAGING_BOLT_EX:
-            return False
-        return self.bolt_ready or self.bt_total_energy >= 2
+        return self.active_id == C.RAGING_BOLT_EX and self.bolt_ready
 
     def _best_boss_target(self):
         """Check if there's a high-value KO target on opponent's bench."""

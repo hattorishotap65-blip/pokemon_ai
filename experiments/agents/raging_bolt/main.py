@@ -251,15 +251,20 @@ class RagingBoltPolicy:
 
         # === Risks ===
         if self.active and self.opp_active:
-            if self.active.hp <= 120:
+            opp_max_damage = self._estimate_opp_damage()
+            if self.active.hp <= opp_max_damage:
                 self.risks.add("active_may_be_ko_next_turn")
 
-        has_bench_attacker = any(
-            p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 2
+        bench_bolt_with_energy = any(
+            p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 1
             for p in (self.me.bench or [])
         )
-        if not has_bench_attacker and self.active_id != C.RAGING_BOLT_EX:
-            self.risks.add("no_next_attacker")
+        if self.active_id == C.RAGING_BOLT_EX:
+            if not bench_bolt_with_energy:
+                self.risks.add("no_next_attacker")
+        elif self.active_id == C.TEAL_MASK_OGERPON_EX:
+            if not any(p and p.id == C.RAGING_BOLT_EX for p in (self.me.bench or [])):
+                self.risks.add("no_next_attacker")
 
         if self.bt_total_energy < 4:
             self.risks.add("not_enough_energy")
@@ -407,6 +412,12 @@ class RagingBoltPolicy:
             base = self._score_attack(opt)
             if opt.attackId == BURST_ROAR:
                 return base
+            has_play_or_ability = any(
+                o.type in (OptionType.PLAY, OptionType.ABILITY)
+                for o in self.select.option
+            )
+            if has_play_or_ability:
+                return min(base, 900)
             return base + self._strategy_bonus("attack", attack_id=opt.attackId)
 
         if t == OptionType.ABILITY:
@@ -428,6 +439,12 @@ class RagingBoltPolicy:
 
         if t == OptionType.ATTACH:
             base = self._score_attach(i, opt)
+            has_supporter = any(
+                o.type == OptionType.PLAY and self._is_supporter(o)
+                for o in self.select.option
+            )
+            if has_supporter:
+                return min(base, 1100)
             target = get_card(self.obs, getattr(opt, 'inPlayArea', None),
                               getattr(opt, 'inPlayIndex', None), self.my_index)
             return base + self._strategy_bonus("attach", card_id=target.id if target else 0)
@@ -522,16 +539,16 @@ class RagingBoltPolicy:
             if self.energy_in_hand >= 4:
                 return 500
             if not self.bolt_ready and self.energy_in_discard >= 1:
-                return 1600
-            if self.energy_in_discard >= 1:
                 return 1500
-            return 800
+            if self.energy_in_discard >= 1:
+                return 1300
+            return 600
 
         if cid == C.LILLIE_DETERMINATION:
             if len(self.hand_ids) <= 2:
-                return 1400
+                return 1200
             if len(self.hand_ids) <= 4:
-                return 1300
+                return 1100
             return 1100
 
         if cid == C.BOSS_ORDERS:
@@ -584,11 +601,15 @@ class RagingBoltPolicy:
                            (energy_id == C.BASIC_FIGHTING_ENERGY and not has_fighting)
             if fills_bt_req:
                 return 1400
+            if energy_id == C.BASIC_GRASS_ENERGY:
+                return 100
             if is_active:
-                return 800 + target_energy * 50
-            return 500 + target_energy * 50
+                return 500 + target_energy * 30
+            return 400
 
         if target.id == C.TEAL_MASK_OGERPON_EX:
+            if energy_id == C.BASIC_GRASS_ENERGY:
+                return 600
             return 400
 
         return self.p("score_attach_energy_other", 200)
@@ -655,19 +676,30 @@ class RagingBoltPolicy:
             return 400
 
         if ctx in (SelectContext.DISCARD, SelectContext.DISCARD_ENERGY_CARD):
+            energy_id = self._get_energy_type_from_opt(opt) if ctx == SelectContext.DISCARD_ENERGY_CARD else c.id
+            is_on_bolt = False
+            if ctx == SelectContext.DISCARD_ENERGY_CARD:
+                area_d = getattr(opt, 'area', None)
+                try:
+                    player = self.obs.current.players[self.my_index]
+                    poke = None
+                    if area_d == AreaType.ACTIVE and player.active:
+                        poke = player.active[0]
+                    elif area_d == AreaType.BENCH and player.bench and opt.index < len(player.bench):
+                        poke = player.bench[opt.index]
+                    if poke and poke.id == C.RAGING_BOLT_EX:
+                        is_on_bolt = True
+                except Exception:
+                    pass
+            if is_on_bolt and energy_id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                return 50
             last_ko = self.my_prizes <= self._opp_prize_value()
-            low_hp = self.active_hp_pct <= 50
-            if last_ko or low_hp:
-                if c.id in BASIC_ENERGY_IDS:
-                    return 700
-                return 600
-            if c.id == C.BASIC_GRASS_ENERGY:
+            if last_ko:
+                return 700
+            if energy_id == C.BASIC_GRASS_ENERGY:
                 return 800
-            if c.id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+            if energy_id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
                 return 200
-            data = card_table.get(c.id)
-            if data and data.cardType in (CardType.BASIC_ENERGY, CardType.SPECIAL_ENERGY):
-                return 500
             return 400
 
         if ctx == SelectContext.ATTACH_TO:
@@ -727,15 +759,34 @@ class RagingBoltPolicy:
             last_ko = self.my_prizes <= self._opp_prize_value()
             low_hp = self.active_hp_pct <= 50
 
+            area = getattr(opt, 'area', None)
+            is_on_bolt = False
+            if area is not None:
+                poke = None
+                try:
+                    player = self.obs.current.players[self.my_index]
+                    if area == AreaType.ACTIVE and player.active:
+                        poke = player.active[0]
+                    elif area == AreaType.BENCH and player.bench and opt.index < len(player.bench):
+                        poke = player.bench[opt.index]
+                except Exception:
+                    pass
+                if poke and poke.id == C.RAGING_BOLT_EX:
+                    is_on_bolt = True
+
             if last_ko or low_hp:
+                if is_on_bolt and energy_type in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                    return 50
                 return 700
 
             if energy_type == C.BASIC_GRASS_ENERGY:
                 return 800
+            if is_on_bolt and energy_type in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                return 50
             if energy_type == C.BASIC_LIGHTNING_ENERGY:
-                return 200
+                return 300
             if energy_type == C.BASIC_FIGHTING_ENERGY:
-                return 200
+                return 300
             return 500
         return 400
 
@@ -767,11 +818,51 @@ class RagingBoltPolicy:
         if ctx in (SelectContext.DISCARD_ENERGY_CARD, SelectContext.DISCARD_ENERGY):
             if self.active_id == C.RAGING_BOLT_EX and self.opp_active:
                 needed = (self.opp_active_hp + 69) // 70
-                if num >= needed:
-                    return 900
+                last_ko = self.my_prizes <= self._opp_prize_value()
+                if last_ko:
+                    if num >= needed:
+                        return 1000
+                    return 500 + num * 70
+                if num == needed:
+                    return 950
+                if num > needed:
+                    return 800
+                if num >= needed - 1:
+                    return 850
                 return 500 + num * 70
-            return 500 + num * 100
+            return 500 + num * 50
         return 500
+
+    def _estimate_opp_damage(self):
+        """Estimate max damage opponent can deal next turn."""
+        if not self.opp_active:
+            return 0
+        opp_data = card_table.get(self.opp_active.id)
+        if not opp_data:
+            return 200
+        opp_energy = _count_energy(self.opp_active)
+        from cg.api import all_attack
+        AT_local = {a.attackId: a for a in all_attack()}
+        max_dmg = 0
+        for aid in (opp_data.attacks or []):
+            a = AT_local.get(aid)
+            if not a:
+                continue
+            cost = len(a.energies) if a.energies else 0
+            if opp_energy >= cost:
+                dmg = a.damage if a.damage else 0
+                if dmg > max_dmg:
+                    max_dmg = dmg
+        if max_dmg == 0 and opp_energy >= 1:
+            max_dmg = 100
+        if max_dmg == 0:
+            max_dmg = 50
+        my_data = card_table.get(self.active_id)
+        if my_data and my_data.weakness:
+            opp_type = getattr(opp_data, 'energyType', None)
+            if opp_type == my_data.weakness:
+                max_dmg *= 2
+        return max_dmg
 
     def _can_bellowing_thunder(self):
         return self.active_id == C.RAGING_BOLT_EX and self.bolt_ready

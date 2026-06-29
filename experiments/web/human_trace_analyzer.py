@@ -177,6 +177,7 @@ def analyze(entries):
 
     tag_gap_summary = _summarize_tag_gaps(tag_score_gap)
     strategy_compare = _compare_strategy(decisions)
+    opp_analysis = _analyze_opponent_context(decisions)
     summary = {
         "total": total,
         "agree": agree,
@@ -193,6 +194,7 @@ def analyze(entries):
         "disagree_by_reason": dict(tag_disagree["disagree_by_reason"].most_common(20)),
         "tag_score_gaps": tag_gap_summary,
         "strategy_compare": strategy_compare,
+        "opponent_context": opp_analysis,
         "considered_summary": considered,
         "human_low_score_choices": human_low_score[:20],
         "ai_ignored_choices": ai_ignored[:20],
@@ -305,6 +307,48 @@ def _build_improvement_candidates(summary):
             "suggestion": "このカード/行動でズレが多いです。params_recommender.py の提案と合わせて評価値を確認してください。",
         })
     return sorted(candidates, key=lambda x: (-x["disagreements"], -x["avg_score_gap"]))[:20]
+
+
+def _analyze_opponent_context(decisions):
+    """Analyze disagreements by opponent state."""
+    disagree_by_opp = Counter()
+    disagree_by_opp_hp_range = Counter()
+    disagree_by_opp_energy = Counter()
+
+    for e in decisions:
+        if _picks_agree(e):
+            continue
+        opp = e.get("opp_active")
+        if not opp:
+            continue
+        name = opp.get("name", "?")
+        disagree_by_opp[name] += 1
+
+        hp = opp.get("hp", 0)
+        maxhp = opp.get("maxHp", 1)
+        hp_pct = int(100 * hp / maxhp) if maxhp > 0 else 100
+        if hp_pct <= 25:
+            disagree_by_opp_hp_range["opp_hp_0-25%"] += 1
+        elif hp_pct <= 50:
+            disagree_by_opp_hp_range["opp_hp_26-50%"] += 1
+        elif hp_pct <= 75:
+            disagree_by_opp_hp_range["opp_hp_51-75%"] += 1
+        else:
+            disagree_by_opp_hp_range["opp_hp_76-100%"] += 1
+
+        opp_e = opp.get("energy", 0)
+        if opp_e == 0:
+            disagree_by_opp_energy["opp_energy_0"] += 1
+        elif opp_e <= 2:
+            disagree_by_opp_energy["opp_energy_1-2"] += 1
+        else:
+            disagree_by_opp_energy["opp_energy_3+"] += 1
+
+    return {
+        "disagree_by_opponent": dict(disagree_by_opp.most_common(10)),
+        "disagree_by_opp_hp_range": dict(disagree_by_opp_hp_range.most_common()),
+        "disagree_by_opp_energy": dict(disagree_by_opp_energy.most_common()),
+    }
 
 
 def _compare_strategy(decisions):

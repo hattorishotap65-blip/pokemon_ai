@@ -740,6 +740,25 @@ def _record_game_result(state):
         pass
 
 
+def _poke_trace_info(p):
+    """Build detailed Pokemon info for trace recording."""
+    if p is None:
+        return None
+    cd = CT.get(p.id)
+    energy_types = [_ENERGY_NAMES.get(e, '?') for e in (p.energies or [])]
+    info = {
+        'id': p.id, 'name': cname(p.id),
+        'hp': p.hp, 'maxHp': p.maxHp,
+        'energy': len(p.energies),
+        'energy_types': energy_types,
+    }
+    if cd:
+        info['type'] = _ENERGY_NAMES.get(cd.energyType, '')
+        info['weakness'] = cd.weakness
+        info['ex'] = cd.ex
+    return info
+
+
 def _record_human_trace(human_indices, strategy_tags=None):
     """Record a human decision to the trace JSONL. Never raises."""
     try:
@@ -797,10 +816,8 @@ def _record_human_trace(human_indices, strategy_tags=None):
             human_pick=human_indices,
             params_path=params_path,
             opp_deck=GAME.get('opp_name', ''),
-            opp_active={'id': op_act.id, 'name': cname(op_act.id), 'hp': op_act.hp,
-                        'maxHp': op_act.maxHp, 'energy': len(op_act.energies)} if op_act else None,
-            my_active={'id': my_act.id, 'name': cname(my_act.id), 'hp': my_act.hp,
-                       'maxHp': my_act.maxHp, 'energy': len(my_act.energies)} if my_act else None,
+            opp_active=_poke_trace_info(op_act),
+            my_active=_poke_trace_info(my_act),
             my_prizes=len(me.prize),
             opp_prizes=len(op.prize),
         )

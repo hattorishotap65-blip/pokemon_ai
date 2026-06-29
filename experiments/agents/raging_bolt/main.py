@@ -425,7 +425,7 @@ class RagingBoltPolicy:
                 for o in self.select.option
             )
             if has_play_or_ability:
-                return min(base, 900)
+                return min(base, 700)
             return base + self._strategy_bonus("attack", attack_id=opt.attackId)
 
         if t == OptionType.ABILITY:

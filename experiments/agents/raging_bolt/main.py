@@ -251,7 +251,8 @@ class RagingBoltPolicy:
 
         # === Risks ===
         if self.active and self.opp_active:
-            if self.active.hp <= 120:
+            opp_max_damage = self._estimate_opp_damage()
+            if self.active.hp <= opp_max_damage:
                 self.risks.add("active_may_be_ko_next_turn")
 
         bench_bolt_with_energy = any(
@@ -776,6 +777,37 @@ class RagingBoltPolicy:
                 return 500 + num * 70
             return 500 + num * 100
         return 500
+
+    def _estimate_opp_damage(self):
+        """Estimate max damage opponent can deal next turn."""
+        if not self.opp_active:
+            return 0
+        opp_data = card_table.get(self.opp_active.id)
+        if not opp_data:
+            return 200
+        opp_energy = _count_energy(self.opp_active)
+        from cg.api import all_attack
+        AT_local = {a.attackId: a for a in all_attack()}
+        max_dmg = 0
+        for aid in (opp_data.attacks or []):
+            a = AT_local.get(aid)
+            if not a:
+                continue
+            cost = len(a.energies) if a.energies else 0
+            if opp_energy >= cost:
+                dmg = a.damage if a.damage else 0
+                if dmg > max_dmg:
+                    max_dmg = dmg
+        if max_dmg == 0 and opp_energy >= 1:
+            max_dmg = 100
+        if max_dmg == 0:
+            max_dmg = 50
+        my_data = card_table.get(self.active_id)
+        if my_data and my_data.weakness:
+            opp_type = getattr(opp_data, 'energyType', None)
+            if opp_type == my_data.weakness:
+                max_dmg *= 2
+        return max_dmg
 
     def _can_bellowing_thunder(self):
         return self.active_id == C.RAGING_BOLT_EX and self.bolt_ready

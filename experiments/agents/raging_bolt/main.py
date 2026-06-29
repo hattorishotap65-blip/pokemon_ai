@@ -439,6 +439,12 @@ class RagingBoltPolicy:
 
         if t == OptionType.ATTACH:
             base = self._score_attach(i, opt)
+            has_supporter = any(
+                o.type == OptionType.PLAY and self._is_supporter(o)
+                for o in self.select.option
+            )
+            if has_supporter:
+                return min(base, 1100)
             target = get_card(self.obs, getattr(opt, 'inPlayArea', None),
                               getattr(opt, 'inPlayIndex', None), self.my_index)
             return base + self._strategy_bonus("attach", card_id=target.id if target else 0)

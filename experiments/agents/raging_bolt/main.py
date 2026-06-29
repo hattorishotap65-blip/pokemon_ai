@@ -953,7 +953,7 @@ class RagingBoltPolicy:
             has_boss = C.BOSS_ORDERS in self.hand_ids
             best_target = self._best_boss_target()
             if has_boss and best_target:
-                prize_val = self._opp_prize_value()
+                prize_val = prize_count(best_target)
                 if my_prizes <= prize_val:
                     score += 800
 

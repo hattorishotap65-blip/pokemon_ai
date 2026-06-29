@@ -255,6 +255,7 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
 <script>
 let STATE=null, SEL=[], MULTI=false, DB={}, IMG={}, LASTSEQ=-1, REC=false;
 let TURN_GOAL='', WIN_PLAN=new Set(), RISKS=new Set(), REASONS=new Set(), CONSIDERED=new Set();
+let _lastTurn=-1;
 const $=s=>document.querySelector(s);
 
 const GOALS=[
@@ -289,6 +290,8 @@ const tColor=t=>`var(${TYPES[t]||'--colorless'})`;
 const short=n=>(n||'').replace("Ethan's ","").replace("Iono's ","");
 const imgURL=id=>{const slug=IMG[String(id)]; return slug?`https://images.pokemontcg.io/${slug}_hires.png`:`/card_img/${id}.png`;};
 
+const EC={'草':'🟢','炎':'🔴','水':'🔵','雷':'🟡','超':'🟣','闘':'🟤','悪':'⚫','鋼':'⚪','竜':'🟠','無':'⬜'};
+function eIcons(detail){ return (detail||[]).map(e=>EC[e]||'⬜').join(''); }
 function cardHTML(p,active){
   if(!p) return active?'<div class="empty-slot">—</div>':'';
   const d=DB[p.id]||{}; const c=tColor(d.type);
@@ -296,20 +299,21 @@ function cardHTML(p,active){
   const cls=pct>50?'high':pct>20?'mid':'low';
   const ex=d.ex?'<span class="ex-badge">ex</span>':'';
   const tools=(p.tools&&p.tools.length)?` 🛡${p.tools.length}`:'';
+  const eDisp=p.energyDetail&&p.energyDetail.length?eIcons(p.energyDetail):`🔋${p.energy}`;
   const body=`<div class="card-type-bar" style="background:${c}"></div>
     <div class="card-body">
       <div class="card-name">${short(p.name)} ${ex}</div>
       <div class="hp-bar"><div class="hp-bar-fill ${cls}" style="width:${pct}%"></div></div>
       <div class="card-row"><span class="hp-text">${p.hp}<span class="max">/${p.maxHp}</span></span>
-        <span class="energy-row">🔋${p.energy}${tools}</span></div>
+        <span class="energy-row">${eDisp}${tools}</span></div>
     </div>`;
   const url=imgURL(p.id);
   const imgLayer = url ? `<img class="cimg" src="${url}" onerror="this.closest('.card').classList.add('noimg')">
     <div class="ovl"><div class="nm">${short(p.name)} ${ex}</div>
       <div class="hp-bar"><div class="hp-bar-fill ${cls}" style="width:${pct}%"></div></div>
-      <div class="meta"><span>${p.hp}/${p.maxHp}</span><span>🔋${p.energy}${tools}</span></div></div>` : '';
+      <div class="meta"><span>${p.hp}/${p.maxHp}</span><span>${eDisp}${tools}</span></div></div>` : '';
   return `<div class="card ${active?'active small':'small'} ${url?'imgc':''}" data-id="${p.id}"
-    data-hp="${p.hp}" data-mhp="${p.maxHp}" data-e="${p.energy}" data-tools="${(p.tools||[]).join('、')}"
+    data-hp="${p.hp}" data-mhp="${p.maxHp}" data-e="${p.energy}" data-ed="${(p.energyDetail||[]).join(',')}" data-tools="${(p.tools||[]).join('、')}"
     onclick="detailLive(this)">${body}${imgLayer}</div>`;
 }
 function handHTML(c){
@@ -354,6 +358,10 @@ function renderThoughtPanel(show){
 }
 function render(s){
   STATE=s; SEL=[]; CONSIDERED=new Set();
+  if(s.turn!=null && s.turn!==_lastTurn){
+    _lastTurn=s.turn;
+    TURN_GOAL=''; WIN_PLAN=new Set(); RISKS=new Set(); REASONS=new Set();
+  }
   if(!s.started){ $('#ctx').textContent='「新しい対戦」を押して開始'; renderThoughtPanel(false); return; }
   $('#oppActive').innerHTML=cardHTML(s.opp.active,true);
   $('#oppBench').innerHTML=(s.opp.bench||[]).map(p=>cardHTML(p)).join('')||'<div class="empty-slot">空き</div>';
@@ -372,7 +380,7 @@ function render(s){
   $('#ctx').textContent = s.over?'対戦終了':(s.yourTurn?('あなたのターン · '+(s.context||'')):'CPU思考中…');
   const optDiv=$('#options'); optDiv.innerHTML=''; $('#confirm').style.display='none';
   if(s.over || !s.yourTurn){ $('#aihint').style.display='none'; renderThoughtPanel(false); return; }
-  const showRec = REC && s.yourTurn && !s.over;
+  const showRec = REC && s.yourTurn && !s.over && !_SKIP_TAG_CTX.has(s.context);
   renderThoughtPanel(showRec);
   MULTI = s.multi && s.multi.max>1;
   const recs=(s.options||[]).filter(o=>o.recommended).map(o=>o.label).join(' + ');
@@ -393,18 +401,27 @@ function render(s){
   if(MULTI) $('#confirm').style.display='block';
 }
 function togCon(i,el){ if(el.checked) CONSIDERED.add(i); else CONSIDERED.delete(i); }
+const _SKIP_TAG_CTX=new Set(['IS_FIRST','DRAW_COUNT','SETUP_ACTIVE_POKEMON','SETUP_BENCH_POKEMON','MULLIGAN']);
+function _checkRecTags(){
+  if(!REC) return true;
+  if(STATE && _SKIP_TAG_CTX.has(STATE.context)) return true;
+  if(!TURN_GOAL){alert('「このターンの目標」を選んでください');return false;}
+  if(REASONS.size===0){alert('「行動理由」を1つ以上選んでください');return false;}
+  return true;
+}
 function pick(i,btn){
   if(MULTI){ const k=SEL.indexOf(i);
     if(k>=0){SEL.splice(k,1);btn.classList.remove('sel');} else {SEL.push(i);btn.classList.add('sel');}
-  } else send([i]);
+  } else { if(!_checkRecTags()) return; send([i]); }
 }
 function confirmMulti(){
   const min=STATE.multi?.min??0, max=STATE.multi?.max??999;
   if(SEL.length<min||SEL.length>max){alert(`${min}〜${max}個を選んでください`);return;}
+  if(!_checkRecTags()) return;
   send(SEL.slice());
 }
 function detailLive(el){
-  detail(+el.dataset.id, {hp:el.dataset.hp, mhp:el.dataset.mhp, e:el.dataset.e, tools:el.dataset.tools});
+  detail(+el.dataset.id, {hp:el.dataset.hp, mhp:el.dataset.mhp, e:el.dataset.e, ed:el.dataset.ed, tools:el.dataset.tools});
 }
 function detail(id, live){
   const d=DB[id]; if(!d) return;
@@ -418,8 +435,12 @@ function detail(id, live){
   if(d.weak) h+=`<div class="detail-row"><span class="label">弱点</span><span>${TC[d.weak]||d.weak}</span></div>`;
   if(d.stage!=null) h+=`<div class="detail-row"><span class="label">進化段階</span><span>${d.ex?'ex ':''}${['たね','1進化','2進化'][d.stage]??d.stage}</span></div>`;
   h+='</div></div>';
-  if(live) h+=`<div class="atk" style="border:1px solid var(--gold)"><div class="nm">📍 場の状態</div>
-    <div class="tx">HP ${live.hp}/${live.mhp}　·　🔋 エネルギー ${live.e} 個　·　🛡 どうぐ:${live.tools||'無'}</div></div>`;
+  if(live){
+    const edArr=live.ed?live.ed.split(',').filter(Boolean):[];
+    const eDisp=edArr.length?edArr.map(e=>EC[e]||e).join(' '):`${live.e} 個`;
+    h+=`<div class="atk" style="border:1px solid var(--gold)"><div class="nm">📍 場の状態</div>
+    <div class="tx">HP ${live.hp}/${live.mhp}　·　エネルギー ${eDisp}　·　🛡 どうぐ:${live.tools||'無'}</div></div>`;
+  }
   (d.abilities||[]).forEach(a=>h+=`<div class="atk"><div class="nm">✨ 特性(アビリティ)</div><div class="tx">${a}</div></div>`);
   (d.attacks||[]).forEach(a=>{
     const cost=(a.cost||[]).map(c=>TC[c]||c[0]).join('');
@@ -489,8 +510,7 @@ async function send(indices){
     payload.risk_flags=[...RISKS];
     payload.human_reason_tags=[...REASONS];
     payload.human_considered=[...CONSIDERED];
-    TURN_GOAL=''; WIN_PLAN=new Set(); RISKS=new Set();
-    REASONS=new Set(); CONSIDERED=new Set();
+    CONSIDERED=new Set();
   }
   const r=await fetch('/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   render(await r.json());

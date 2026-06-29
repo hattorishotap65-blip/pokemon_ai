@@ -318,8 +318,10 @@ def _advance_opponent():
 def poke_json(p):
     if p is None:
         return None
+    energy_detail = [_ENERGY_NAMES.get(e, '?') for e in (p.energies or [])]
     return {'id': p.id, 'name': cname(p.id).replace("Ethan's ", "").replace("Iono's ", ""),
             'hp': p.hp, 'maxHp': p.maxHp, 'energy': len(p.energies),
+            'energyDetail': energy_detail,
             'tools': [cname(t.id) for t in p.tools]}
 
 
@@ -347,6 +349,106 @@ def option_ids(obs, opt, my_index):
     return None, None
 
 
+_ENERGY_NAMES = {1: '草', 2: '炎', 3: '水', 4: '雷', 5: '超', 6: '闘', 7: '悪', 8: '鋼', 9: '竜', 0: '無'}
+
+
+def _energy_type_label(card_id):
+    """Return energy type name for a basic energy card."""
+    _ID_TO_TYPE = {1: '草', 2: '炎', 3: '水', 4: '雷', 5: '超', 6: '闘', 7: '悪', 8: '鋼'}
+    label = _ID_TO_TYPE.get(card_id, '')
+    if label:
+        return label
+    cd = CT.get(card_id)
+    if cd:
+        et = getattr(cd, 'energyType', None)
+        if et is not None:
+            return _ENERGY_NAMES.get(et, '')
+    return ''
+
+
+def _energy_label_from_card(c):
+    """Return energy type label from a card object (energy card or attached energy)."""
+    if c is None:
+        return ''
+    label = _energy_type_label(c.id)
+    if label:
+        return label
+    et = getattr(c, 'energyType', None)
+    if et is not None:
+        return _ENERGY_NAMES.get(et, '')
+    return ''
+
+
+def _resolve_energy_type(obs, opt, player_index):
+    """Get energy type from a Pokemon's energyCards using energyIndex."""
+    ei = getattr(opt, 'energyIndex', None)
+    area = getattr(opt, 'area', None)
+    idx = opt.index
+    if ei is None or area is None:
+        return ''
+    try:
+        player = obs.current.players[player_index]
+        poke = None
+        if area == AreaType.ACTIVE and player.active:
+            poke = player.active[idx] if idx < len(player.active) else player.active[0]
+        elif area == AreaType.BENCH and player.bench:
+            poke = player.bench[idx] if idx < len(player.bench) else None
+        if poke and hasattr(poke, 'energyCards') and poke.energyCards:
+            if ei < len(poke.energyCards):
+                ec = poke.energyCards[ei]
+                return _energy_type_label(ec.id)
+        if poke and hasattr(poke, 'energies') and poke.energies:
+            if ei < len(poke.energies):
+                return _ENERGY_NAMES.get(poke.energies[ei], '')
+    except Exception:
+        pass
+    return ''
+
+
+def _pos_label(area, index):
+    """Return a position label like 'バトル場' or 'ベンチ2'."""
+    if area == AreaType.ACTIVE:
+        return 'バトル場'
+    if area == AreaType.BENCH:
+        return f'ベンチ{index + 1}' if index is not None else 'ベンチ'
+    if area == AreaType.HAND:
+        return '手札'
+    if area == AreaType.DISCARD:
+        return 'トラッシュ'
+    return ''
+
+
+def _resolve_player_index(obs, opt, my_index):
+    """Determine which player's card an option refers to.
+    Try my_index first; if no card found, try opponent."""
+    area = getattr(opt, 'area', None)
+    if area is None or area not in (AreaType.ACTIVE, AreaType.BENCH):
+        return my_index
+    c = get_card(obs, area, opt.index, my_index)
+    if c is not None:
+        return my_index
+    c2 = get_card(obs, area, opt.index, 1 - my_index)
+    if c2 is not None:
+        return 1 - my_index
+    return my_index
+
+
+def _card_detail(c):
+    """Return short detail string for a Pokemon (HP/energy) to distinguish copies."""
+    if c is None:
+        return ''
+    hp = getattr(c, 'hp', None)
+    maxhp = getattr(c, 'maxHp', None)
+    energies = getattr(c, 'energies', None)
+    parts = []
+    if hp is not None and maxhp:
+        parts.append(f'HP{hp}/{maxhp}')
+    if energies:
+        e_types = [_ENERGY_NAMES.get(e, '?') for e in energies]
+        parts.append(''.join(e_types))
+    return f' [{", ".join(parts)}]' if parts else ''
+
+
 def label_option(obs, opt, my_index):
     t = opt.type
     if t == OptionType.END:
@@ -366,35 +468,63 @@ def label_option(obs, opt, my_index):
         return '↩ にげる'
     if t == OptionType.ABILITY:
         c = get_card(obs, opt.area, opt.index, my_index)
-        return f'✨ 特性 {cname(c.id) if c else ""}'
+        pos = _pos_label(opt.area, opt.index)
+        detail = _card_detail(c) if c else ''
+        return f'✨ 特性 {cname(c.id) if c else ""} ({pos}){detail}'
     if t == OptionType.EVOLVE:
         c = get_card(obs, AreaType.HAND, opt.index, my_index)
         return f'⬆ 進化 → {cname(c.id) if c else ""}'
-    cn = CTX.get(obs.select.context, '') or ''   # context name, e.g. 'DISCARD_ENERGY'
+    cn = CTX.get(obs.select.context, '') or ''
     if t in (OptionType.ENERGY, OptionType.ATTACH):
         tgt = get_card(obs, opt.inPlayArea, opt.inPlayIndex, my_index)
         tn = cname(tgt.id).replace(chr(39), '') if tgt else '?'
+        pos = _pos_label(opt.inPlayArea, opt.inPlayIndex)
+        detail = _card_detail(tgt) if tgt else ''
+        etype = ''
+        if t == OptionType.ATTACH:
+            src = get_card(obs, getattr(opt, 'area', None) or AreaType.HAND, opt.index, my_index)
+            etype = _energy_label_from_card(src)
+        elif t == OptionType.ENERGY:
+            etype = _resolve_energy_type(obs, opt, my_index)
+        etype_s = f'{etype}エネ ' if etype else 'エネルギー'
         if 'DISCARD' in cn:
-            return f'🗑 エネルギーをトラッシュ ({tn})'
+            return f'🗑 {etype_s}をトラッシュ ({tn} {pos}){detail}'
         if 'TO_HAND' in cn:
-            return f'✋ エネルギーを手札に ({tn})'
-        return f'🔋 エネルギーをつける → {tn}'
+            return f'✋ {etype_s}を手札に ({tn} {pos}){detail}'
+        return f'🔋 {etype_s}をつける → {tn} ({pos}){detail}'
     if t in (OptionType.PLAY, OptionType.CARD, OptionType.TOOL_CARD, OptionType.ENERGY_CARD):
-        c = get_card(obs, getattr(opt, 'area', None) or AreaType.HAND, opt.index, my_index)
+        area = getattr(opt, 'area', None) or AreaType.HAND
+        pi = _resolve_player_index(obs, opt, my_index)
+        c = get_card(obs, area, opt.index, pi)
         nm = cname(c.id) if c else 'card'
+        etype = ''
+        if t == OptionType.ENERGY_CARD:
+            etype = _resolve_energy_type(obs, opt, pi)
+            if not etype and c:
+                etype = _energy_label_from_card(c)
+        elif c:
+            cd = CT.get(c.id)
+            if cd and cd.cardType in (CardType.BASIC_ENERGY, CardType.SPECIAL_ENERGY):
+                etype = _energy_label_from_card(c)
+        if etype:
+            nm = f'{etype}エネ ({nm})'
+        pos = _pos_label(area, opt.index)
+        detail = _card_detail(c) if c and area != AreaType.HAND else ''
+        opp_tag = ' [相手]' if pi != my_index and area in (AreaType.ACTIVE, AreaType.BENCH) else ''
+        pos_suffix = f' ({pos}){opp_tag}' if pos and area != AreaType.HAND else ''
         if t == OptionType.PLAY:
             return f'▶ {nm} を使う'
         if 'DISCARD' in cn:
-            return f'🗑 {nm} をトラッシュ'
+            return f'🗑 {nm} をトラッシュ{pos_suffix}{detail}'
         if 'TO_HAND' in cn:
-            return f'🔍 {nm} を手札に加える'
+            return f'🔍 {nm} を手札に加える{pos_suffix}{detail}'
         if 'TO_DECK' in cn or 'TO_PRIZE' in cn:
-            return f'↩ {nm} を戻す'
+            return f'↩ {nm} を戻す{pos_suffix}{detail}'
         if 'SWITCH' in cn or 'ACTIVE' in cn:
-            return f'⬆ {nm} をバトル場に'
+            return f'⬆ {nm} をバトル場に{pos_suffix}{detail}'
         if 'BENCH' in cn or 'FIELD' in cn:
-            return f'➕ {nm} をベンチに'
-        return f'▶ {nm}'
+            return f'➕ {nm} をベンチに{pos_suffix}{detail}'
+        return f'▶ {nm}{pos_suffix}{detail}'
     return f'option(type={t})'
 
 
@@ -676,6 +806,13 @@ def _record_human_trace(human_indices, strategy_tags=None):
         )
         if strategy_tags:
             entry.update(strategy_tags)
+        try:
+            if ME['Policy'] is not None:
+                p = ME['Policy'](obs)
+                entry['agent_goals'] = sorted(p.goals) if hasattr(p, 'goals') else []
+                entry['agent_risks'] = sorted(p.risks) if hasattr(p, 'risks') else []
+        except Exception:
+            pass
         write_trace_entry(tp, entry)
     except Exception:
         pass

@@ -176,6 +176,7 @@ def analyze(entries):
                 })
 
     tag_gap_summary = _summarize_tag_gaps(tag_score_gap)
+    strategy_compare = _compare_strategy(decisions)
     summary = {
         "total": total,
         "agree": agree,
@@ -191,6 +192,7 @@ def analyze(entries):
         "disagree_by_risk": dict(tag_disagree["disagree_by_risk"].most_common(20)),
         "disagree_by_reason": dict(tag_disagree["disagree_by_reason"].most_common(20)),
         "tag_score_gaps": tag_gap_summary,
+        "strategy_compare": strategy_compare,
         "considered_summary": considered,
         "human_low_score_choices": human_low_score[:20],
         "ai_ignored_choices": ai_ignored[:20],
@@ -208,6 +210,12 @@ def _empty_summary(result_counts=None):
         "disagree_by_turn_goal": {}, "disagree_by_win_plan": {},
         "disagree_by_risk": {}, "disagree_by_reason": {},
         "tag_score_gaps": {},
+        "strategy_compare": {
+            "entries_with_agent_detection": 0,
+            "goal_match": {}, "goal_human_only": {}, "goal_agent_only": {},
+            "goal_mismatch_gaps": {},
+            "risk_match": {}, "risk_human_only": {}, "risk_agent_only": {},
+        },
         "considered_summary": {
             "with_considered": 0, "human_pick_in_considered": 0,
             "ai_pick_in_considered": 0, "human_pick_not_considered": 0,
@@ -299,6 +307,74 @@ def _build_improvement_candidates(summary):
     return sorted(candidates, key=lambda x: (-x["disagreements"], -x["avg_score_gap"]))[:20]
 
 
+def _compare_strategy(decisions):
+    """Compare human-tagged goals/risks vs agent auto-detected ones."""
+    goal_match = Counter()
+    goal_human_only = Counter()
+    goal_agent_only = Counter()
+    risk_match = Counter()
+    risk_human_only = Counter()
+    risk_agent_only = Counter()
+    entries_with_both = 0
+    score_gap_by_goal_mismatch = defaultdict(list)
+
+    for e in decisions:
+        human_goal = e.get("turn_goal", "")
+        agent_goals = set(e.get("agent_goals", []))
+        human_risks = set(e.get("risk_flags", []))
+        agent_risks = set(e.get("agent_risks", []))
+
+        if not agent_goals and not agent_risks:
+            continue
+        entries_with_both += 1
+
+        if human_goal:
+            if human_goal in agent_goals:
+                goal_match[human_goal] += 1
+            else:
+                goal_human_only[human_goal] += 1
+                options = e.get("options", [])
+                ai_pick = set(e.get("ai_pick", []))
+                human_pick = set(e.get("human_pick", []))
+                if ai_pick != human_pick:
+                    ai_top = max((o.get("score", 0) for o in options), default=0)
+                    for i in human_pick - ai_pick:
+                        opt = next((o for o in options if o.get("i") == i), None)
+                        if opt:
+                            score_gap_by_goal_mismatch[human_goal].append(ai_top - opt.get("score", 0))
+
+        for g in agent_goals:
+            if g != human_goal and g not in (e.get("win_plan_tags") or []):
+                goal_agent_only[g] += 1
+
+        for r in human_risks:
+            if r in agent_risks:
+                risk_match[r] += 1
+            else:
+                risk_human_only[r] += 1
+        for r in agent_risks - human_risks:
+            risk_agent_only[r] += 1
+
+    goal_gap_summary = {}
+    for g, gaps in score_gap_by_goal_mismatch.items():
+        if gaps:
+            goal_gap_summary[g] = {
+                "count": len(gaps),
+                "avg_gap": round(sum(gaps) / len(gaps), 1),
+            }
+
+    return {
+        "entries_with_agent_detection": entries_with_both,
+        "goal_match": dict(goal_match.most_common(20)),
+        "goal_human_only": dict(goal_human_only.most_common(20)),
+        "goal_agent_only": dict(goal_agent_only.most_common(20)),
+        "goal_mismatch_gaps": goal_gap_summary,
+        "risk_match": dict(risk_match.most_common(20)),
+        "risk_human_only": dict(risk_human_only.most_common(20)),
+        "risk_agent_only": dict(risk_agent_only.most_common(20)),
+    }
+
+
 def _get_option(options, index):
     for o in options:
         if o.get("i") == index:
@@ -357,6 +433,32 @@ def format_report(summary):
                 _md(item.get("suggestion", ""))))
 
     _append_counter(lines, "Disagreements by Card / Action", summary.get("disagree_by_card", {}), False)
+
+    sc = summary.get("strategy_compare", {})
+    if sc.get("entries_with_agent_detection", 0):
+        lines.append("\n## Strategy Detection: Agent vs Human\n")
+        lines.append("Entries with agent detection: %d\n" % sc["entries_with_agent_detection"])
+        if sc.get("goal_human_only"):
+            lines.append("### Goals: Human tagged but agent missed\n")
+            lines.append("| Goal | Count | Avg Score Gap |")
+            lines.append("|------|-------|---------------|")
+            gaps = sc.get("goal_mismatch_gaps", {})
+            for g, cnt in sorted(sc["goal_human_only"].items(), key=lambda x: -x[1]):
+                gi = gaps.get(g, {})
+                lines.append("| %s (%s) | %d | %.0f |" % (
+                    _md(g), _md(_TAG_LABELS.get(g, g)), cnt, gi.get("avg_gap", 0)))
+        if sc.get("goal_agent_only"):
+            lines.append("\n### Goals: Agent detected but human didn't tag\n")
+            lines.append("| Goal | Count |")
+            lines.append("|------|-------|")
+            for g, cnt in sorted(sc["goal_agent_only"].items(), key=lambda x: -x[1]):
+                lines.append("| %s (%s) | %d |" % (_md(g), _md(_TAG_LABELS.get(g, g)), cnt))
+        if sc.get("risk_human_only"):
+            lines.append("\n### Risks: Human tagged but agent missed\n")
+            lines.append("| Risk | Count |")
+            lines.append("|------|-------|")
+            for r, cnt in sorted(sc["risk_human_only"].items(), key=lambda x: -x[1]):
+                lines.append("| %s (%s) | %d |" % (_md(r), _md(_TAG_LABELS.get(r, r)), cnt))
 
     low = summary.get("human_low_score_choices", [])
     if low:

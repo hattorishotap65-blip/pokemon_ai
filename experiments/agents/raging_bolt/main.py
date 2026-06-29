@@ -1103,6 +1103,16 @@ class RagingBoltPolicy:
             w_risk = self.p("search_weight_risk", 0.1)
             final = immediate * w_imm + future_delta * w_fut + risk_adj * w_risk
 
+            if self.p("use_value_model", False):
+                try:
+                    from value_model import predict_state_value
+                    v = predict_state_value(self.obs, self.my_index)
+                    if v is not None:
+                        w_val = self.p("value_model_weight", 0.2)
+                        final += v * w_val * 1000
+                except Exception:
+                    pass
+
             candidates.append((final, i, immediate, future_delta, risk_adj))
 
         candidates.sort(key=lambda x: -x[0])

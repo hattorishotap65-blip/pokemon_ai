@@ -151,6 +151,9 @@ jobs:
       - name: Run strategy trace analysis tests
         run: python experiments/test_human_trace_strategy_analysis.py
 
+      - name: Run counterfactual analyzer tests
+        run: python experiments/test_counterfactual_analyzer.py
+
       - name: Run learning trace analyzer tests
         run: python experiments/test_learning_trace_analyzer.py
 

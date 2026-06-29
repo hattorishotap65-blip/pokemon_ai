@@ -412,18 +412,12 @@ class RagingBoltPolicy:
             base = self._score_attack(opt)
             if opt.attackId == BURST_ROAR:
                 return base
-            has_supporter = any(
-                o.type == OptionType.PLAY and self._is_supporter(o)
+            has_play_or_ability = any(
+                o.type in (OptionType.PLAY, OptionType.ABILITY)
                 for o in self.select.option
             )
-            has_teal_dance = any(
-                o.type == OptionType.ABILITY
-                and get_card(self.obs, o.area, o.index, self.my_index)
-                and get_card(self.obs, o.area, o.index, self.my_index).id == C.TEAL_MASK_OGERPON_EX
-                for o in self.select.option
-            ) and self.grass_in_hand > 0
-            if has_supporter or has_teal_dance:
-                return min(base, 1200)
+            if has_play_or_ability:
+                return min(base, 900)
             return base + self._strategy_bonus("attack", attack_id=opt.attackId)
 
         if t == OptionType.ABILITY:
@@ -537,18 +531,16 @@ class RagingBoltPolicy:
 
         if cid == C.CRISPIN:
             if self.energy_in_hand >= 4:
-                return 500
-            if not self.bolt_ready and self.energy_in_discard >= 1:
-                return 1600
+                return 400
             if self.energy_in_discard >= 1:
-                return 1500
-            return 800
+                return 1100
+            return 600
 
         if cid == C.LILLIE_DETERMINATION:
             if len(self.hand_ids) <= 2:
-                return 1400
+                return 1200
             if len(self.hand_ids) <= 4:
-                return 1300
+                return 1100
             return 1100
 
         if cid == C.BOSS_ORDERS:

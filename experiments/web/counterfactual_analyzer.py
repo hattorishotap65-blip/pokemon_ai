@@ -197,7 +197,7 @@ def _judge(category, ai_type, human_type, can_ko, no_next_attacker,
     if category == "boss_missed":
         return "human_likely_better"
     if category == "boss_used_too_early":
-        return "ai_likely_better"
+        return "human_likely_better"
     if category == "hand_refresh_overvalued":
         return "human_likely_better"
     return "insufficient_info"

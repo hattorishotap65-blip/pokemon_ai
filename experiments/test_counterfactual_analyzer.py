@@ -81,6 +81,18 @@ r6 = analyze_counterfactual([e_ko])
 check("opp_ko: classified", r6["categories"].get("opponent_return_ko_underestimated", 0) == 1)
 check("opp_ko: human_likely_better", r6["judgments"].get("human_likely_better", 0) >= 1)
 
+# === boss_used_too_early ===
+print("\n=== boss_used_too_early ===")
+e_boss = build_trace_entry("rb", 4, "MAIN",
+    [{"i": 0, "label": "▶ Boss's Orders を使う", "score": 1600, "type": 7, "cardId": 1182},
+     {"i": 1, "label": "▶ Crispin を使う", "score": 1300, "type": 7, "cardId": 1198}],
+    ai_pick=[0], human_pick=[1],
+    my_prizes=5, opp_prizes=5)
+e_boss.update({"turn_goal": "prepare_next_turn_attack", "agent_goals": [], "agent_risks": []})
+r_boss = analyze_counterfactual([e_boss])
+check("boss_too_early: classified", r_boss["categories"].get("boss_used_too_early", 0) == 1)
+check("boss_too_early: human_likely_better", r_boss["judgments"].get("human_likely_better", 0) == 1)
+
 # === format_report ===
 print("\n=== format_report ===")
 entries = [e_atk, e_nna, e_ko, build_game_result_entry("rb", "drag", "win", 10)]

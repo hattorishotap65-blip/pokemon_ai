@@ -97,6 +97,12 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
 .result{font-size:22px;font-weight:800;text-align:center;padding:16px;background:var(--bg-card);border-radius:10px;margin-bottom:12px}
 .ctx{font-size:18px;font-weight:700;margin:4px 0 10px}
 .aihint{font-size:15px;background:rgba(79,195,247,.1);border:1px solid var(--accent);border-radius:8px;padding:10px 12px;margin-bottom:12px;line-height:1.5}
+.live-review{display:none;font-size:14px;background:rgba(255,107,107,.08);border:1px solid var(--accent2);border-radius:8px;padding:10px 12px;margin-bottom:12px;line-height:1.5}
+.live-review.show{display:block}
+.live-review .lr-title{font-weight:800;color:var(--accent2);margin-bottom:4px;font-size:13px;letter-spacing:.5px}
+.live-review .lr-row{display:flex;justify-content:space-between;color:var(--text-dim);font-size:13px;margin-top:4px}
+.live-review .lr-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.live-review .lr-tag{font-size:11px;background:rgba(255,107,107,.18);color:var(--accent2);border-radius:5px;padding:2px 7px}
 .opt{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;margin-bottom:7px;
   background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:11px 13px;cursor:pointer;transition:.12s;font-size:15.5px}
 .opt:hover{border-color:var(--accent)}
@@ -221,6 +227,7 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
   <div class="sidepanel">
     <div class="result" id="result" style="display:none"></div>
     <div class="ctx" id="ctx">「新しい対戦」を押して開始</div>
+    <div class="live-review" id="liveReview"></div>
     <div class="thought-panel" id="thoughtPanel">
       <h4>🧠 ターン思考 (記録用)</h4>
       <div class="tp-section">
@@ -356,8 +363,20 @@ function renderThoughtPanel(show){
     buildChips($('#reasonChips'), REASON_TAGS, REASONS, false, '');
   }
 }
+function renderLiveReview(lr){
+  const box=$('#liveReview');
+  if(!box) return;
+  if(!lr || !lr.show){ box.classList.remove('show'); box.innerHTML=''; return; }
+  const tags=(lr.risk_flags||[]).map(f=>`<span class="lr-tag">${f}</span>`).join('');
+  box.innerHTML=`<div class="lr-title">⚠ 判断差レビュー · ${lr.category||''}</div>
+    <div>${lr.message||''}</div>
+    <div class="lr-row"><span>AI: ${lr.ai_action||'-'}</span><span>あなた: ${lr.human_action||'-'}</span></div>
+    ${tags?`<div class="lr-tags">${tags}</div>`:''}`;
+  box.classList.add('show');
+}
 function render(s){
   STATE=s; SEL=[]; CONSIDERED=new Set();
+  renderLiveReview(s.live_review);
   if(s.turn!=null && s.turn!==_lastTurn){
     _lastTurn=s.turn;
     TURN_GOAL=''; WIN_PLAN=new Set(); RISKS=new Set(); REASONS=new Set();

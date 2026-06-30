@@ -141,7 +141,7 @@ def extract_features(obs, my_index):
     }
 
 
-FEATURE_KEYS = list(extract_features.__code__.co_varnames)[:0] or [
+FEATURE_KEYS = [
     "my_prizes", "opp_prizes", "prize_diff",
     "my_active_id", "my_active_hp", "my_active_hp_pct",
     "opp_active_id", "opp_active_hp", "opp_active_hp_pct",

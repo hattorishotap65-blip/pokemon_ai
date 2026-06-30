@@ -69,7 +69,6 @@ def predict_action_value(obs, my_index, opt):
         features = extract_features(obs, my_index)
         ot = getattr(opt, 'type', None)
         if ot == 13:  # ATTACK
-            features["can_ko_active"] = 1
             features["total_field_energy"] = max(0, features["total_field_energy"] - 2)
         elif ot == 10:  # ABILITY
             features["total_field_energy"] = features["total_field_energy"] + 1

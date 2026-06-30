@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "agents", "ragi
 
 def build_from_simulation(n_games=100, output="experiments/web/value_dataset.csv"):
     """Run n games and collect (features, result) pairs."""
+    output = os.path.abspath(output)
     import ctypes
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "reference", "extracted"))
     agent_dir = os.path.join(os.path.dirname(__file__), "..", "agents", "raging_bolt")
@@ -113,6 +114,7 @@ def build_from_simulation(n_games=100, output="experiments/web/value_dataset.csv
 
 def build_from_traces(trace_dir, output="experiments/web/value_dataset_traces.csv"):
     """Build dataset from human trace JSONL files."""
+    output = os.path.abspath(output)
     import glob
     try:
         from human_trace_writer import load_traces

@@ -237,6 +237,39 @@ def build_tuning_preview(compute_fn, params, overrides=None):
     return {"before": before_shaped, "after": after_shaped, "changed": changed}
 
 
+def _empty_score_snapshot():
+    return {"target_score": None, "top_label": None, "top_score": None, "gap": None}
+
+
+def _score_snapshot(compute_fn, params, param_name, value, target_label):
+    """One (param_name=value) probe: target_label's score, the current top
+    candidate's label/score, and the gap between them. Returns the "empty"
+    shape (all None) if compute_fn fails or target_label isn't a candidate
+    at this value -- never raises."""
+    eff = dict(params)
+    eff[param_name] = value
+    try:
+        cands = compute_fn(eff)
+    except Exception:
+        cands = None
+    if not cands:
+        return _empty_score_snapshot()
+    by_label = {}
+    try:
+        for c in cands:
+            lbl = c.get("label")
+            sc = c.get("score", 0)
+            if lbl not in by_label or sc > by_label[lbl]:
+                by_label[lbl] = sc
+    except Exception:
+        return _empty_score_snapshot()
+    if target_label not in by_label or not by_label:
+        return _empty_score_snapshot()
+    top_label = max(by_label, key=by_label.get)
+    return {"target_score": by_label[target_label], "top_label": top_label,
+            "top_score": by_label[top_label], "gap": by_label[target_label] - by_label[top_label]}
+
+
 def find_param_value_for_target(compute_fn, params, param_name, target_label,
                                  max_iter=20, max_abs_value=1_000_000.0):
     """Search for a value of params[param_name] that makes target_label the
@@ -252,48 +285,45 @@ def find_param_value_for_target(compute_fn, params, param_name, target_label,
     top (that's often why it's a disagreement in the first place).
 
     Returns a dict, never raises:
-        found        -- True if some tried value made target_label >= every
-                         other candidate's score (ties count as found)
-        value        -- the value to try (the winning value if found, else
-                         the best-gap value seen, else None if target_label
-                         never appeared in any candidate list)
-        before_value -- params[param_name]'s value at the start of the search
-        before_gap   -- target_label's score minus the top score, at
-                         before_value (None if target_label wasn't found
-                         there either)
-        after_gap    -- same gap, but at `value`
+        found              -- True if some tried value made target_label's
+                               score >= every other candidate's (ties count)
+        value              -- the value to try (the winning value if found,
+                               else the best-gap value seen, else None if
+                               target_label never appeared as a candidate)
+        before_value       -- params[param_name]'s value at search start
+        before_gap         -- target_label's score minus the top score, at
+                               before_value (None if not found there)
+        after_gap          -- same gap, but at `value`
+        before_target_score / before_top_label / before_top_score
+                           -- the actual priority-score numbers at
+                              before_value, so the panel can show e.g.
+                              "あなたの手: 2500 / AI推奨(Crispin): 3200"
+        after_target_score / after_top_label / after_top_score
+                           -- the same numbers at `value`, e.g. after the
+                              suggested change "あなたの手: 3200 / AI推奨:
+                              あなたの手 3200" once found=True
     """
     base_value = params.get(param_name, 0) or 0
 
-    def _gap(value):
-        eff = dict(params)
-        eff[param_name] = value
-        try:
-            cands = compute_fn(eff)
-        except Exception:
-            cands = None
-        if not cands:
-            return None
-        by_label = {}
-        try:
-            for c in cands:
-                lbl = c.get("label")
-                sc = c.get("score", 0)
-                if lbl not in by_label or sc > by_label[lbl]:
-                    by_label[lbl] = sc
-        except Exception:
-            return None
-        if target_label not in by_label or not by_label:
-            return None
-        return by_label[target_label] - max(by_label.values())
+    def _snap(value):
+        return _score_snapshot(compute_fn, params, param_name, value, target_label)
 
-    before_gap = _gap(base_value)
-    if before_gap is not None and before_gap >= 0:
-        return {"found": True, "value": base_value, "before_value": base_value,
-                "before_gap": before_gap, "after_gap": before_gap}
+    def _result(found, value, after):
+        before = _snap(base_value)
+        return {
+            "found": found, "value": value, "before_value": base_value,
+            "before_gap": before["gap"], "after_gap": after["gap"],
+            "before_target_score": before["target_score"], "before_top_label": before["top_label"],
+            "before_top_score": before["top_score"],
+            "after_target_score": after["target_score"], "after_top_label": after["top_label"],
+            "after_top_score": after["top_score"],
+        }
 
-    best_value = base_value
-    best_gap = before_gap
+    before = _snap(base_value)
+    if before["gap"] is not None and before["gap"] >= 0:
+        return _result(True, base_value, before)
+
+    best_value, best = base_value, before
     for direction in (1, -1):
         step = max(abs(base_value) * 0.5, 0.05)
         value = base_value
@@ -301,21 +331,17 @@ def find_param_value_for_target(compute_fn, params, param_name, target_label,
             value = value + direction * step
             if abs(value) > max_abs_value:
                 break
-            gap = _gap(value)
-            if gap is None:
+            cur = _snap(value)
+            if cur["gap"] is None:
                 step *= 1.6
                 continue
-            if best_gap is None or gap > best_gap:
-                best_gap, best_value = gap, value
-            if gap >= 0:
-                return {"found": True, "value": round(value, 4), "before_value": base_value,
-                        "before_gap": before_gap, "after_gap": round(gap, 4)}
+            if best["gap"] is None or cur["gap"] > best["gap"]:
+                best, best_value = cur, value
+            if cur["gap"] >= 0:
+                return _result(True, round(value, 4), cur)
             step *= 1.6
 
-    return {"found": False,
-            "value": (round(best_value, 4) if best_gap is not None else None),
-            "before_value": base_value, "before_gap": before_gap,
-            "after_gap": (round(best_gap, 4) if best_gap is not None else None)}
+    return _result(False, (round(best_value, 4) if best["gap"] is not None else None), best)
 
 
 def build_tuning_log_entry(game_id=None, turn=None, live_review=None,

@@ -103,6 +103,23 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
 .live-review .lr-row{display:flex;justify-content:space-between;color:var(--text-dim);font-size:13px;margin-top:4px}
 .live-review .lr-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .live-review .lr-tag{font-size:11px;background:rgba(255,107,107,.18);color:var(--accent2);border-radius:5px;padding:2px 7px}
+.tuning-panel{display:none;font-size:13px;background:rgba(255,212,121,.07);border:1px solid var(--gold);border-radius:8px;padding:10px 12px;margin-bottom:12px;line-height:1.5}
+.tuning-panel.show{display:block}
+.tuning-panel .tn-title{font-weight:800;color:var(--gold);margin-bottom:6px;font-size:13px;letter-spacing:.5px}
+.tuning-panel .tn-row{display:flex;justify-content:space-between;color:var(--text-dim);font-size:12.5px;margin-bottom:6px}
+.tuning-panel .tn-param{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.tuning-panel .tn-param .tn-name{flex:1;color:var(--text-dim);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tuning-panel .tn-param input{width:74px;background:var(--bg-card);border:1px solid var(--border);border-radius:5px;color:#fff;padding:3px 5px;font-size:12.5px}
+.tuning-panel .tn-param button{font-size:11.5px;padding:3px 7px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer}
+.tuning-panel .tn-param button:hover{background:var(--gold);color:#000}
+.tuning-panel .tn-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.tuning-panel .tn-actions button{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:#fff;cursor:pointer}
+.tuning-panel .tn-actions button:hover{border-color:var(--gold)}
+.tuning-panel .tn-preview{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:12.5px}
+.tuning-panel .tn-preview .changed-yes{color:var(--gold);font-weight:700}
+.tuning-panel .tn-preview .changed-no{color:var(--text-dim)}
+.tuning-panel textarea{width:100%;margin-top:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:#fff;font-size:12.5px;padding:6px;resize:vertical;min-height:42px;box-sizing:border-box}
+.tuning-panel select{margin-top:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:5px;color:#fff;padding:3px 5px;font-size:12px}
 .opt{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;margin-bottom:7px;
   background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:11px 13px;cursor:pointer;transition:.12s;font-size:15.5px}
 .opt:hover{border-color:var(--accent)}
@@ -228,6 +245,7 @@ select{padding:9px 12px;border-radius:8px;background:var(--bg-card);color:var(--
     <div class="result" id="result" style="display:none"></div>
     <div class="ctx" id="ctx">「新しい対戦」を押して開始</div>
     <div class="live-review" id="liveReview"></div>
+    <div class="tuning-panel" id="tuningPanel"></div>
     <div class="thought-panel" id="thoughtPanel">
       <h4>🧠 ターン思考 (記録用)</h4>
       <div class="tp-section">
@@ -363,20 +381,104 @@ function renderThoughtPanel(show){
     buildChips($('#reasonChips'), REASON_TAGS, REASONS, false, '');
   }
 }
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function renderLiveReview(lr){
   const box=$('#liveReview');
   if(!box) return;
   if(!lr || !lr.show){ box.classList.remove('show'); box.innerHTML=''; return; }
-  const tags=(lr.risk_flags||[]).map(f=>`<span class="lr-tag">${f}</span>`).join('');
-  box.innerHTML=`<div class="lr-title">⚠ 判断差レビュー · ${lr.category||''}</div>
-    <div>${lr.message||''}</div>
-    <div class="lr-row"><span>AI: ${lr.ai_action||'-'}</span><span>あなた: ${lr.human_action||'-'}</span></div>
+  const tags=(lr.risk_flags||[]).map(f=>`<span class="lr-tag">${escapeHtml(f)}</span>`).join('');
+  box.innerHTML=`<div class="lr-title">⚠ 判断差レビュー · ${escapeHtml(lr.category||'')}</div>
+    <div>${escapeHtml(lr.message||'')}</div>
+    <div class="lr-row"><span>AI: ${escapeHtml(lr.ai_action||'-')}</span><span>あなた: ${escapeHtml(lr.human_action||'-')}</span></div>
     ${tags?`<div class="lr-tags">${tags}</div>`:''}`;
   box.classList.add('show');
+}
+
+// ── Live Tuning Panel ─────────────────────────────────────────────────────
+let TUNING={preview:null}; let _lastTuningLR=null;
+function renderTuningPanel(s){
+  const box=$('#tuningPanel');
+  if(!box) return;
+  const lr=s&&s.live_review, suggested=(s&&s.suggested_params)||[];
+  if(lr!==_lastTuningLR){ TUNING.preview=null; _lastTuningLR=lr; }
+  if(!lr || !lr.show || !suggested.length){ box.classList.remove('show'); box.innerHTML=''; return; }
+  const rows=suggested.map(sp=>`<div class="tn-param">
+      <span class="tn-name" title="${escapeHtml(sp.param)}">${escapeHtml(sp.param)}: ${escapeHtml(sp.current_value)}</span>
+      <input type="number" step="any" id="tnval_${escapeHtml(sp.param)}" value="${escapeHtml(sp.current_value)}">
+      <button data-param="${escapeHtml(sp.param)}" onclick="tnApply(this.dataset.param)">一時適用</button>
+    </div>`).join('');
+  let previewHtml='';
+  if(TUNING.preview){
+    const p=TUNING.preview;
+    previewHtml=`<div class="tn-preview">
+      <div>Before: ${escapeHtml(p.before&&p.before.recommended_action)}</div>
+      <div>After: ${escapeHtml(p.after&&p.after.recommended_action)}</div>
+      <div>Changed: <span class="${p.changed?'changed-yes':'changed-no'}">${p.changed?'yes':'no'}</span></div>
+    </div>`;
+  }
+  box.innerHTML=`<div class="tn-title">🎛 Live Tuning Panel</div>
+    <div class="tn-row"><span>Category: ${escapeHtml(lr.category)}</span></div>
+    <div class="tn-row"><span>AI: ${escapeHtml(lr.ai_action)}</span><span>Human: ${escapeHtml(lr.human_action)}</span></div>
+    ${rows}
+    <div class="tn-actions">
+      <button onclick="tnPreview()">プレビュー</button>
+      <button onclick="tnReset()">リセット</button>
+    </div>
+    ${previewHtml}
+    <select id="tnLabel"><option value="">(評価未選択)</option>
+      <option value="human_better">human_better</option><option value="agent_better">agent_better</option>
+      <option value="both_ok">both_ok</option><option value="both_bad">both_bad</option><option value="unclear">unclear</option>
+    </select>
+    <select id="tnConfidence"><option value="">(確信度)</option>
+      <option value="high">high</option><option value="medium">medium</option><option value="low">low</option>
+    </select>
+    <textarea id="tnNote" placeholder="メモ"></textarea>
+    <div class="tn-actions"><button onclick="tnSaveLog()">調整ログに保存</button></div>`;
+  box.classList.add('show');
+}
+async function tnApply(param){
+  const el=document.getElementById('tnval_'+param);
+  const raw=el?el.value:'';
+  const val=parseFloat(raw);
+  if(raw===''||isNaN(val)){ alert('数値を入力してください'); return; }
+  try{
+    const r=await fetch('/runtime_params',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({param,value:val})});
+    const d=await r.json();
+    if(!d.ok){ alert('適用失敗: '+(d.error||'')); return; }
+    TUNING.preview=d.preview;
+    renderTuningPanel(STATE);
+  }catch(e){ alert('適用エラー: '+e); }
+}
+async function tnPreview(){
+  try{
+    const r=await fetch('/runtime_params/preview',{method:'POST'});
+    TUNING.preview=await r.json();
+    renderTuningPanel(STATE);
+  }catch(e){ alert('プレビューエラー: '+e); }
+}
+async function tnReset(){
+  try{
+    await fetch('/runtime_params/reset',{method:'POST'});
+    TUNING.preview=null;
+    renderTuningPanel(STATE);
+  }catch(e){ alert('リセットエラー: '+e); }
+}
+async function tnSaveLog(){
+  const label=$('#tnLabel')?$('#tnLabel').value:'';
+  const confidence=$('#tnConfidence')?$('#tnConfidence').value:'';
+  const note=$('#tnNote')?$('#tnNote').value:'';
+  try{
+    await fetch('/runtime_params/log',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({review_label:label,confidence:confidence,note:note})});
+    alert('調整ログに保存しました');
+  }catch(e){ alert('保存エラー: '+e); }
 }
 function render(s){
   STATE=s; SEL=[]; CONSIDERED=new Set();
   renderLiveReview(s.live_review);
+  renderTuningPanel(s);
   if(s.turn!=null && s.turn!==_lastTurn){
     _lastTurn=s.turn;
     TURN_GOAL=''; WIN_PLAN=new Set(); RISKS=new Set(); REASONS=new Set();

@@ -131,11 +131,16 @@ except ImportError:
                                                deck_csv_path as _deck_csv_path,
                                                agent_main_path as _agent_main_path)
 
+try:
+    import live_tuning as LT
+except ImportError:
+    from experiments.web import live_tuning as LT
+
 def _find_available_decks():
     return available_decks(ROOT)
 
-ME = {'mod': None, 'deck': None, 'Policy': None, 'name': None}
-_LOADED = {}   # name -> {deck, mod, Policy}
+ME = {'mod': None, 'deck': None, 'Policy': None, 'name': None, 'base_params': {}}
+_LOADED = {}   # name -> {deck, mod, Policy, base_params}
 
 
 def _load_deck(name):
@@ -169,7 +174,11 @@ def _load_deck(name):
              and k not in ('BasePolicy', 'GenericPolicy')
              and not getattr(v, '__abstractmethods__', None)]
     Policy = cands[0] if cands else None
-    _LOADED[name] = {'deck': deck, 'mod': mod, 'Policy': Policy}
+    # Snapshot of the agent's params.json-derived P dict, captured before any
+    # runtime override is ever applied -- this is the "params.json" half of
+    # the live-tuning override layer (we never write back to the file itself).
+    base_params = dict(getattr(mod, 'P', {}) or {})
+    _LOADED[name] = {'deck': deck, 'mod': mod, 'Policy': Policy, 'base_params': base_params}
     return _LOADED[name]
 
 
@@ -183,7 +192,9 @@ def load_me(name):
             "Copy ptcg-abc agents/ directory first." % ROOT)
     pick = name if name in avail else avail[0]
     L = _load_deck(pick)
-    ME.update(mod=L['mod'], deck=L['deck'], Policy=L['Policy'], name=pick)
+    ME.update(mod=L['mod'], deck=L['deck'], Policy=L['Policy'], name=pick,
+              base_params=L.get('base_params', {}))
+    LT.reset_runtime_overrides()
 
 
 avail = _find_available_decks()
@@ -204,7 +215,8 @@ def load_opp(name):
 
 # ── game session (single global game; single-threaded server) ────────────────
 GAME = {'obs_dict': None, 'opp_mod': None, 'opp_deck': None, 'human': 0, 'over': True, 'log': [], 'logseq': 0,
-        'trace_path': None, 'last_state': None, 'recording': False}
+        'trace_path': None, 'last_state': None, 'recording': False,
+        'game_id': None, 'last_live_review': None, 'last_override': None}
 
 AREA = {AreaType.DECK: 'deck', AreaType.HAND: 'hand', AreaType.DISCARD: 'discard',
         AreaType.ACTIVE: 'active', AreaType.BENCH: 'bench', AreaType.PRIZE: 'prize'}
@@ -772,6 +784,96 @@ def _live_review_for(entry):
         return None
 
 
+def _suggested_params_payload(live_review):
+    """[{param, current_value}] for the Live Tuning Panel. Never raises."""
+    try:
+        eff = LT.effective_params(ME.get('base_params', {}))
+        names = LT.suggest_params_for_live_review(live_review, ME.get('base_params', {}))
+        return [{'param': p, 'current_value': eff.get(p)} for p in names]
+    except Exception:
+        return []
+
+
+def _tuning_compute_fn(params_dict):
+    """Re-run the current decision under a given effective-params dict.
+    Used only by the Live Tuning Panel's preview -- restores ME['mod'].P
+    to whatever it was before returning, so this never leaks into real play.
+
+    For MAIN-context decisions the real agent() picks via
+    choose_with_search(), which layers an impact_*/search_weight_* lookahead
+    score on top of rank()'s immediate score -- not rank() alone. Mirroring
+    that same formula here (read-only calls into the policy's existing
+    _estimate_action_impact/_simulate_opponent_turn helpers, no main.py
+    changes) keeps the preview honest about what the competition agent would
+    actually do, confirmed by driving real games through this server in WSL."""
+    if GAME.get('obs_dict') is None or ME.get('Policy') is None:
+        return []
+    obs = to_observation_class(GAME['obs_dict'])
+    if obs.select is None:
+        return []
+    mod = ME['mod']
+    snapshot = dict(mod.P)
+    try:
+        mod.P.clear(); mod.P.update(params_dict)
+        policy = ME['Policy'](obs)
+        ranked, scores = policy.rank()
+        out = []
+        use_lookahead = (obs.select.context == SelectContext.MAIN
+                          and hasattr(policy, '_estimate_action_impact'))
+        if use_lookahead:
+            try:
+                opp_scenarios = policy._simulate_opponent_turn()
+                avg_risk = sum(s[2] for s in opp_scenarios) / len(opp_scenarios) if opp_scenarios else 0
+            except Exception:
+                avg_risk = 0
+            w_imm = policy.p("search_weight_immediate", 0.6)
+            w_fut = policy.p("search_weight_future", 0.3)
+            w_risk = policy.p("search_weight_risk", 0.1)
+            for i in ranked[:5]:
+                opt = obs.select.option[i]
+                try:
+                    future_delta = policy._estimate_action_impact(opt)
+                except Exception:
+                    future_delta = 0
+                risk_adj = avg_risk if opt.type in (OptionType.ATTACK, OptionType.END) else 0
+                final = scores[i] * w_imm + future_delta * w_fut + risk_adj * w_risk
+                out.append({'label': label_option(obs, opt, GAME['human']), 'score': round(float(final), 1)})
+        else:
+            for i, opt in enumerate(obs.select.option):
+                out.append({'label': label_option(obs, opt, GAME['human']),
+                            'score': round(float(scores[i]), 1) if i < len(scores) else 0})
+        return out
+    finally:
+        mod.P.clear(); mod.P.update(snapshot)
+
+
+def _runtime_tuning_preview():
+    """Before/after AI recommendation comparison using the currently staged
+    runtime overrides. Never raises -- a broken policy just yields no preview."""
+    try:
+        return LT.build_tuning_preview(_tuning_compute_fn, ME.get('base_params', {}))
+    except Exception:
+        return {'before': {'recommended_action': None, 'top_candidates': []},
+                'after': {'recommended_action': None, 'top_candidates': []}, 'changed': False}
+
+
+def _log_tuning_event(param=None, old_value=None, new_value=None, preview=None,
+                       review_label='', confidence='', note=''):
+    """Append one session_tuning_log.jsonl row. Never raises -- logging must
+    never be able to break gameplay."""
+    try:
+        entry = LT.build_tuning_log_entry(
+            game_id=GAME.get('game_id'),
+            turn=(to_observation_class(GAME['obs_dict']).current.turn if GAME.get('obs_dict') else None),
+            live_review=GAME.get('last_live_review'),
+            param=param, old_value=old_value, new_value=new_value,
+            preview=preview or {}, review_label=review_label, confidence=confidence, note=note,
+        )
+        LT.append_tuning_log(entry)
+    except Exception:
+        pass
+
+
 def _record_human_trace(human_indices, strategy_tags=None):
     """Record a human decision to the trace JSONL. Never raises."""
     try:
@@ -894,6 +996,12 @@ class H(BaseHTTPRequestHandler):
             GAME['human'] = 0
             GAME['recording'] = q.get('rec', ['0'])[0] == '1'
             GAME['log'] = []; GAME['logseq'] = 0
+            GAME['game_id'] = _time.strftime("%Y%m%d_%H%M%S")
+            GAME['last_live_review'] = None
+            GAME['last_override'] = None
+            LT.reset_runtime_overrides()
+            if ME.get('mod') is not None:
+                ME['mod'].P.clear(); ME['mod'].P.update(ME.get('base_params', {}))
             try:
                 from human_trace_writer import trace_path as _tp
                 GAME['trace_path'] = _tp(_time.strftime("%Y%m%d_%H%M%S"))
@@ -910,6 +1018,11 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(state_json(f'新対戦:{mn} vs {on}')))
         if u.path == '/state':
             return self._send(200, json.dumps(state_json()))
+        if u.path == '/runtime_params':
+            return self._send(200, json.dumps({
+                'params': ME.get('base_params', {}),
+                'overrides': LT.get_runtime_overrides(),
+            }))
         return self._send(404, '{}')
 
     def do_POST(self):
@@ -933,9 +1046,63 @@ class H(BaseHTTPRequestHandler):
                 payload = state_json()
                 if traced_entry is not None:
                     payload['live_review'] = _live_review_for(traced_entry)
+                    payload['suggested_params'] = _suggested_params_payload(payload['live_review'])
+                    GAME['last_live_review'] = payload['live_review']
                 return self._send(200, json.dumps(payload))
             except Exception as e:
                 return self._send(200, json.dumps(state_json(f'エラー: {e}')))
+        if u.path == '/runtime_params':
+            # Stage one runtime-only param override and apply it to the live
+            # agent immediately (session-scoped; params.json is never touched).
+            ln = int(self.headers.get('Content-Length', 0))
+            try:
+                body = json.loads(self.rfile.read(ln) or '{}')
+            except Exception:
+                body = {}
+            param = body.get('param')
+            value = body.get('value')
+            base = ME.get('base_params', {})
+            old_value = base.get(param) if isinstance(param, str) else None
+            ok, err = LT.set_runtime_override(base, param, value)
+            if not ok:
+                return self._send(400, json.dumps({'ok': False, 'error': err}))
+            if ME.get('mod') is not None:
+                ME['mod'].P.clear(); ME['mod'].P.update(LT.effective_params(base))
+            GAME['last_override'] = {'param': param, 'old_value': old_value, 'new_value': value}
+            preview = _runtime_tuning_preview()
+            _log_tuning_event(param=param, old_value=old_value, new_value=value, preview=preview)
+            return self._send(200, json.dumps({
+                'ok': True, 'overrides': LT.get_runtime_overrides(), 'preview': preview,
+            }))
+        if u.path == '/runtime_params/reset':
+            LT.reset_runtime_overrides()
+            if ME.get('mod') is not None:
+                ME['mod'].P.clear(); ME['mod'].P.update(ME.get('base_params', {}))
+            GAME['last_override'] = None
+            return self._send(200, json.dumps({'ok': True, 'overrides': LT.get_runtime_overrides()}))
+        if u.path == '/runtime_params/preview':
+            preview = _runtime_tuning_preview()
+            last = GAME.get('last_override') or {}
+            _log_tuning_event(param=last.get('param'), old_value=last.get('old_value'),
+                              new_value=last.get('new_value'), preview=preview)
+            return self._send(200, json.dumps(preview))
+        if u.path == '/runtime_params/log':
+            # Explicit "調整ログに保存" -- attach a reviewer label/confidence/note
+            # to the latest before/after comparison.
+            ln = int(self.headers.get('Content-Length', 0))
+            try:
+                body = json.loads(self.rfile.read(ln) or '{}')
+            except Exception:
+                body = {}
+            review_label = body.get('review_label', '') if body.get('review_label') in LT.LABELS else ''
+            confidence = body.get('confidence', '') if body.get('confidence') in LT.CONFIDENCES else ''
+            note = str(body.get('note', ''))[:2000]
+            preview = _runtime_tuning_preview()
+            last = GAME.get('last_override') or {}
+            _log_tuning_event(param=last.get('param'), old_value=last.get('old_value'),
+                              new_value=last.get('new_value'), preview=preview,
+                              review_label=review_label, confidence=confidence, note=note)
+            return self._send(200, json.dumps({'ok': True}))
         return self._send(404, '{}')
 
 

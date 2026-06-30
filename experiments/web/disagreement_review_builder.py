@@ -91,8 +91,11 @@ def _make_review_id(file_path, game_id, turn, decision_index):
     return "%s_g%d_t%s_d%d_%s" % (stem, game_id, turn, decision_index, digest)
 
 
-def _build_item(file_path, game_id, decision_index, e, result_win, final_prize_diff,
-                 is_agreement_bad):
+def classify_decision(entry, result_win=None, final_prize_diff=None, is_agreement_bad=False):
+    """Analyze a single decision entry. Works with or without a known game
+    outcome, so it is shared by the offline builder (game already finished)
+    and the live in-game reviewer (outcome not known yet)."""
+    e = entry
     options = e.get("options", [])
     ai_pick = set(e.get("ai_pick", []))
     human_pick = set(e.get("human_pick", []))
@@ -136,13 +139,8 @@ def _build_item(file_path, game_id, decision_index, e, result_win, final_prize_d
         judgment = "both_bad_or_unclear"
 
     return {
-        "review_id": _make_review_id(file_path, game_id, e.get("turn"), decision_index),
-        "source_file": os.path.basename(file_path),
-        "game_id": game_id,
         "turn": e.get("turn"),
-        "player_index": None,  # not recorded by human_trace_writer today
         "context": e.get("context", ""),
-        "decision_index": decision_index,
         "result_win": result_win,
         "final_prize_diff": final_prize_diff,
 
@@ -195,6 +193,17 @@ def _build_item(file_path, game_id, decision_index, e, result_win, final_prize_d
     }
 
 
+def _build_item(file_path, game_id, decision_index, e, result_win, final_prize_diff,
+                 is_agreement_bad):
+    item = classify_decision(e, result_win, final_prize_diff, is_agreement_bad)
+    item["review_id"] = _make_review_id(file_path, game_id, e.get("turn"), decision_index)
+    item["source_file"] = os.path.basename(file_path)
+    item["game_id"] = game_id
+    item["player_index"] = None  # not recorded by human_trace_writer today
+    item["decision_index"] = decision_index
+    return item
+
+
 def extract_items(file_paths, include_agreement_bad=True):
     """Extract reviewable MAIN-decision items (disagreements + flagged agreements)."""
     items = []
@@ -236,6 +245,58 @@ def _priority_score(item):
     if item.get("is_agreement_bad"):
         score += 30
     return score
+
+
+def _live_message(item):
+    parts = []
+    if item["no_next_attacker_risk"]:
+        parts.append("次アタッカー不在のリスクがあります")
+    if item["active_ko_risk"]:
+        parts.append("バトルポケモンが返り討ちでKOされる可能性があります")
+    if item["boss_win_available"]:
+        parts.append("Boss's Ordersでの勝ち筋がある可能性があります")
+    if item["energy_starved_risk"]:
+        parts.append("エネルギー加速が遅れています")
+    if item["is_agreement_bad"]:
+        parts.append("AIと同じ選択でしたが、このリスクには注意が必要です")
+    if not parts:
+        parts.append("AIとの評価差が%sありました" % item["score_gap"])
+    return "AIは「%s」を推奨していましたが、%s" % (item["ai_action"] or "?", "。".join(parts))
+
+
+def format_live_review(item):
+    """Build the minimal payload the live battle UI needs for one decision.
+    Always returns a dict (never None) so callers can render `show` directly."""
+    show = item["category"] in _RISK_PRIORITY_CATEGORIES
+    return {
+        "show": show,
+        "category": item["category"],
+        "judgment": item["judgment"],
+        "ai_action": item["ai_action"],
+        "human_action": item["human_action"],
+        "score_gap": item["score_gap"],
+        "risk_flags": item["risk_flags"],
+        "message": _live_message(item) if show else "",
+    }
+
+
+def build_live_review(entry):
+    """Live (in-game) counterpart of extract_items() for a single just-made
+    decision. Returns None when there is nothing worth reviewing (a plain
+    agreement with no flagged risk). Never raises -- any failure here must
+    not interrupt the battle itself."""
+    try:
+        agree = entry.get("agree", False)
+        risks = set(entry.get("risk_flags", [])) | set(entry.get("agent_risks", []))
+        # Unlike extract_items(), the game's outcome isn't known yet while it
+        # is still being played, so "agreement_bad" here is risk-flags-only.
+        is_agreement_bad = bool(agree and (risks & _AGREEMENT_BAD_RISKS))
+        if agree and not is_agreement_bad:
+            return None
+        item = classify_decision(entry, is_agreement_bad=is_agreement_bad)
+        return format_live_review(item)
+    except Exception:
+        return None
 
 
 def format_review_item(item, rank=None):

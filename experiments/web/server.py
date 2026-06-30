@@ -759,6 +759,19 @@ def _poke_trace_info(p):
     return info
 
 
+def _live_review_for(entry):
+    """Build the live disagreement-review payload for the decision the human
+    just submitted. Never raises -- a failure here must not break /select."""
+    try:
+        try:
+            from disagreement_review_builder import build_live_review
+        except ImportError:
+            from experiments.web.disagreement_review_builder import build_live_review
+        return build_live_review(entry)
+    except Exception:
+        return None
+
+
 def _record_human_trace(human_indices, strategy_tags=None):
     """Record a human decision to the trace JSONL. Never raises."""
     try:
@@ -831,6 +844,7 @@ def _record_human_trace(human_indices, strategy_tags=None):
         except Exception:
             pass
         write_trace_entry(tp, entry)
+        return entry
     except Exception:
         pass
 
@@ -910,12 +924,16 @@ class H(BaseHTTPRequestHandler):
             opt_count = len(obs_for_san.select.option) if obs_for_san and obs_for_san.select else 0
             strategy_tags = _sanitize_strategy_tags(body, opt_count) if recording else {}
             try:
+                traced_entry = None
                 if recording:
-                    _record_human_trace(idx, strategy_tags)
+                    traced_entry = _record_human_trace(idx, strategy_tags)
                 _note_action(GAME['obs_dict'], idx)
                 GAME['obs_dict'] = _select(idx)
                 _advance_opponent()
-                return self._send(200, json.dumps(state_json()))
+                payload = state_json()
+                if traced_entry is not None:
+                    payload['live_review'] = _live_review_for(traced_entry)
+                return self._send(200, json.dumps(payload))
             except Exception as e:
                 return self._send(200, json.dumps(state_json(f'エラー: {e}')))
         return self._send(404, '{}')

@@ -163,6 +163,12 @@ jobs:
       - name: Run value dataset builder tests
         run: python experiments/test_value_dataset_builder.py
 
+      - name: Run disagreement review builder tests
+        run: python experiments/test_disagreement_review_builder.py
+
+      - name: Run disagreement label analyzer tests
+        run: python experiments/test_disagreement_label_analyzer.py
+
       - name: Run learning trace analyzer tests
         run: python experiments/test_learning_trace_analyzer.py
 

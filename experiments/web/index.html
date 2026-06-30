@@ -381,23 +381,23 @@ function renderThoughtPanel(show){
     buildChips($('#reasonChips'), REASON_TAGS, REASONS, false, '');
   }
 }
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function renderLiveReview(lr){
   const box=$('#liveReview');
   if(!box) return;
   if(!lr || !lr.show){ box.classList.remove('show'); box.innerHTML=''; return; }
-  const tags=(lr.risk_flags||[]).map(f=>`<span class="lr-tag">${f}</span>`).join('');
-  box.innerHTML=`<div class="lr-title">⚠ 判断差レビュー · ${lr.category||''}</div>
-    <div>${lr.message||''}</div>
-    <div class="lr-row"><span>AI: ${lr.ai_action||'-'}</span><span>あなた: ${lr.human_action||'-'}</span></div>
+  const tags=(lr.risk_flags||[]).map(f=>`<span class="lr-tag">${escapeHtml(f)}</span>`).join('');
+  box.innerHTML=`<div class="lr-title">⚠ 判断差レビュー · ${escapeHtml(lr.category||'')}</div>
+    <div>${escapeHtml(lr.message||'')}</div>
+    <div class="lr-row"><span>AI: ${escapeHtml(lr.ai_action||'-')}</span><span>あなた: ${escapeHtml(lr.human_action||'-')}</span></div>
     ${tags?`<div class="lr-tags">${tags}</div>`:''}`;
   box.classList.add('show');
 }
 
 // ── Live Tuning Panel ─────────────────────────────────────────────────────
 let TUNING={preview:null}; let _lastTuningLR=null;
-function escapeHtml(str){
-  return String(str==null?'':str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
 function renderTuningPanel(s){
   const box=$('#tuningPanel');
   if(!box) return;

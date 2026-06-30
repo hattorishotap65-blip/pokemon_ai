@@ -80,6 +80,55 @@ _RISK_FLAG_PARAM_SUGGESTIONS = {
     ],
 }
 
+# Human-readable description of what each suggestable param actually controls
+# in raging_bolt/main.py, shown in the Live Tuning Panel so a reviewer doesn't
+# have to read the agent source to know what a number does.
+PARAM_DESCRIPTIONS = {
+    "impact_crispin_per_energy":
+        "Crispinを使う行動の先読みスコアへの加点。トラッシュにあるエネルギー枚数"
+        "(最大3枚分)に比例する。値を上げるほどトラッシュエネルギーが多いときに"
+        "Crispinを優先しやすくなる。",
+    "impact_crispin_bolt_bonus":
+        "タケルライコexがまだ攻撃準備できていない時、Crispinの先読みスコアに"
+        "上乗せされる固定ボーナス。値を上げるほど『タケルライコ未準備ならCrispin'"
+        "を優先』という傾向が強まる。",
+    "impact_energy_retrieval_per":
+        "エネルギーリトリーバルを使う行動の先読みスコアへの加点。トラッシュの"
+        "エネルギー枚数(最大2枚分)に比例する。",
+    "impact_attach_bt_req":
+        "Bellowing Thunder(タケルライコの技)に必要なエネルギーをタケルライコへ"
+        "貼る行動への先読みスコア加点。値を上げるほどタケルライコへのエネルギー"
+        "加速を優先しやすくなる。",
+    "search_weight_future":
+        "AIの最終スコア = 即時スコア×search_weight_immediate + 先読み(future_delta)"
+        "×search_weight_future + リスク×search_weight_risk のうち、先読み(将来の"
+        "展開価値)をどれだけ重視するかの重み。上げるほど目先の即時スコアより"
+        "将来の展開を優先するようになる。",
+    "impact_boss_prize_mult":
+        "ボスの指令を使う行動の先読みスコアへの加点。狙えるKO対象のサイド残り"
+        "枚数に比例する。",
+    "impact_retreat_safety":
+        "にげる行動が、次の相手ターンでバトル場が倒されるリスクを回避できる"
+        "場面で加点される量。",
+    "impact_retreat_penalty":
+        "にげる行動そのものに対する基本ペナルティ(にげるコストの損失分、通常は"
+        "負の値)。",
+    "search_weight_risk":
+        "AIの最終スコアのうち、相手の返り討ち(次ターンKOされる)リスクをどれだけ"
+        "重視するかの重み。上げるほどリスク回避を優先するようになる。",
+    "impact_search_item":
+        "Ultra Ball/Bug Catching Set/Tera Orbなどのサーチアイテムを使う行動への"
+        "先読みスコア加点。",
+    "score_play_pokemon_ogerpon":
+        "オーガポンexを場に出す行動の基礎スコア(rank()段階の即時評価値。先読み"
+        "重みsearch_weight_immediateで効くため影響が大きい)。",
+}
+
+
+def describe_param(name):
+    """Human-readable description of what `name` controls, for the tuning UI."""
+    return PARAM_DESCRIPTIONS.get(name, "")
+
 # session-scoped override store (cleared on process restart -- by design)
 _OVERRIDES = {}
 

@@ -405,9 +405,13 @@ function renderTuningPanel(s){
   if(lr!==_lastTuningLR){ TUNING.preview=null; _lastTuningLR=lr; }
   if(!lr || !lr.show || !suggested.length){ box.classList.remove('show'); box.innerHTML=''; return; }
   const rows=suggested.map(sp=>`<div class="tn-param">
-      <span class="tn-name" title="${escapeHtml(sp.param)}">${escapeHtml(sp.param)}: ${escapeHtml(sp.current_value)}</span>
+      <span class="tn-name" title="${escapeHtml(sp.description||'クリックで説明を表示')}"
+            onclick="tnToggleDesc('${escapeHtml(sp.param)}')" style="cursor:help">
+        ℹ ${escapeHtml(sp.param)}: ${escapeHtml(sp.current_value)}
+      </span>
       <input type="number" step="any" id="tnval_${escapeHtml(sp.param)}" value="${escapeHtml(sp.current_value)}">
       <button data-param="${escapeHtml(sp.param)}" onclick="tnApply(this.dataset.param)">一時適用</button>
+      <div class="tn-desc" id="tndesc_${escapeHtml(sp.param)}" style="display:none">${escapeHtml(sp.description||'(説明未登録)')}</div>
     </div>`).join('');
   let previewHtml='';
   if(TUNING.preview){
@@ -437,6 +441,10 @@ function renderTuningPanel(s){
     <textarea id="tnNote" placeholder="メモ"></textarea>
     <div class="tn-actions"><button onclick="tnSaveLog()">調整ログに保存</button></div>`;
   box.classList.add('show');
+}
+function tnToggleDesc(param){
+  const d=document.getElementById('tndesc_'+param);
+  if(d) d.style.display = (d.style.display==='none') ? 'block' : 'none';
 }
 async function _refreshSuggestedValues(){
   // suggested_params on STATE is a snapshot from the last /select response --

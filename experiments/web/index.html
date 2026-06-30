@@ -438,6 +438,21 @@ function renderTuningPanel(s){
     <div class="tn-actions"><button onclick="tnSaveLog()">調整ログに保存</button></div>`;
   box.classList.add('show');
 }
+async function _refreshSuggestedValues(){
+  // suggested_params on STATE is a snapshot from the last /select response --
+  // re-sync current_value against the live override store so the panel's
+  // inputs don't snap back to a stale value after apply/reset.
+  if(!STATE || !Array.isArray(STATE.suggested_params) || !STATE.suggested_params.length) return;
+  try{
+    const r=await fetch('/runtime_params');
+    const d=await r.json();
+    const params=d.params||{}, overrides=d.overrides||{};
+    STATE.suggested_params.forEach(sp=>{
+      sp.current_value=Object.prototype.hasOwnProperty.call(overrides, sp.param)
+        ? overrides[sp.param] : params[sp.param];
+    });
+  }catch(e){ /* leave values as-is on failure */ }
+}
 async function tnApply(param){
   const el=document.getElementById('tnval_'+param);
   const raw=el?el.value:'';
@@ -448,6 +463,7 @@ async function tnApply(param){
     const d=await r.json();
     if(!d.ok){ alert('適用失敗: '+(d.error||'')); return; }
     TUNING.preview=d.preview;
+    await _refreshSuggestedValues();
     renderTuningPanel(STATE);
   }catch(e){ alert('適用エラー: '+e); }
 }
@@ -462,6 +478,7 @@ async function tnReset(){
   try{
     await fetch('/runtime_params/reset',{method:'POST'});
     TUNING.preview=null;
+    await _refreshSuggestedValues();
     renderTuningPanel(STATE);
   }catch(e){ alert('リセットエラー: '+e); }
 }

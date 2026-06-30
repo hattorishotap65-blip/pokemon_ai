@@ -701,6 +701,13 @@ class RagingBoltPolicy:
             if c.id == C.UNFAIR_STAMP:
                 return 550
             if c.id in BASIC_ENERGY_IDS:
+                if not self.bolt_ready:
+                    if c.id == C.BASIC_LIGHTNING_ENERGY and not self.bolt_has_lightning:
+                        return 800
+                    if c.id == C.BASIC_FIGHTING_ENERGY and not self.bolt_has_fighting:
+                        return 800
+                if c.id == C.BASIC_GRASS_ENERGY and len(self.ogerpon_on_field) > 0:
+                    return 700
                 return 550
             return 400
 
@@ -776,10 +783,17 @@ class RagingBoltPolicy:
             return 400
 
         if ctx == SelectContext.TO_HAND_ENERGY:
+            if not self.bolt_ready:
+                if c.id == C.BASIC_LIGHTNING_ENERGY and not self.bolt_has_lightning:
+                    return 900
+                if c.id == C.BASIC_FIGHTING_ENERGY and not self.bolt_has_fighting:
+                    return 900
             if c.id == C.BASIC_GRASS_ENERGY:
-                return 700
-            if c.id == C.BASIC_LIGHTNING_ENERGY:
+                if len(self.ogerpon_on_field) > 0:
+                    return 800
                 return 600
+            if c.id == C.BASIC_LIGHTNING_ENERGY:
+                return 500
             if c.id == C.BASIC_FIGHTING_ENERGY:
                 return 500
             return 400
@@ -1102,6 +1116,16 @@ class RagingBoltPolicy:
             w_fut = self.p("search_weight_future", 0.3)
             w_risk = self.p("search_weight_risk", 0.1)
             final = immediate * w_imm + future_delta * w_fut + risk_adj * w_risk
+
+            if self.p("use_value_model", False):
+                try:
+                    from value_model import predict_action_value
+                    v = predict_action_value(self.obs, self.my_index, opt)
+                    if v is not None:
+                        w_val = self.p("value_model_weight", 0.2)
+                        final += v * w_val * 1000
+                except Exception:
+                    pass
 
             candidates.append((final, i, immediate, future_delta, risk_adj))
 

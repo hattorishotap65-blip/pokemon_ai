@@ -51,6 +51,7 @@ _CATEGORY_PARAM_SUGGESTIONS = {
     "no_next_attacker": [
         "impact_crispin_per_energy", "impact_crispin_bolt_bonus",
         "impact_energy_retrieval_per", "impact_attach_bt_req", "search_weight_future",
+        "impact_play_bolt", "score_play_pokemon_raging_bolt",
     ],
     "boss_missed": [
         "impact_boss_prize_mult", "search_weight_future",
@@ -70,6 +71,7 @@ _RISK_FLAG_PARAM_SUGGESTIONS = {
     "no_next_attacker": [
         "impact_crispin_per_energy", "impact_crispin_bolt_bonus",
         "impact_energy_retrieval_per", "impact_attach_bt_req", "search_weight_future",
+        "impact_play_bolt", "score_play_pokemon_raging_bolt",
     ],
     "active_may_be_ko_next_turn": [
         "impact_retreat_safety", "impact_retreat_penalty", "search_weight_risk",
@@ -122,6 +124,14 @@ PARAM_DESCRIPTIONS = {
     "score_play_pokemon_ogerpon":
         "オーガポンexを場に出す行動の基礎スコア(rank()段階の即時評価値。先読み"
         "重みsearch_weight_immediateで効くため影響が大きい)。",
+    "impact_play_bolt":
+        "タケルライコexを場に出す(ベンチに展開する)行動の先読みスコアへの固定"
+        "加点。値を上げるほど、他の行動(Crispinなど)よりタケルライコexを先に"
+        "出すことを優先しやすくなる。",
+    "score_play_pokemon_raging_bolt":
+        "タケルライコexを場に出す行動の基礎スコア(rank()段階の即時評価値)。"
+        "search_weight_immediateで効くため、先読みスコアより比重が大きくなる"
+        "場面もある。",
 }
 
 
@@ -225,6 +235,87 @@ def build_tuning_preview(compute_fn, params, overrides=None):
     after_shaped = _shape_candidates(after)
     changed = before_shaped["recommended_action"] != after_shaped["recommended_action"]
     return {"before": before_shaped, "after": after_shaped, "changed": changed}
+
+
+def find_param_value_for_target(compute_fn, params, param_name, target_label,
+                                 max_iter=20, max_abs_value=1_000_000.0):
+    """Search for a value of params[param_name] that makes target_label the
+    top-scoring candidate out of compute_fn(effective_params_dict).
+
+    This answers "what should I change this param to, to get the AI to pick
+    what I picked instead?" -- it's a heuristic example search (geometric
+    step in both directions from the current value), not an exact solver,
+    since score-vs-param isn't guaranteed monotonic for every param (e.g.
+    the search_weight_* family affects every candidate's score, not just
+    target_label's). Searches the *full* candidate list compute_fn returns,
+    not just a top-N slice, since target_label may not start out near the
+    top (that's often why it's a disagreement in the first place).
+
+    Returns a dict, never raises:
+        found        -- True if some tried value made target_label >= every
+                         other candidate's score (ties count as found)
+        value        -- the value to try (the winning value if found, else
+                         the best-gap value seen, else None if target_label
+                         never appeared in any candidate list)
+        before_value -- params[param_name]'s value at the start of the search
+        before_gap   -- target_label's score minus the top score, at
+                         before_value (None if target_label wasn't found
+                         there either)
+        after_gap    -- same gap, but at `value`
+    """
+    base_value = params.get(param_name, 0) or 0
+
+    def _gap(value):
+        eff = dict(params)
+        eff[param_name] = value
+        try:
+            cands = compute_fn(eff)
+        except Exception:
+            cands = None
+        if not cands:
+            return None
+        by_label = {}
+        try:
+            for c in cands:
+                lbl = c.get("label")
+                sc = c.get("score", 0)
+                if lbl not in by_label or sc > by_label[lbl]:
+                    by_label[lbl] = sc
+        except Exception:
+            return None
+        if target_label not in by_label or not by_label:
+            return None
+        return by_label[target_label] - max(by_label.values())
+
+    before_gap = _gap(base_value)
+    if before_gap is not None and before_gap >= 0:
+        return {"found": True, "value": base_value, "before_value": base_value,
+                "before_gap": before_gap, "after_gap": before_gap}
+
+    best_value = base_value
+    best_gap = before_gap
+    for direction in (1, -1):
+        step = max(abs(base_value) * 0.5, 0.05)
+        value = base_value
+        for _ in range(max_iter):
+            value = value + direction * step
+            if abs(value) > max_abs_value:
+                break
+            gap = _gap(value)
+            if gap is None:
+                step *= 1.6
+                continue
+            if best_gap is None or gap > best_gap:
+                best_gap, best_value = gap, value
+            if gap >= 0:
+                return {"found": True, "value": round(value, 4), "before_value": base_value,
+                        "before_gap": before_gap, "after_gap": round(gap, 4)}
+            step *= 1.6
+
+    return {"found": False,
+            "value": (round(best_value, 4) if best_gap is not None else None),
+            "before_value": base_value, "before_gap": before_gap,
+            "after_gap": (round(best_gap, 4) if best_gap is not None else None)}
 
 
 def build_tuning_log_entry(game_id=None, turn=None, live_review=None,

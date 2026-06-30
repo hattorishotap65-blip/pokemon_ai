@@ -839,7 +839,12 @@ def _tuning_compute_fn(params_dict):
             w_imm = policy.p("search_weight_immediate", 0.6)
             w_fut = policy.p("search_weight_future", 0.3)
             w_risk = policy.p("search_weight_risk", 0.1)
-            for i in ranked[:5]:
+            # Score every option, not just rank()'s base top-5 -- the human's
+            # actual pick can fall outside the base ranking (that's often
+            # *why* it's a disagreement), and the value-search feature needs
+            # every candidate's score to find a param value that makes the
+            # human's pick the new top recommendation.
+            for i in ranked:
                 opt = obs.select.option[i]
                 try:
                     future_delta = policy._estimate_action_impact(opt)
@@ -1107,6 +1112,30 @@ class H(BaseHTTPRequestHandler):
             _log_tuning_event(param=last.get('param'), old_value=last.get('old_value'),
                               new_value=last.get('new_value'), preview=preview)
             return self._send(200, json.dumps(preview))
+        if u.path == '/runtime_params/suggest_value':
+            # "What value would make the AI recommend what I picked instead?"
+            # -- searches for a param value that flips the reviewed
+            # decision's top recommendation to the human's actual pick.
+            ln = int(self.headers.get('Content-Length', 0))
+            try:
+                body = json.loads(self.rfile.read(ln) or '{}')
+            except Exception:
+                body = {}
+            param = body.get('param')
+            base = ME.get('base_params', {})
+            if not isinstance(param, str) or param not in base:
+                return self._send(400, json.dumps({'ok': False, 'error': 'unknown param'}))
+            lr = GAME.get('last_live_review') or {}
+            target_label = lr.get('human_action')
+            if not target_label:
+                return self._send(200, json.dumps({'ok': False, 'error': 'no active disagreement to target'}))
+            try:
+                eff = LT.effective_params(base)
+                result = LT.find_param_value_for_target(_tuning_compute_fn, eff, param, target_label)
+                result['ok'] = True
+                return self._send(200, json.dumps(result))
+            except Exception as e:
+                return self._send(200, json.dumps({'ok': False, 'error': str(e)}))
         if u.path == '/runtime_params/log':
             # Explicit "調整ログに保存" -- attach a reviewer label/confidence/note
             # to the latest before/after comparison.

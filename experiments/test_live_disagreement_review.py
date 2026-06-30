@@ -71,15 +71,20 @@ check("priority disagreement: human_action set", live is not None and live["huma
 check("priority disagreement: score_gap", live is not None and live["score_gap"] == 700)
 check("priority disagreement: message non-empty", live is not None and bool(live["message"]))
 
-# === disagreement outside priority categories: not shown ===
+# === disagreement outside priority categories: still shown ===
+# Any genuine AI-vs-human disagreement is reviewable, not just the
+# _RISK_PRIORITY_CATEGORIES subset -- the whitelist only gates the
+# agreement case (see agreement_bad below).
 print("\n=== disagreement, non-priority category ===")
 e_dis_low = build_trace_entry("rb", 2, "MAIN",
     [{"i": 0, "label": "Ultra Ball", "score": 600, "type": 7},
      {"i": 1, "label": "Pokegear", "score": 550, "type": 7}],
     ai_pick=[0], human_pick=[1])
 live_low = build_live_review(e_dis_low)
-check("non-priority disagreement: either None or show False",
-      live_low is None or live_low["show"] is False)
+check("non-priority disagreement: not None", live_low is not None)
+check("non-priority disagreement: show True", live_low is not None and live_low["show"] is True)
+check("non-priority disagreement: category not in priority set",
+      live_low is not None and live_low["category"] not in _RISK_PRIORITY_CATEGORIES)
 
 # === agreement_bad (agree, but flagged risk): still shown ===
 print("\n=== agreement_bad ===")

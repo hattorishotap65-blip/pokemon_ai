@@ -51,6 +51,7 @@ _CATEGORY_PARAM_SUGGESTIONS = {
     "no_next_attacker": [
         "impact_crispin_per_energy", "impact_crispin_bolt_bonus",
         "impact_energy_retrieval_per", "impact_attach_bt_req", "search_weight_future",
+        "impact_play_bolt", "score_play_pokemon_raging_bolt",
     ],
     "boss_missed": [
         "impact_boss_prize_mult", "search_weight_future",
@@ -70,6 +71,7 @@ _RISK_FLAG_PARAM_SUGGESTIONS = {
     "no_next_attacker": [
         "impact_crispin_per_energy", "impact_crispin_bolt_bonus",
         "impact_energy_retrieval_per", "impact_attach_bt_req", "search_weight_future",
+        "impact_play_bolt", "score_play_pokemon_raging_bolt",
     ],
     "active_may_be_ko_next_turn": [
         "impact_retreat_safety", "impact_retreat_penalty", "search_weight_risk",
@@ -79,6 +81,63 @@ _RISK_FLAG_PARAM_SUGGESTIONS = {
         "score_play_pokemon_ogerpon", "impact_attach_bt_req",
     ],
 }
+
+# Human-readable description of what each suggestable param actually controls
+# in raging_bolt/main.py, shown in the Live Tuning Panel so a reviewer doesn't
+# have to read the agent source to know what a number does.
+PARAM_DESCRIPTIONS = {
+    "impact_crispin_per_energy":
+        "Crispinを使う行動の先読みスコアへの加点。トラッシュにあるエネルギー枚数"
+        "(最大3枚分)に比例する。値を上げるほどトラッシュエネルギーが多いときに"
+        "Crispinを優先しやすくなる。",
+    "impact_crispin_bolt_bonus":
+        "タケルライコexがまだ攻撃準備できていない時、Crispinの先読みスコアに"
+        "上乗せされる固定ボーナス。値を上げるほど『タケルライコ未準備ならCrispin'"
+        "を優先』という傾向が強まる。",
+    "impact_energy_retrieval_per":
+        "エネルギーリトリーバルを使う行動の先読みスコアへの加点。トラッシュの"
+        "エネルギー枚数(最大2枚分)に比例する。",
+    "impact_attach_bt_req":
+        "Bellowing Thunder(タケルライコの技)に必要なエネルギーをタケルライコへ"
+        "貼る行動への先読みスコア加点。値を上げるほどタケルライコへのエネルギー"
+        "加速を優先しやすくなる。",
+    "search_weight_future":
+        "AIの最終スコア = 即時スコア×search_weight_immediate + 先読み(future_delta)"
+        "×search_weight_future + リスク×search_weight_risk のうち、先読み(将来の"
+        "展開価値)をどれだけ重視するかの重み。上げるほど目先の即時スコアより"
+        "将来の展開を優先するようになる。",
+    "impact_boss_prize_mult":
+        "ボスの指令を使う行動の先読みスコアへの加点。狙えるKO対象のサイド残り"
+        "枚数に比例する。",
+    "impact_retreat_safety":
+        "にげる行動が、次の相手ターンでバトル場が倒されるリスクを回避できる"
+        "場面で加点される量。",
+    "impact_retreat_penalty":
+        "にげる行動そのものに対する基本ペナルティ(にげるコストの損失分、通常は"
+        "負の値)。",
+    "search_weight_risk":
+        "AIの最終スコアのうち、相手の返り討ち(次ターンKOされる)リスクをどれだけ"
+        "重視するかの重み。上げるほどリスク回避を優先するようになる。",
+    "impact_search_item":
+        "Ultra Ball/Bug Catching Set/Tera Orbなどのサーチアイテムを使う行動への"
+        "先読みスコア加点。",
+    "score_play_pokemon_ogerpon":
+        "オーガポンexを場に出す行動の基礎スコア(rank()段階の即時評価値。先読み"
+        "重みsearch_weight_immediateで効くため影響が大きい)。",
+    "impact_play_bolt":
+        "タケルライコexを場に出す(ベンチに展開する)行動の先読みスコアへの固定"
+        "加点。値を上げるほど、他の行動(Crispinなど)よりタケルライコexを先に"
+        "出すことを優先しやすくなる。",
+    "score_play_pokemon_raging_bolt":
+        "タケルライコexを場に出す行動の基礎スコア(rank()段階の即時評価値)。"
+        "search_weight_immediateで効くため、先読みスコアより比重が大きくなる"
+        "場面もある。",
+}
+
+
+def describe_param(name):
+    """Human-readable description of what `name` controls, for the tuning UI."""
+    return PARAM_DESCRIPTIONS.get(name, "")
 
 # session-scoped override store (cleared on process restart -- by design)
 _OVERRIDES = {}
@@ -176,6 +235,113 @@ def build_tuning_preview(compute_fn, params, overrides=None):
     after_shaped = _shape_candidates(after)
     changed = before_shaped["recommended_action"] != after_shaped["recommended_action"]
     return {"before": before_shaped, "after": after_shaped, "changed": changed}
+
+
+def _empty_score_snapshot():
+    return {"target_score": None, "top_label": None, "top_score": None, "gap": None}
+
+
+def _score_snapshot(compute_fn, params, param_name, value, target_label):
+    """One (param_name=value) probe: target_label's score, the current top
+    candidate's label/score, and the gap between them. Returns the "empty"
+    shape (all None) if compute_fn fails or target_label isn't a candidate
+    at this value -- never raises."""
+    eff = dict(params)
+    eff[param_name] = value
+    try:
+        cands = compute_fn(eff)
+    except Exception:
+        cands = None
+    if not cands:
+        return _empty_score_snapshot()
+    by_label = {}
+    try:
+        for c in cands:
+            lbl = c.get("label")
+            sc = c.get("score", 0)
+            if lbl not in by_label or sc > by_label[lbl]:
+                by_label[lbl] = sc
+    except Exception:
+        return _empty_score_snapshot()
+    if target_label not in by_label or not by_label:
+        return _empty_score_snapshot()
+    top_label = max(by_label, key=by_label.get)
+    return {"target_score": by_label[target_label], "top_label": top_label,
+            "top_score": by_label[top_label], "gap": by_label[target_label] - by_label[top_label]}
+
+
+def find_param_value_for_target(compute_fn, params, param_name, target_label,
+                                 max_iter=20, max_abs_value=1_000_000.0):
+    """Search for a value of params[param_name] that makes target_label the
+    top-scoring candidate out of compute_fn(effective_params_dict).
+
+    This answers "what should I change this param to, to get the AI to pick
+    what I picked instead?" -- it's a heuristic example search (geometric
+    step in both directions from the current value), not an exact solver,
+    since score-vs-param isn't guaranteed monotonic for every param (e.g.
+    the search_weight_* family affects every candidate's score, not just
+    target_label's). Searches the *full* candidate list compute_fn returns,
+    not just a top-N slice, since target_label may not start out near the
+    top (that's often why it's a disagreement in the first place).
+
+    Returns a dict, never raises:
+        found              -- True if some tried value made target_label's
+                               score >= every other candidate's (ties count)
+        value              -- the value to try (the winning value if found,
+                               else the best-gap value seen, else None if
+                               target_label never appeared as a candidate)
+        before_value       -- params[param_name]'s value at search start
+        before_gap         -- target_label's score minus the top score, at
+                               before_value (None if not found there)
+        after_gap          -- same gap, but at `value`
+        before_target_score / before_top_label / before_top_score
+                           -- the actual priority-score numbers at
+                              before_value, so the panel can show e.g.
+                              "あなたの手: 2500 / AI推奨(Crispin): 3200"
+        after_target_score / after_top_label / after_top_score
+                           -- the same numbers at `value`, e.g. after the
+                              suggested change "あなたの手: 3200 / AI推奨:
+                              あなたの手 3200" once found=True
+    """
+    base_value = params.get(param_name, 0) or 0
+
+    def _snap(value):
+        return _score_snapshot(compute_fn, params, param_name, value, target_label)
+
+    def _result(found, value, after):
+        before = _snap(base_value)
+        return {
+            "found": found, "value": value, "before_value": base_value,
+            "before_gap": before["gap"], "after_gap": after["gap"],
+            "before_target_score": before["target_score"], "before_top_label": before["top_label"],
+            "before_top_score": before["top_score"],
+            "after_target_score": after["target_score"], "after_top_label": after["top_label"],
+            "after_top_score": after["top_score"],
+        }
+
+    before = _snap(base_value)
+    if before["gap"] is not None and before["gap"] >= 0:
+        return _result(True, base_value, before)
+
+    best_value, best = base_value, before
+    for direction in (1, -1):
+        step = max(abs(base_value) * 0.5, 0.05)
+        value = base_value
+        for _ in range(max_iter):
+            value = value + direction * step
+            if abs(value) > max_abs_value:
+                break
+            cur = _snap(value)
+            if cur["gap"] is None:
+                step *= 1.6
+                continue
+            if best["gap"] is None or cur["gap"] > best["gap"]:
+                best, best_value = cur, value
+            if cur["gap"] >= 0:
+                return _result(True, round(value, 4), cur)
+            step *= 1.6
+
+    return _result(False, (round(best_value, 4) if best["gap"] is not None else None), best)
 
 
 def build_tuning_log_entry(game_id=None, turn=None, live_review=None,

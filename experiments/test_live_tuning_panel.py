@@ -144,6 +144,53 @@ with tempfile.TemporaryDirectory() as tmp:
     check("saved entry: label persisted", saved["review_label"] == "human_better")
     check("saved entry: note persisted (unicode safe)", saved["note"] == "次アタッカー不在を回避できた")
 
+# === find_param_value_for_target: searches for a value that flips the top pick ===
+print("\n=== find_param_value_for_target: found case ===")
+
+
+def _fake_compute2(params):
+    # "Crispin" only overtakes "Bellowing Thunder" once impact_crispin_per_energy
+    # is pushed high enough -- a deliberately non-trivial threshold to search past.
+    attack_score = 3200
+    supporter_score = params.get("impact_crispin_per_energy", 100) * 3 + 2400
+    return [
+        {"label": "Bellowing Thunder", "score": attack_score},
+        {"label": "Crispin", "score": supporter_score},
+    ]
+
+
+result = lt.find_param_value_for_target(_fake_compute2, REAL_PARAMS, "impact_crispin_per_energy", "Crispin")
+check("found case: found True", result["found"] is True)
+check("found case: before_value matches REAL_PARAMS", result["before_value"] == REAL_PARAMS["impact_crispin_per_energy"])
+check("found case: before_gap negative (Crispin starts behind)", result["before_gap"] < 0)
+check("found case: after_gap >= 0", result["after_gap"] >= 0)
+check("found case: before_target_score is Crispin's starting score",
+      result["before_target_score"] == REAL_PARAMS["impact_crispin_per_energy"] * 3 + 2400)
+check("found case: before_top_label is Bellowing Thunder", result["before_top_label"] == "Bellowing Thunder")
+check("found case: before_top_score is the attack score", result["before_top_score"] == 3200)
+check("found case: after_top_label is Crispin (now on top)", result["after_top_label"] == "Crispin")
+check("found case: after_target_score == after_top_score (tied/leading)",
+      result["after_target_score"] >= result["after_top_score"])
+
+print("\n=== find_param_value_for_target: already satisfied ===")
+result_ok = lt.find_param_value_for_target(_fake_compute2, {"impact_crispin_per_energy": 1000}, "impact_crispin_per_energy", "Crispin")
+check("already satisfied: found True", result_ok["found"] is True)
+check("already satisfied: value == before_value", result_ok["value"] == result_ok["before_value"])
+check("already satisfied: before_gap == after_gap", result_ok["before_gap"] == result_ok["after_gap"])
+
+print("\n=== find_param_value_for_target: target label never a candidate ===")
+result_missing = lt.find_param_value_for_target(_fake_compute2, REAL_PARAMS, "impact_crispin_per_energy", "Nonexistent Card")
+check("missing label: found False", result_missing["found"] is False)
+check("missing label: value is None", result_missing["value"] is None)
+check("missing label: before_target_score is None", result_missing["before_target_score"] is None)
+check("missing label: after_target_score is None", result_missing["after_target_score"] is None)
+
+print("\n=== find_param_value_for_target: compute_fn raises -> no crash ===")
+result_boom = lt.find_param_value_for_target(_boom, REAL_PARAMS, "impact_crispin_per_energy", "Crispin")
+check("compute_fn raises: no exception propagated", isinstance(result_boom, dict))
+check("compute_fn raises: found False", result_boom["found"] is False)
+check("compute_fn raises: before_target_score is None", result_boom["before_target_score"] is None)
+
 # === default params.json on disk is never touched by any of this ===
 print("\n=== params.json untouched ===")
 params_path = os.path.join(os.path.dirname(__file__), "agents", "raging_bolt", "params.json")

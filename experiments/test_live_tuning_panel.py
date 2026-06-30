@@ -26,11 +26,11 @@ def check(label, cond):
 
 
 REAL_PARAMS = {
-    "eval_no_backup_risk": -400, "eval_active_ko_risk": -400,
-    "score_supporter_crispin": 1030, "score_item_energy_retrieval": 900,
-    "score_attack_bellowing_thunder": 840, "eval_boss_win": 800,
-    "score_supporter_boss": 900, "impact_boss_prize_mult": 300,
-    "search_weight_future": 0.3, "score_retreat": 80, "search_weight_risk": 0.1,
+    "impact_crispin_per_energy": 100, "impact_crispin_bolt_bonus": 200,
+    "impact_energy_retrieval_per": 80, "impact_attach_bt_req": 350,
+    "impact_boss_prize_mult": 300, "search_weight_future": 0.3,
+    "impact_retreat_safety": 200, "impact_retreat_penalty": -50, "search_weight_risk": 0.1,
+    "impact_search_item": 150, "score_play_pokemon_ogerpon": 600,
 }
 
 
@@ -48,16 +48,16 @@ print("\n=== category-based suggestion ===")
 lr = {"category": "no_next_attacker", "risk_flags": ["no_next_attacker"]}
 suggestions = lt.suggest_params_for_live_review(lr, available_params=REAL_PARAMS)
 check("no_next_attacker: non-empty", len(suggestions) > 0)
-check("no_next_attacker: includes eval_no_backup_risk", "eval_no_backup_risk" in suggestions)
-check("no_next_attacker: includes score_supporter_crispin", "score_supporter_crispin" in suggestions)
+check("no_next_attacker: includes impact_crispin_per_energy", "impact_crispin_per_energy" in suggestions)
+check("no_next_attacker: includes impact_attach_bt_req", "impact_attach_bt_req" in suggestions)
 check("no_next_attacker: all suggestions exist in params", all(s in REAL_PARAMS for s in suggestions))
 check("no_next_attacker: no duplicates", len(suggestions) == len(set(suggestions)))
 
 # === suggestions filtered to params that actually exist ===
 print("\n=== filtered to available_params ===")
-narrow_params = {"eval_no_backup_risk": -400}
+narrow_params = {"impact_crispin_per_energy": 100}
 suggestions2 = lt.suggest_params_for_live_review(lr, available_params=narrow_params)
-check("filtered: only existing key kept", suggestions2 == ["eval_no_backup_risk"])
+check("filtered: only existing key kept", suggestions2 == ["impact_crispin_per_energy"])
 
 # === unknown category falls back to risk-flag suggestions only ===
 print("\n=== unknown category, known risk flag ===")
@@ -65,7 +65,7 @@ lr2 = {"category": "totally_unknown_category", "risk_flags": ["not_enough_energy
 suggestions3 = lt.suggest_params_for_live_review(lr2, available_params=REAL_PARAMS)
 check("unknown category + known flag: non-empty", len(suggestions3) > 0)
 check("unknown category + known flag: relevant param present",
-      "score_item_energy_retrieval" in suggestions3)
+      "impact_energy_retrieval_per" in suggestions3)
 
 
 # === build_tuning_preview: fake compute_fn, before != after ===
@@ -74,18 +74,17 @@ setup()
 
 
 def _fake_compute(params):
-    # AI prefers the attack at default risk, but a harsher eval_no_backup_risk
-    # override drags the attack's score below the supporter's.
-    risk_penalty = params.get("eval_no_backup_risk", -400)
-    attack_score = 3200 + risk_penalty
-    supporter_score = params.get("score_supporter_crispin", 1030) + 1500
+    # AI prefers the attack at default weighting, but boosting Crispin's
+    # per-energy impact drags its lookahead score above the attack's.
+    attack_score = 3200
+    supporter_score = params.get("impact_crispin_per_energy", 100) * 3 + 2400
     return [
         {"label": "Bellowing Thunder", "score": attack_score},
         {"label": "Crispin", "score": supporter_score},
     ]
 
 
-lt.set_runtime_override(REAL_PARAMS, "eval_no_backup_risk", -1000)
+lt.set_runtime_override(REAL_PARAMS, "impact_crispin_per_energy", 400)
 preview = lt.build_tuning_preview(_fake_compute, REAL_PARAMS)
 check("preview: before recommends attack", preview["before"]["recommended_action"] == "Bellowing Thunder")
 check("preview: after recommends supporter", preview["after"]["recommended_action"] == "Crispin")

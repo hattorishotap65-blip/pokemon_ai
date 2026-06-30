@@ -797,7 +797,15 @@ def _suggested_params_payload(live_review):
 def _tuning_compute_fn(params_dict):
     """Re-run the current decision under a given effective-params dict.
     Used only by the Live Tuning Panel's preview -- restores ME['mod'].P
-    to whatever it was before returning, so this never leaks into real play."""
+    to whatever it was before returning, so this never leaks into real play.
+
+    For MAIN-context decisions the real agent() picks via
+    choose_with_search(), which layers an impact_*/search_weight_* lookahead
+    score on top of rank()'s immediate score -- not rank() alone. Mirroring
+    that same formula here (read-only calls into the policy's existing
+    _estimate_action_impact/_simulate_opponent_turn helpers, no main.py
+    changes) keeps the preview honest about what the competition agent would
+    actually do, confirmed by driving real games through this server in WSL."""
     if GAME.get('obs_dict') is None or ME.get('Policy') is None:
         return []
     obs = to_observation_class(GAME['obs_dict'])
@@ -810,9 +818,30 @@ def _tuning_compute_fn(params_dict):
         policy = ME['Policy'](obs)
         ranked, scores = policy.rank()
         out = []
-        for i, opt in enumerate(obs.select.option):
-            out.append({'label': label_option(obs, opt, GAME['human']),
-                        'score': round(float(scores[i]), 1) if i < len(scores) else 0})
+        use_lookahead = (obs.select.context == SelectContext.MAIN
+                          and hasattr(policy, '_estimate_action_impact'))
+        if use_lookahead:
+            try:
+                opp_scenarios = policy._simulate_opponent_turn()
+                avg_risk = sum(s[2] for s in opp_scenarios) / len(opp_scenarios) if opp_scenarios else 0
+            except Exception:
+                avg_risk = 0
+            w_imm = policy.p("search_weight_immediate", 0.6)
+            w_fut = policy.p("search_weight_future", 0.3)
+            w_risk = policy.p("search_weight_risk", 0.1)
+            for i in ranked[:5]:
+                opt = obs.select.option[i]
+                try:
+                    future_delta = policy._estimate_action_impact(opt)
+                except Exception:
+                    future_delta = 0
+                risk_adj = avg_risk if opt.type in (OptionType.ATTACK, OptionType.END) else 0
+                final = scores[i] * w_imm + future_delta * w_fut + risk_adj * w_risk
+                out.append({'label': label_option(obs, opt, GAME['human']), 'score': round(float(final), 1)})
+        else:
+            for i, opt in enumerate(obs.select.option):
+                out.append({'label': label_option(obs, opt, GAME['human']),
+                            'score': round(float(scores[i]), 1) if i < len(scores) else 0})
         return out
     finally:
         mod.P.clear(); mod.P.update(snapshot)

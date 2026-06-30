@@ -31,36 +31,52 @@ _PARAM_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 # approximate ("heuristic mapping" per spec) -- callers should pass
 # available_params so suggestions are filtered down to params that actually
 # exist for the currently-loaded agent.
+#
+# Only params that actually move the agent's real decision are listed here.
+# Two classes of params.json keys were ruled out by driving real games
+# through server.py in WSL and reading raging_bolt/main.py directly:
+#   - score_supporter_*/score_attack_*/score_item_*/score_retreat: these
+#     look like per-card base scores but _score_attack()/_score_play() use
+#     hardcoded Python constants instead, never self.p(...) -- dead.
+#   - eval_*: read via self.p(...) inside evaluate_state(), but
+#     choose_with_search() computes current_eval = self.evaluate_state()
+#     and then never uses that variable again -- also dead, despite being
+#     "live" by the self.p() definition.
+# What actually reaches choose_with_search()'s final score is the impact_*
+# family (via _estimate_action_impact) and the search_weight_* weights,
+# plus the handful of score_* keys _score_play/_score_attack do read
+# (score_play_pokemon_raging_bolt, score_play_pokemon_ogerpon,
+# score_item_pokemon_catcher, score_item_unfair_stamp).
 _CATEGORY_PARAM_SUGGESTIONS = {
     "no_next_attacker": [
-        "eval_no_backup_risk", "eval_active_ko_risk", "score_supporter_crispin",
-        "score_item_energy_retrieval", "score_attack_bellowing_thunder",
+        "impact_crispin_per_energy", "impact_crispin_bolt_bonus",
+        "impact_energy_retrieval_per", "impact_attach_bt_req", "search_weight_future",
     ],
     "boss_missed": [
-        "eval_boss_win", "score_supporter_boss", "impact_boss_prize_mult", "search_weight_future",
+        "impact_boss_prize_mult", "search_weight_future",
     ],
     "boss_used_too_early": [
-        "eval_boss_win", "score_supporter_boss", "impact_boss_prize_mult", "search_weight_future",
+        "impact_boss_prize_mult", "search_weight_future",
     ],
     "agreement_bad_risk": [
-        "eval_active_ko_risk", "eval_no_backup_risk", "score_retreat", "search_weight_risk",
+        "impact_retreat_safety", "impact_retreat_penalty", "search_weight_risk",
     ],
     "opponent_return_ko_underestimated": [
-        "eval_active_ko_risk", "eval_no_backup_risk", "score_retreat",
+        "impact_retreat_safety", "impact_retreat_penalty", "search_weight_risk",
     ],
 }
 
 _RISK_FLAG_PARAM_SUGGESTIONS = {
     "no_next_attacker": [
-        "eval_no_backup_risk", "eval_active_ko_risk", "score_supporter_crispin",
-        "score_item_energy_retrieval", "score_attack_bellowing_thunder",
+        "impact_crispin_per_energy", "impact_crispin_bolt_bonus",
+        "impact_energy_retrieval_per", "impact_attach_bt_req", "search_weight_future",
     ],
     "active_may_be_ko_next_turn": [
-        "eval_active_ko_risk", "eval_no_backup_risk", "score_retreat", "search_weight_risk",
+        "impact_retreat_safety", "impact_retreat_penalty", "search_weight_risk",
     ],
     "not_enough_energy": [
-        "score_supporter_crispin", "score_item_energy_retrieval", "score_item_bug_catching_set",
-        "score_play_pokemon_ogerpon", "eval_field_energy",
+        "impact_crispin_per_energy", "impact_energy_retrieval_per", "impact_search_item",
+        "score_play_pokemon_ogerpon", "impact_attach_bt_req",
     ],
 }
 

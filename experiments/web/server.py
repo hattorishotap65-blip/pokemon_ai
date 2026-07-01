@@ -433,10 +433,20 @@ def _pos_label(area, index):
 
 def _resolve_player_index(obs, opt, my_index):
     """Determine which player's card an option refers to.
-    Try my_index first; if no card found, try opponent."""
+    Context-first: TO_ACTIVE with BENCH area = Boss Orders / Catcher forcing
+    opponent's bench to active, so try opponent first to avoid showing own
+    bench Pokemon names when both players have a Pokemon at the same index."""
     area = getattr(opt, 'area', None)
     if area is None or area not in (AreaType.ACTIVE, AreaType.BENCH):
         return my_index
+    sel = getattr(obs, 'select', None)
+    ctx = getattr(sel, 'context', None)
+    ctx_name = CTX.get(ctx, '') if ctx is not None else ''
+    if area == AreaType.BENCH and ctx_name == 'TO_ACTIVE':
+        # Opponent's bench being forced to active (Boss Orders, Catcher, etc.)
+        c = get_card(obs, area, opt.index, 1 - my_index)
+        if c is not None:
+            return 1 - my_index
     c = get_card(obs, area, opt.index, my_index)
     if c is not None:
         return my_index

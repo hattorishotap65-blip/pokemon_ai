@@ -735,11 +735,34 @@ class RagingBoltPolicy:
                 return 550
             return 400
 
-        if ctx in (SelectContext.DISCARD, SelectContext.DISCARD_ENERGY_CARD):
-            energy_id = self._get_energy_type_from_opt(opt) if ctx == SelectContext.DISCARD_ENERGY_CARD else c.id
+        if ctx == SelectContext.DISCARD:
+            # Ultra Ball hand-discard cost: discard items first, keep energy especially Grass
+            # (observed 4x: human discards Pokegear/Catcher/Tera Orb rather than Grass energy)
+            if c.id == C.POKEMON_CATCHER:
+                return 850
+            if c.id == C.POKEGEAR:
+                return 800
+            if c.id == C.UNFAIR_STAMP:
+                return 750
+            if c.id in (C.TERA_ORB, C.BUG_CATCHING_SET):
+                return 600
+            if c.id == C.ENERGY_RETRIEVAL:
+                return 550
+            if c.id in (C.RAGING_BOLT_EX, C.TEAL_MASK_OGERPON_EX):
+                return 100
+            if c.id == C.BASIC_GRASS_ENERGY:
+                return 200  # keep Grass for Ogerpon Teal Dance
+            if c.id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                return 300
+            if c.id in (C.LILLIE_DETERMINATION, C.CRISPIN):
+                return 380
+            return 500
+
+        if ctx == SelectContext.DISCARD_ENERGY_CARD:
+            energy_id = self._get_energy_type_from_opt(opt)
             is_on_bolt = False
             is_active_bolt = False
-            if ctx == SelectContext.DISCARD_ENERGY_CARD:
+            if True:  # always DISCARD_ENERGY_CARD here
                 area_d = getattr(opt, 'area', None)
                 try:
                     player = self.obs.current.players[self.my_index]
@@ -814,6 +837,12 @@ class RagingBoltPolicy:
                     return 900
             if c.id == C.BASIC_GRASS_ENERGY:
                 if len(self.ogerpon_on_field) > 0:
+                    # if Fighting already in hand, it can be attached directly this turn —
+                    # retrieve Grass instead to enable Teal Dance draw
+                    # (observed 3x: human chose Grass when Fighting was in hand)
+                    fighting_in_hand = C.BASIC_FIGHTING_ENERGY in self.hand_ids
+                    if not self.bolt_has_fighting and fighting_in_hand:
+                        return 950
                     return 800
                 return 600
             if c.id == C.BASIC_LIGHTNING_ENERGY:

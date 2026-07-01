@@ -568,9 +568,14 @@ class RagingBoltPolicy:
             return 600
 
         if cid == C.LILLIE_DETERMINATION:
-            ogerpon_bench = [p for p in (self.me.bench or []) if p and p.id == C.TEAL_MASK_OGERPON_EX]
-            if not ogerpon_bench:
-                # no Ogerpon on bench: play Ogerpon first, Lillie can wait
+            # if hand has Ogerpon-deployable cards (not Ultra Ball), play those first
+            # to reduce hand size, then draw with Lillie for maximum efficiency
+            can_add_ogerpon = (
+                C.TEAL_MASK_OGERPON_EX in self.hand_ids or
+                C.BUG_CATCHING_SET in self.hand_ids or
+                C.TERA_ORB in self.hand_ids
+            )
+            if can_add_ogerpon:
                 return 700 if len(self.hand_ids) <= 2 else 500
             if self.field_ready:
                 return 1000 if len(self.hand_ids) <= 3 else 700

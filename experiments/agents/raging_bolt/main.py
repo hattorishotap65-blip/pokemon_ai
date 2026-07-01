@@ -546,10 +546,12 @@ class RagingBoltPolicy:
             return self.p("score_play_pokemon_raging_bolt", 500)
         if cid == C.TEAL_MASK_OGERPON_EX:
             if not self.ogerpon_on_field:
-                # first Ogerpon not yet on field: play directly beats searching for it
-                # or drawing cards — enables Teal Dance setup immediately
-                # (observed 6x across 4 games in session_tuning_log.jsonl)
                 return 1100
+            ogerpon_bench = [p for p in (self.me.bench or []) if p and p.id == C.TEAL_MASK_OGERPON_EX]
+            if not ogerpon_bench:
+                # no Ogerpon on bench: play one to keep Teal Dance engine accessible
+                # (observed 5x: human played Ogerpon before Lillie/retreat when bench was empty)
+                return 960
             return self.p("score_play_pokemon_ogerpon", 600)
 
         if cid == C.CRISPIN:
@@ -837,14 +839,11 @@ class RagingBoltPolicy:
                     return 900
             if c.id == C.BASIC_GRASS_ENERGY:
                 if len(self.ogerpon_on_field) > 0:
-                    # if Fighting already in hand, it can be attached directly this turn —
-                    # retrieve Grass instead to enable Teal Dance draw
-                    # (observed 3x: human chose Grass when Fighting was in hand)
                     fighting_in_hand = C.BASIC_FIGHTING_ENERGY in self.hand_ids
                     if not self.bolt_has_fighting and fighting_in_hand:
                         return 950
                     return 800
-                return 600
+                return 750  # even without Ogerpon on field, Grass enables Teal Dance soon
             if c.id == C.BASIC_LIGHTNING_ENERGY:
                 return 500
             if c.id == C.BASIC_FIGHTING_ENERGY:

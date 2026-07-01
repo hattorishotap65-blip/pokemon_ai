@@ -545,13 +545,11 @@ class RagingBoltPolicy:
                 return 1250
             return self.p("score_play_pokemon_raging_bolt", 500)
         if cid == C.TEAL_MASK_OGERPON_EX:
-            if not self.ogerpon_on_field:
-                return 1100
             ogerpon_bench = [p for p in (self.me.bench or []) if p and p.id == C.TEAL_MASK_OGERPON_EX]
-            if not ogerpon_bench:
-                # no Ogerpon on bench: play one to keep Teal Dance engine accessible
-                # (observed 5x: human played Ogerpon before Lillie/retreat when bench was empty)
-                return 960
+            if not self.ogerpon_on_field or not ogerpon_bench:
+                # always same high priority as first placement — Ogerpon on bench
+                # is essential for Teal Dance draw engine
+                return 1100
             return self.p("score_play_pokemon_ogerpon", 600)
 
         if cid == C.CRISPIN:
@@ -570,13 +568,13 @@ class RagingBoltPolicy:
             return 600
 
         if cid == C.LILLIE_DETERMINATION:
+            ogerpon_bench = [p for p in (self.me.bench or []) if p and p.id == C.TEAL_MASK_OGERPON_EX]
+            if not ogerpon_bench:
+                # no Ogerpon on bench: play Ogerpon first, Lillie can wait
+                return 700 if len(self.hand_ids) <= 2 else 500
             if self.field_ready:
-                if len(self.hand_ids) <= 3:
-                    return 1000
-                return 700
-            if len(self.hand_ids) <= 2:
-                return 1300
-            return 1200
+                return 1000 if len(self.hand_ids) <= 3 else 700
+            return 1300 if len(self.hand_ids) <= 2 else 1200
 
         if cid == C.BOSS_ORDERS:
             if self.active_hp_pct <= 20:
@@ -595,28 +593,23 @@ class RagingBoltPolicy:
                 if self.energy_in_discard >= 1:
                     return 1000
                 return 400
-            if cid == C.ULTRA_BALL:
-                return 600
-            if cid == C.POKEGEAR:
-                return 500
             if cid == C.BUG_CATCHING_SET:
-                return 500
+                return 700  # no hand cost; preferred for finding Ogerpon/energy
             if cid == C.TERA_ORB:
+                return 650  # finds Tera Pokemon (Ogerpon); no hand cost
+            if cid == C.ULTRA_BALL:
+                return 350  # hand cost of 2 cards is too high when field is ready
+            if cid == C.POKEGEAR:
                 return 500
         else:
             if cid == C.ULTRA_BALL:
-                if not self.ogerpon_on_field and len(self.hand_ids) <= 4:
-                    # Bug Catching Set can find Ogerpon (a Basic) without costing
-                    # hand cards; Ultra Ball's 2-card discard isn't worth it on a
-                    # thin hand when the same target is reachable for free.
-                    # (observed in human review notes, session_tuning_log.jsonl
-                    # game 20260630_163001 turn 2)
-                    return 700
-                return 1100
+                if not self.bolt_on_field:
+                    return 1100  # need to find Raging Bolt
+                return 400  # Bolt on field: BCS/Tera Orb find Ogerpon without hand cost
             if cid == C.BUG_CATCHING_SET:
-                return 1100
+                return 1200  # finds Ogerpon/Bolt, no discard cost
             if cid == C.TERA_ORB:
-                return 1050
+                return 1150  # finds Tera Pokemon (Ogerpon), no discard cost
             if cid == C.POKEGEAR:
                 return 1000
             if cid == C.ENERGY_RETRIEVAL:

@@ -404,7 +404,7 @@ class RagingBoltPolicy:
         t = opt.type
 
         if t == OptionType.END:
-            return 50
+            return self.p("score_end_turn", 50)
 
         if t == OptionType.YES:
             if self.context == SelectContext.IS_FIRST:
@@ -539,8 +539,17 @@ class RagingBoltPolicy:
         cid = c.id
 
         if cid == C.RAGING_BOLT_EX:
+            if not self.bolt_on_field:
+                # first Bolt not yet on field: bench it directly over search/draw
+                # (observed 2x: human played Bolt over Lillie/Ultra Ball)
+                return 1250
             return self.p("score_play_pokemon_raging_bolt", 500)
         if cid == C.TEAL_MASK_OGERPON_EX:
+            if not self.ogerpon_on_field:
+                # first Ogerpon not yet on field: play directly beats searching for it
+                # or drawing cards — enables Teal Dance setup immediately
+                # (observed 6x across 4 games in session_tuning_log.jsonl)
+                return 1100
             return self.p("score_play_pokemon_ogerpon", 600)
 
         if cid == C.CRISPIN:
@@ -549,6 +558,10 @@ class RagingBoltPolicy:
             if self.field_ready and self.energy_in_discard >= 1:
                 return 1500
             if not self.bolt_ready and self.energy_in_discard >= 1:
+                if self.ogerpon_on_field and self.grass_in_hand > 0 and len(self.hand_ids) <= 3:
+                    # hand thin + Teal Dance available: draw via Ogerpon ability first,
+                    # attach energy next turn — observed 4x in session_tuning_log.jsonl
+                    return 1000
                 return 1300
             if self.energy_in_discard >= 1:
                 return 1100
@@ -575,7 +588,7 @@ class RagingBoltPolicy:
 
         if self.field_ready:
             if cid == C.ENERGY_RETRIEVAL:
-                if self.energy_in_discard >= 2:
+                if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2):
                     return 1200
                 if self.energy_in_discard >= 1:
                     return 1000
@@ -590,6 +603,13 @@ class RagingBoltPolicy:
                 return 500
         else:
             if cid == C.ULTRA_BALL:
+                if not self.ogerpon_on_field and len(self.hand_ids) <= 4:
+                    # Bug Catching Set can find Ogerpon (a Basic) without costing
+                    # hand cards; Ultra Ball's 2-card discard isn't worth it on a
+                    # thin hand when the same target is reachable for free.
+                    # (observed in human review notes, session_tuning_log.jsonl
+                    # game 20260630_163001 turn 2)
+                    return 700
                 return 1100
             if cid == C.BUG_CATCHING_SET:
                 return 1100
@@ -598,7 +618,7 @@ class RagingBoltPolicy:
             if cid == C.POKEGEAR:
                 return 1000
             if cid == C.ENERGY_RETRIEVAL:
-                if self.energy_in_discard >= 2:
+                if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2):
                     return 900
                 return 500
 
@@ -632,14 +652,18 @@ class RagingBoltPolicy:
                 return 1400
             if energy_id == C.BASIC_GRASS_ENERGY:
                 return 100
+            if is_active and self.active_hp_pct <= self.p("retreat_hp_threshold_pct", 30):
+                return self.p("score_attach_energy_raging_bolt_active_low_hp", 350)
             if is_active:
                 return 500 + target_energy * 30
-            return 400
+            return self.p("score_attach_energy_raging_bolt_bench", 400)
 
         if target.id == C.TEAL_MASK_OGERPON_EX:
             if energy_id == C.BASIC_GRASS_ENERGY:
                 return 600
-            return 400
+            # L/F energy on Ogerpon is wasted — it only uses Grass energy
+            # (observed: human always attached L energy to Bolt instead)
+            return 100
 
         return self.p("score_attach_energy_other", 200)
 
@@ -660,8 +684,8 @@ class RagingBoltPolicy:
             bench_any = [p for p in (self.me.bench or []) if p and _count_energy(p) >= 1]
             if bench_any:
                 return 900
-        if self.active_hp_pct <= 30:
-            return 400
+        if self.active_hp_pct <= self.p("retreat_hp_threshold_pct", 30):
+            return self.p("score_retreat_damaged_active", 400)
         return 100
 
     def _score_card_select(self, i, opt):
@@ -691,7 +715,7 @@ class RagingBoltPolicy:
             if c.id == C.TERA_ORB:
                 return 580
             if c.id == C.ENERGY_RETRIEVAL:
-                return 620 if self.energy_in_discard >= 2 else 450
+                return 620 if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2) else 450
             if c.id == C.POKEMON_CATCHER:
                 return 500
             if c.id == C.BUG_CATCHING_SET:

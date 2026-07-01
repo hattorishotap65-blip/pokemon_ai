@@ -1,0 +1,110 @@
+{
+  "feature_names": [
+    "my_prizes",
+    "opp_prizes",
+    "prize_diff",
+    "my_active_hp",
+    "my_active_hp_pct",
+    "opp_active_hp",
+    "opp_active_hp_pct",
+    "my_bench_count",
+    "opp_bench_count",
+    "raging_bolt_count",
+    "ogerpon_count",
+    "active_is_raging_bolt",
+    "active_is_ogerpon",
+    "bolt_ready",
+    "bolt_has_lightning",
+    "bolt_has_fighting",
+    "bench_bolt_ready",
+    "total_field_energy",
+    "grass_energy_on_field",
+    "lightning_energy_on_field",
+    "fighting_energy_on_field",
+    "grass_in_hand",
+    "lightning_in_hand",
+    "fighting_in_hand",
+    "hand_size",
+    "deck_count",
+    "has_crispin",
+    "has_lillie",
+    "has_boss",
+    "has_energy_retrieval",
+    "has_search_item",
+    "can_ko_active",
+    "near_ko_active",
+    "boss_win_available",
+    "active_ko_risk",
+    "no_next_attacker_risk",
+    "field_ready"
+  ],
+  "accuracy": 0.9689,
+  "roc_auc": 0.9923,
+  "log_loss": 0.1086,
+  "win_avg_pred": 0.9315,
+  "loss_avg_pred": 0.0554,
+  "train_size": 15550,
+  "test_size": 3888,
+  "top_features": [
+    [
+      "opp_bench_count",
+      0.7572
+    ],
+    [
+      "my_prizes",
+      0.0567
+    ],
+    [
+      "opp_active_hp",
+      0.0368
+    ],
+    [
+      "raging_bolt_count",
+      0.0255
+    ],
+    [
+      "near_ko_active",
+      0.0179
+    ],
+    [
+      "prize_diff",
+      0.0115
+    ],
+    [
+      "fighting_in_hand",
+      0.0113
+    ],
+    [
+      "deck_count",
+      0.011
+    ],
+    [
+      "ogerpon_count",
+      0.0093
+    ],
+    [
+      "lightning_in_hand",
+      0.008
+    ],
+    [
+      "hand_size",
+      0.0066
+    ],
+    [
+      "grass_in_hand",
+      0.0048
+    ],
+    [
+      "lightning_energy_on_field",
+      0.0042
+    ],
+    [
+      "my_bench_count",
+      0.0042
+    ],
+    [
+      "total_field_energy",
+      0.0039
+    ]
+  ]
+}

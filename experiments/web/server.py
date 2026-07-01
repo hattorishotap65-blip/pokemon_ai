@@ -1072,6 +1072,7 @@ class H(BaseHTTPRequestHandler):
                     payload['live_review'] = _live_review_for(traced_entry)
                     payload['suggested_params'] = _suggested_params_payload(payload['live_review'])
                     GAME['last_live_review'] = payload['live_review']
+                    GAME['last_override'] = None
                     lr = payload['live_review']
                     GAME['frozen_review_obs'] = pre_select_obs_dict if (lr and lr.get('show')) else None
                 return self._send(200, json.dumps(payload))

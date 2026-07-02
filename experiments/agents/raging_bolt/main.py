@@ -349,6 +349,7 @@ class RagingBoltPolicy:
             if action_type == "attach" and card_id != C.RAGING_BOLT_EX:
                 bonus -= 100
 
+
         if "behind_prize_race" in self.risks:
             if action_type == "attack":
                 bonus += 300
@@ -819,6 +820,15 @@ class RagingBoltPolicy:
             return 300
 
         if ctx == SelectContext.SWITCH:
+            if c.id == C.RAGING_BOLT_EX:
+                bolt_energy = _count_energy(c) if hasattr(c, 'energies') else 0
+                return 700 + bolt_energy * 50
+            if c.id == C.TEAL_MASK_OGERPON_EX:
+                return 600
+            return 300
+
+        if ctx == SelectContext.TO_ACTIVE:
+            # Replacing fainted active — prefer Bolt (with energy) then Ogerpon
             if c.id == C.RAGING_BOLT_EX:
                 bolt_energy = _count_energy(c) if hasattr(c, 'energies') else 0
                 return 700 + bolt_energy * 50

@@ -76,6 +76,35 @@ P = _load_params()
 all_card = all_card_data()
 card_table = {card.cardId: card for card in all_card}
 
+try:
+    from cg.api import all_attack as _all_attack
+    attack_table = {a.attackId: a for a in _all_attack()}
+except Exception:
+    attack_table = {}
+
+
+def _static_opp_max_damage(opp_active, my_active_id):
+    """Max damage opponent's active can deal next turn with current energy."""
+    if opp_active is None:
+        return 0
+    opp_data = card_table.get(opp_active.id)
+    if not opp_data or not attack_table:
+        return 150
+    opp_energy = len(opp_active.energies or [])
+    max_dmg = 0
+    for aid in (opp_data.attacks or []):
+        a = attack_table.get(aid)
+        if not a:
+            continue
+        cost = len(a.energies) if a.energies else 0
+        if opp_energy >= cost and (a.damage or 0) > max_dmg:
+            max_dmg = a.damage or 0
+    my_data = card_table.get(my_active_id)
+    if my_data and my_data.weakness is not None:
+        if getattr(opp_data, 'energyType', None) == my_data.weakness:
+            max_dmg *= 2
+    return max_dmg
+
 pre_turn = -1
 ability_used_teal_dance = False
 
@@ -1188,7 +1217,9 @@ class RagingBoltPolicy:
         return your_deck, your_prize, opp_deck, opp_prize, opp_hand, opp_active
 
     def _eval_search_state(self, state, my_index):
-        """Static evaluation of a simulated board state from my perspective."""
+        """Static evaluation of a simulated end-of-turn board from my perspective.
+        Focus: prize race + can I keep attacking next turn + what do I lose to
+        the opponent's response."""
         if state is None:
             return 0.0
         if state.result >= 0:
@@ -1196,8 +1227,16 @@ class RagingBoltPolicy:
         me = state.players[my_index]
         opp = state.players[1 - my_index]
         score = 0.0
-        score += (6 - len(me.prize)) * self.p("se_prize_taken", 900)
-        score -= (6 - len(opp.prize)) * self.p("se_prize_given", 800)
+
+        # ── prize race (each side's remaining prizes; closing bonuses) ──
+        my_taken = 6 - len(me.prize)
+        opp_taken = 6 - len(opp.prize)
+        score += my_taken * self.p("se_prize_taken", 900)
+        score -= opp_taken * self.p("se_prize_given", 800)
+        if len(me.prize) <= 2:
+            score += self.p("se_closing", 300)
+        if len(opp.prize) <= 2:
+            score -= self.p("se_opp_closing", 400)
 
         my_all = [p for p in list(me.active or []) + list(me.bench or []) if p]
         opp_all = [p for p in list(opp.active or []) + list(opp.bench or []) if p]
@@ -1206,19 +1245,56 @@ class RagingBoltPolicy:
 
         act = me.active[0] if me.active else None
         opp_act = opp.active[0] if opp.active else None
+
+        # ── next-turn attackability (cadence is the deck's weak point) ──
+        act_bolt_ready = False
         if act and act.id == C.RAGING_BOLT_EX:
             has_l = any(e == 4 for e in (act.energies or []))
             has_f = any(e == 6 for e in (act.energies or []))
-            if has_l and has_f:
+            act_bolt_ready = has_l and has_f
+            if act_bolt_ready:
                 score += self.p("se_bolt_ready", 350)
                 if opp_act and my_energy * 70 >= opp_act.hp:
                     score += self.p("se_can_ko", 400)
+        # backup attacker on bench keeps the engine running after a KO
+        for p in (me.bench or []):
+            if p and p.id == C.RAGING_BOLT_EX:
+                b_l = any(e == 4 for e in (p.energies or []))
+                b_f = any(e == 6 for e in (p.energies or []))
+                if b_l and b_f:
+                    score += self.p("se_bench_bolt_ready", 250)
+                    break
+
+        # ── opponent's response: does my active just die? ──
+        if act and opp_act:
+            opp_dmg = _static_opp_max_damage(opp_act, act.id)
+            if act.hp <= opp_dmg:
+                # losing the active next turn: prizes given + stranded energy
+                score -= prize_count(act) * self.p("se_active_dies_prize", 350)
+                score -= len(act.energies or []) * self.p("se_active_dies_energy", 40)
+                if not any(p and len(p.energies or []) > 0 for p in (me.bench or [])):
+                    score -= self.p("se_no_backup", 200)
+
+        # ── special conditions on my active ──
+        if me.paralyzed or me.asleep:
+            score -= self.p("se_disabled", 150)
+        if me.poisoned or me.burned:
+            score -= self.p("se_dot", 60)
+
+        # ── damage exchange ──
         if opp_act:
             score += (opp_act.maxHp - opp_act.hp) * self.p("se_opp_damage", 2.0)
         if act:
             score -= (act.maxHp - act.hp) * self.p("se_my_damage", 1.0)
 
-        score += min(len(me.hand or []), 8) * self.p("se_hand_card", 40)
+        # ── hand quality: cards + refuel resources for the BT loop ──
+        hand_ids = [c.id for c in (me.hand or [])]
+        score += min(len(hand_ids), 8) * self.p("se_hand_card", 40)
+        refuel = sum(1 for cid in hand_ids
+                     if cid in (C.CRISPIN, C.ENERGY_RETRIEVAL) or cid in BASIC_ENERGY_IDS)
+        score += min(refuel, 4) * self.p("se_refuel_resource", 50)
+
+        # ── board development ──
         score += sum(1 for p in my_all if p.id == C.TEAL_MASK_OGERPON_EX) * self.p("se_ogerpon", 120)
         score += len(my_all) * self.p("se_board_pokemon", 30)
         score -= sum(len(p.energies or []) for p in opp_all) * self.p("se_opp_energy", 25)

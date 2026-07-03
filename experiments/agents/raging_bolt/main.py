@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from cg.api import (
     AreaType,
@@ -1131,6 +1131,163 @@ class RagingBoltPolicy:
 
         return scenarios
 
+    # ── Engine Search (real 1-turn lookahead via cg search API) ──
+
+    def _my_unseen_cards(self):
+        """My deck+prize contents = full decklist minus everything I can see."""
+        remaining = Counter(my_deck)
+
+        def dec(cid):
+            if remaining.get(cid, 0) > 0:
+                remaining[cid] -= 1
+
+        for c in (self.me.hand or []):
+            dec(c.id)
+        for c in (self.me.discard or []):
+            dec(c.id)
+        for p in list(self.me.active or []) + list(self.me.bench or []):
+            if not p:
+                continue
+            dec(p.id)
+            for c in (p.energyCards or []):
+                dec(c.id)
+            for c in (p.tools or []):
+                dec(c.id)
+            for c in (p.preEvolution or []):
+                dec(c.id)
+        for c in (self.state.stadium or []):
+            if c is not None and getattr(c, 'playerIndex', -1) == self.my_index:
+                dec(c.id)
+
+        out = []
+        for cid, cnt in remaining.items():
+            out.extend([cid] * cnt)
+        return out
+
+    def _predict_hidden(self):
+        """Build hidden-zone predictions for search_begin.
+        Own deck/prize: decklist minus seen cards. Opponent zones: filler —
+        rollforward stops at our turn boundary so their contents barely matter."""
+        unseen = self._my_unseen_cards()
+        n_prize = len(self.me.prize)
+        n_deck = self.me.deckCount or 0
+        need = n_prize + n_deck
+        if len(unseen) < need:
+            unseen = unseen + [C.BASIC_LIGHTNING_ENERGY] * (need - len(unseen))
+        your_prize = unseen[:n_prize]
+        your_deck = unseen[n_prize:n_prize + n_deck]
+
+        opp = self.opponent
+        filler_pokemon = C.RAGING_BOLT_EX  # any valid Basic Pokemon card ID
+        opp_deck = [filler_pokemon] + [C.BASIC_FIGHTING_ENERGY] * max(0, (opp.deckCount or 0) - 1)
+        opp_prize = [C.BASIC_FIGHTING_ENERGY] * len(opp.prize)
+        opp_hand = [C.BASIC_FIGHTING_ENERGY] * (opp.handCount or 0)
+        opp_active = []
+        if opp.active and len(opp.active) > 0 and opp.active[0] is None:
+            opp_active = [filler_pokemon]
+        return your_deck, your_prize, opp_deck, opp_prize, opp_hand, opp_active
+
+    def _eval_search_state(self, state, my_index):
+        """Static evaluation of a simulated board state from my perspective."""
+        if state is None:
+            return 0.0
+        if state.result >= 0:
+            return 1_000_000.0 if state.result == my_index else -1_000_000.0
+        me = state.players[my_index]
+        opp = state.players[1 - my_index]
+        score = 0.0
+        score += (6 - len(me.prize)) * self.p("se_prize_taken", 900)
+        score -= (6 - len(opp.prize)) * self.p("se_prize_given", 800)
+
+        my_all = [p for p in list(me.active or []) + list(me.bench or []) if p]
+        opp_all = [p for p in list(opp.active or []) + list(opp.bench or []) if p]
+        my_energy = sum(len(p.energies or []) for p in my_all)
+        score += my_energy * self.p("se_field_energy", 60)
+
+        act = me.active[0] if me.active else None
+        opp_act = opp.active[0] if opp.active else None
+        if act and act.id == C.RAGING_BOLT_EX:
+            has_l = any(e == 4 for e in (act.energies or []))
+            has_f = any(e == 6 for e in (act.energies or []))
+            if has_l and has_f:
+                score += self.p("se_bolt_ready", 350)
+                if opp_act and my_energy * 70 >= opp_act.hp:
+                    score += self.p("se_can_ko", 400)
+        if opp_act:
+            score += (opp_act.maxHp - opp_act.hp) * self.p("se_opp_damage", 2.0)
+        if act:
+            score -= (act.maxHp - act.hp) * self.p("se_my_damage", 1.0)
+
+        score += min(len(me.hand or []), 8) * self.p("se_hand_card", 40)
+        score += sum(1 for p in my_all if p.id == C.TEAL_MASK_OGERPON_EX) * self.p("se_ogerpon", 120)
+        score += len(my_all) * self.p("se_board_pokemon", 30)
+        score -= sum(len(p.energies or []) for p in opp_all) * self.p("se_opp_energy", 25)
+        return score
+
+    def _rollforward(self, search_state, max_steps=14):
+        """Greedily play out the rest of my turn inside the search tree using
+        the heuristic policy. Stops at turn boundary / game end. Returns final State."""
+        from cg.api import search_step
+        ss = search_state
+        last_state = ss.observation.current if ss.observation else None
+        for _ in range(max_steps):
+            obs = ss.observation
+            if obs is None or obs.current is None:
+                break
+            last_state = obs.current
+            if obs.current.result >= 0:
+                break
+            sel = obs.select
+            if sel is None or obs.current.yourIndex != self.my_index:
+                break  # opponent's decision — stop here
+            if not sel.option:
+                break
+            try:
+                sub = RagingBoltPolicy(obs)
+                picks = sub.choose()
+            except Exception:
+                picks = list(range(min(max(sel.minCount, 1), len(sel.option))))
+            n = len(sel.option)
+            picks = [i for i in picks if 0 <= i < n][:sel.maxCount]
+            if len(picks) < sel.minCount:
+                extra = [i for i in range(n) if i not in picks]
+                picks += extra[:sel.minCount - len(picks)]
+            ss = search_step(ss.searchId, picks)
+        if ss.observation and ss.observation.current is not None:
+            last_state = ss.observation.current
+        return last_state
+
+    def _engine_search_choose(self, ranked, scores):
+        """Real lookahead: apply each top candidate in the engine's search tree,
+        greedily finish my turn, evaluate the resulting board. Returns [index] or None."""
+        if self.select.maxCount != 1:
+            return None
+        from cg.api import search_begin, search_end
+        preds = self._predict_hidden()
+        root = search_begin(self.obs, *preds)
+        try:
+            from cg.api import search_step
+            top_k = min(int(self.p("engine_search_top_k", 5)), len(ranked))
+            w_heur = self.p("engine_search_heuristic_weight", 0.15)
+            best = None
+            for pos in range(top_k):
+                i = ranked[pos]
+                try:
+                    ss = search_step(root.searchId, [i])
+                    final_state = self._rollforward(ss)
+                    ev = self._eval_search_state(final_state, self.my_index)
+                except Exception:
+                    continue
+                total = ev + scores[i] * w_heur
+                if best is None or total > best[0]:
+                    best = (total, i)
+            return [best[1]] if best else None
+        finally:
+            try:
+                search_end()
+            except Exception:
+                pass
+
     # ── Shallow Search ──
 
     def choose_with_search(self):
@@ -1140,6 +1297,15 @@ class RagingBoltPolicy:
 
         if self.context != SelectContext.MAIN:
             return self.choose()
+
+        if self.p("use_engine_search", 1):
+            try:
+                ranked_e, scores_e = self.rank()
+                picked = self._engine_search_choose(ranked_e, scores_e)
+                if picked is not None:
+                    return picked
+            except Exception:
+                pass  # fall back to heuristic blend below
 
         ranked, scores = self.rank()
         n = len(self.select.option)

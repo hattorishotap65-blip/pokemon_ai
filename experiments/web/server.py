@@ -6,7 +6,7 @@ Run via launch.py:
 
 Based on wmh/ptcg-abc. Japanese localized.
 """
-import sys, os, json, ctypes, types
+import sys, os, json, ctypes, types, copy
 import time as _time
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -216,7 +216,8 @@ def load_opp(name):
 # ── game session (single global game; single-threaded server) ────────────────
 GAME = {'obs_dict': None, 'opp_mod': None, 'opp_deck': None, 'human': 0, 'over': True, 'log': [], 'logseq': 0,
         'trace_path': None, 'last_state': None, 'recording': False,
-        'game_id': None, 'last_live_review': None, 'last_override': None}
+        'game_id': None, 'last_live_review': None, 'last_override': None,
+        'frozen_review_obs': None}
 
 AREA = {AreaType.DECK: 'deck', AreaType.HAND: 'hand', AreaType.DISCARD: 'discard',
         AreaType.ACTIVE: 'active', AreaType.BENCH: 'bench', AreaType.PRIZE: 'prize'}
@@ -785,19 +786,27 @@ def _live_review_for(entry):
 
 
 def _suggested_params_payload(live_review):
-    """[{param, current_value}] for the Live Tuning Panel. Never raises."""
+    """[{param, current_value, description}] for the Live Tuning Panel. Never raises."""
     try:
         eff = LT.effective_params(ME.get('base_params', {}))
         names = LT.suggest_params_for_live_review(live_review, ME.get('base_params', {}))
-        return [{'param': p, 'current_value': eff.get(p)} for p in names]
+        return [{'param': p, 'current_value': eff.get(p), 'description': LT.describe_param(p)} for p in names]
     except Exception:
         return []
 
 
 def _tuning_compute_fn(params_dict):
-    """Re-run the current decision under a given effective-params dict.
+    """Re-run the *reviewed* decision under a given effective-params dict.
     Used only by the Live Tuning Panel's preview -- restores ME['mod'].P
     to whatever it was before returning, so this never leaks into real play.
+
+    Uses GAME['frozen_review_obs'] (a snapshot taken right before the human's
+    flagged decision was applied) rather than the live GAME['obs_dict'] --
+    by the time the human opens the panel, /select has already advanced the
+    game to the *next* decision, so scoring the live obs_dict would compare
+    candidates for a different decision than the one being reviewed. Falls
+    back to the live obs_dict when there's no frozen snapshot (e.g. a
+    preview requested with no active disagreement).
 
     For MAIN-context decisions the real agent() picks via
     choose_with_search(), which layers an impact_*/search_weight_* lookahead
@@ -806,9 +815,10 @@ def _tuning_compute_fn(params_dict):
     _estimate_action_impact/_simulate_opponent_turn helpers, no main.py
     changes) keeps the preview honest about what the competition agent would
     actually do, confirmed by driving real games through this server in WSL."""
-    if GAME.get('obs_dict') is None or ME.get('Policy') is None:
+    obs_dict = GAME.get('frozen_review_obs') or GAME.get('obs_dict')
+    if obs_dict is None or ME.get('Policy') is None:
         return []
-    obs = to_observation_class(GAME['obs_dict'])
+    obs = to_observation_class(obs_dict)
     if obs.select is None:
         return []
     mod = ME['mod']
@@ -829,7 +839,12 @@ def _tuning_compute_fn(params_dict):
             w_imm = policy.p("search_weight_immediate", 0.6)
             w_fut = policy.p("search_weight_future", 0.3)
             w_risk = policy.p("search_weight_risk", 0.1)
-            for i in ranked[:5]:
+            # Score every option, not just rank()'s base top-5 -- the human's
+            # actual pick can fall outside the base ranking (that's often
+            # *why* it's a disagreement), and the value-search feature needs
+            # every candidate's score to find a param value that makes the
+            # human's pick the new top recommendation.
+            for i in ranked:
                 opt = obs.select.option[i]
                 try:
                     future_delta = policy._estimate_action_impact(opt)
@@ -862,9 +877,10 @@ def _log_tuning_event(param=None, old_value=None, new_value=None, preview=None,
     """Append one session_tuning_log.jsonl row. Never raises -- logging must
     never be able to break gameplay."""
     try:
+        _turn_obs_dict = GAME.get('frozen_review_obs') or GAME.get('obs_dict')
         entry = LT.build_tuning_log_entry(
             game_id=GAME.get('game_id'),
-            turn=(to_observation_class(GAME['obs_dict']).current.turn if GAME.get('obs_dict') else None),
+            turn=(to_observation_class(_turn_obs_dict).current.turn if _turn_obs_dict else None),
             live_review=GAME.get('last_live_review'),
             param=param, old_value=old_value, new_value=new_value,
             preview=preview or {}, review_label=review_label, confidence=confidence, note=note,
@@ -999,6 +1015,7 @@ class H(BaseHTTPRequestHandler):
             GAME['game_id'] = _time.strftime("%Y%m%d_%H%M%S")
             GAME['last_live_review'] = None
             GAME['last_override'] = None
+            GAME['frozen_review_obs'] = None
             LT.reset_runtime_overrides()
             if ME.get('mod') is not None:
                 ME['mod'].P.clear(); ME['mod'].P.update(ME.get('base_params', {}))
@@ -1038,8 +1055,15 @@ class H(BaseHTTPRequestHandler):
             strategy_tags = _sanitize_strategy_tags(body, opt_count) if recording else {}
             try:
                 traced_entry = None
+                pre_select_obs_dict = None
                 if recording:
                     traced_entry = _record_human_trace(idx, strategy_tags)
+                    if traced_entry is not None and GAME.get('obs_dict') is not None:
+                        # Snapshot the decision being reviewed *before* _select()
+                        # advances the game -- the tuning preview must re-score
+                        # this exact disagreement, not whatever decision comes
+                        # next.
+                        pre_select_obs_dict = copy.deepcopy(GAME['obs_dict'])
                 _note_action(GAME['obs_dict'], idx)
                 GAME['obs_dict'] = _select(idx)
                 _advance_opponent()
@@ -1048,6 +1072,8 @@ class H(BaseHTTPRequestHandler):
                     payload['live_review'] = _live_review_for(traced_entry)
                     payload['suggested_params'] = _suggested_params_payload(payload['live_review'])
                     GAME['last_live_review'] = payload['live_review']
+                    lr = payload['live_review']
+                    GAME['frozen_review_obs'] = pre_select_obs_dict if (lr and lr.get('show')) else None
                 return self._send(200, json.dumps(payload))
             except Exception as e:
                 return self._send(200, json.dumps(state_json(f'エラー: {e}')))
@@ -1086,6 +1112,30 @@ class H(BaseHTTPRequestHandler):
             _log_tuning_event(param=last.get('param'), old_value=last.get('old_value'),
                               new_value=last.get('new_value'), preview=preview)
             return self._send(200, json.dumps(preview))
+        if u.path == '/runtime_params/suggest_value':
+            # "What value would make the AI recommend what I picked instead?"
+            # -- searches for a param value that flips the reviewed
+            # decision's top recommendation to the human's actual pick.
+            ln = int(self.headers.get('Content-Length', 0))
+            try:
+                body = json.loads(self.rfile.read(ln) or '{}')
+            except Exception:
+                body = {}
+            param = body.get('param')
+            base = ME.get('base_params', {})
+            if not isinstance(param, str) or param not in base:
+                return self._send(400, json.dumps({'ok': False, 'error': 'unknown param'}))
+            lr = GAME.get('last_live_review') or {}
+            target_label = lr.get('human_action')
+            if not target_label:
+                return self._send(200, json.dumps({'ok': False, 'error': 'no active disagreement to target'}))
+            try:
+                eff = LT.effective_params(base)
+                result = LT.find_param_value_for_target(_tuning_compute_fn, eff, param, target_label)
+                result['ok'] = True
+                return self._send(200, json.dumps(result))
+            except Exception as e:
+                return self._send(200, json.dumps({'ok': False, 'error': str(e)}))
         if u.path == '/runtime_params/log':
             # Explicit "調整ログに保存" -- attach a reviewer label/confidence/note
             # to the latest before/after comparison.

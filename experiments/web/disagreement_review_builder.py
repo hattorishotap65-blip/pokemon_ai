@@ -266,8 +266,12 @@ def _live_message(item):
 
 def format_live_review(item):
     """Build the minimal payload the live battle UI needs for one decision.
-    Always returns a dict (never None) so callers can render `show` directly."""
-    show = item["category"] in _RISK_PRIORITY_CATEGORIES
+    Always returns a dict (never None) so callers can render `show` directly.
+
+    Any genuine AI-vs-human disagreement is shown, regardless of category --
+    the _RISK_PRIORITY_CATEGORIES whitelist only gates the agreement case
+    (AI and human picked the same option, but it was flagged risky)."""
+    show = item["is_disagreement"] or item["category"] in _RISK_PRIORITY_CATEGORIES
     return {
         "show": show,
         "category": item["category"],

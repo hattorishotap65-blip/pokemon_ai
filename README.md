@@ -42,8 +42,12 @@ pokemon_card_ai/
 │   ├── generate_card_knowledge.py  # card_detail_raw.csv → card_knowledge.csv
 │   └── validate_card_data.py    # データ整合性チェック
 ├── experiments/
+│   ├── agents/raging_bolt/      # 実験用 RagingBolt agent と params.json
+│   ├── web/                     # 対戦サンドボックス / human trace / live tuning UI
+│   ├── learning/                # 学習・分析用スクリプト
 │   ├── run_matches.py           # ローカル大量対戦シミュレーション
-│   └── analyze_logs.py          # ログ分析・改善指標の出力
+│   ├── analyze_logs.py          # ログ分析・改善指標の出力
+│   └── test_*.py                # 実験機能の回帰テスト
 └── logs/                        # 自動生成される対戦ログ (*.jsonl, *.csv)
 ```
 
@@ -93,6 +97,31 @@ python experiments/analyze_logs.py
 改善点を確認してまた編集
 ```
 
+### Step 4 — 実験用 Web サンドボックスを起動する
+
+`experiments/web` には、AI と人間の判断差を記録・確認しながら RagingBolt agent を改善するための実験用 UI があります。
+
+```bash
+# WSL想定。デフォルトは http://localhost:8000
+python3 experiments/web/launch.py
+
+# ポート指定
+python3 experiments/web/launch.py --port 8001
+```
+
+必要に応じて以下を先に実行します。
+
+```bash
+pip install pymupdf pillow numpy
+python3 experiments/web/setup_agents.py
+```
+
+カード画像が不足している場合は、`reference/Card_ID List_EN.pdf` を用意したうえで以下を実行します。
+
+```bash
+python3 experiments/web/extract_card_images.py
+```
+
 ### Kaggle に提出するファイル
 
 ```
@@ -101,6 +130,261 @@ deck.csv
 agent/
 data/card_knowledge.csv   # カード知識は最新版を毎回含める
 ```
+
+`experiments/` 配下は調査・分析・UI・学習補助用であり、通常の提出物には含めません。
+
+---
+
+## 実験用 Web サンドボックスの現在仕様
+
+`experiments/web` は、RagingBolt agent を人間操作と比較しながら改善するためのサンドボックスです。目的は、AI をその場で本番修正することではなく、判断差を観察し、仮調整し、ログを残して、後続 PR で安全に検証・反映することです。
+
+### 全体方針
+
+- `params.json` は直接書き換えない
+- `experiments/agents/raging_bolt/main.py` の行動ロジックは直接変更しない
+- `submission.tar.gz` は作らない / 更新しない
+- セッション中だけ有効な runtime override で仮調整する
+- 正式反映は、ログ集計と勝率検証後に別 PR で行う
+- UI 上の表示値は `escapeHtml()` でエスケープし、XSS を避ける
+
+### Human Trace
+
+記録 ON の状態でプレイすると、人間の選択・AI の推奨・候補行動・スコア・思考タグが JSONL に保存されます。
+
+記録される主な情報:
+
+- turn / context
+- AI 推奨行動
+- 人間が選択した行動
+- 候補行動一覧
+- 候補スコア
+- strategy tag
+- risk flag
+- human considered action
+
+この trace は、後続の disagreement review / action value learning / params 調整の入力になります。
+
+### Live Disagreement Review
+
+`/select` で人間が行動を確定したあと、AI と人間の判断差がある場合に `live_review` が返ります。
+
+表示対象は、すべての不一致ではなく、勝敗に効きやすい優先カテゴリに絞っています。
+
+代表カテゴリ:
+
+- `no_next_attacker`
+- `boss_missed`
+- `boss_used_too_early`
+- `agreement_bad_risk`
+- `opponent_return_ko_underestimated`
+
+UI に表示される主な情報:
+
+- category
+- AI の推奨行動
+- 人間の選択行動
+- score gap
+- risk flags
+- message
+
+重要な設計として、`live_review` は **行動確定後** にのみ表示されます。行動前に表示すると人間の選択にバイアスが入るためです。
+
+### Live Tuning Panel
+
+Live Tuning Panel は、`live_review.show == true` のときだけ表示されます。
+
+できること:
+
+- 判断差に関連しそうなパラメータ候補を表示する
+- 各パラメータの現在値を確認する
+- パラメータの意味を UI 上で確認する
+- 値を入力して「一時適用」する
+- runtime override 適用前後の AI 推奨を preview する
+- runtime override を reset する
+- reviewer label / confidence / note を付けてログ保存する
+
+できないこと:
+
+- `params.json` を直接更新する
+- `main.py` を自動修正する
+- 調整値をそのまま本番採用する
+- 勝率検証なしで正式反映する
+
+### Runtime Override
+
+runtime override は、サーバープロセス内だけに保持される一時パラメータです。
+
+優先順位:
+
+1. runtime override
+2. `params.json` 由来の base params
+3. コード内 default 値
+
+実装上は、`experiments/web/live_tuning.py` の `_OVERRIDES` に保持されます。`server.py` は deck load 時に `ME['base_params']` として `params.json` 由来の値を snapshot し、override 適用時だけ `ME['mod'].P` を `effective_params` に差し替えます。
+
+runtime override は以下で消えます。
+
+- `/runtime_params/reset`
+- `/new` で新対戦を開始したとき
+- サーバー再起動
+
+### Runtime Params API
+
+#### `GET /runtime_params`
+
+現在の base params と runtime overrides を返します。
+
+```json
+{
+  "params": {
+    "impact_crispin_bolt_bonus": 200
+  },
+  "overrides": {
+    "impact_crispin_bolt_bonus": 50
+  }
+}
+```
+
+UI はこの API を使って、一時適用後・リセット後の表示値を再同期します。
+
+#### `POST /runtime_params`
+
+1 つの runtime override を設定します。
+
+入力例:
+
+```json
+{
+  "param": "impact_crispin_bolt_bonus",
+  "value": 50
+}
+```
+
+仕様:
+
+- 存在しない param は拒否する
+- 非数値は拒否する
+- `bool` / `NaN` / `Infinity` は拒否する
+- 任意コード実行につながるような param 名は拒否する
+- 成功時に before / after preview も返す
+- `params.json` は変更しない
+
+#### `POST /runtime_params/reset`
+
+runtime override をすべて消し、base params に戻します。
+
+#### `POST /runtime_params/preview`
+
+現在の runtime override を使って、対象の判断場面に対する AI 推奨の before / after を比較します。
+
+返却例:
+
+```json
+{
+  "before": {
+    "recommended_action": "Bellowing Thunder",
+    "top_candidates": []
+  },
+  "after": {
+    "recommended_action": "Crispin",
+    "top_candidates": []
+  },
+  "changed": true
+}
+```
+
+#### `POST /runtime_params/log`
+
+現在の preview 結果に reviewer label / confidence / note を付けて `session_tuning_log.jsonl` に保存します。
+
+### Frozen Review Snapshot
+
+Live Tuning preview は、現在の `GAME['obs_dict']` ではなく、レビュー対象の判断直前の盤面 snapshot を使います。
+
+理由:
+
+- 人間が `/select` で行動を確定する
+- その後、サーバーは `_select()` と `_advance_opponent()` でゲームを次の判断へ進める
+- もし preview が現在の `obs_dict` を使うと、レビュー対象の不一致場面ではなく、次の場面を評価してしまう
+
+このため、`server.py` は `/select` 前に `GAME['frozen_review_obs']` を保存します。`_tuning_compute_fn()` と `_log_tuning_event()` は、可能ならこの frozen snapshot を使います。
+
+### Suggested Params
+
+`live_review` の category / risk flags に応じて、調整候補の param を heuristic に提示します。
+
+例:
+
+| category / risk | suggested params |
+|---|---|
+| `no_next_attacker` | `impact_crispin_per_energy`, `impact_crispin_bolt_bonus`, `impact_energy_retrieval_per`, `impact_attach_bt_req`, `search_weight_future` |
+| `boss_missed` | `impact_boss_prize_mult`, `search_weight_future` |
+| `boss_used_too_early` | `impact_boss_prize_mult`, `search_weight_future` |
+| `active_may_be_ko_next_turn` | `impact_retreat_safety`, `impact_retreat_penalty`, `search_weight_risk` |
+| `not_enough_energy` | `impact_crispin_per_energy`, `impact_energy_retrieval_per`, `impact_search_item`, `score_play_pokemon_ogerpon`, `impact_attach_bt_req` |
+
+UI には param 名だけでなく、`describe_param()` による説明も表示されます。
+
+### Session Tuning Log
+
+Live Tuning の一時適用・preview・明示保存は、`experiments/web/session_tuning_log.jsonl` に append-only で記録されます。
+
+形式例:
+
+```json
+{
+  "timestamp": "2026-06-30T12:34:56",
+  "game_id": "20260630_123456",
+  "turn": 3,
+  "category": "no_next_attacker",
+  "risk_flags": ["no_next_attacker"],
+  "ai_action_before": "Bellowing Thunder",
+  "human_action": "Crispin",
+  "param": "impact_crispin_bolt_bonus",
+  "old_value": 200,
+  "new_value": 50,
+  "ai_action_after": "Crispin",
+  "top_candidates_before": [],
+  "top_candidates_after": [],
+  "review_label": "human_better",
+  "confidence": "high",
+  "note": "次アタッカー不在を避けるためCrispin優先が妥当"
+}
+```
+
+review label:
+
+- `human_better`
+- `agent_better`
+- `both_ok`
+- `both_bad`
+- `unclear`
+
+confidence:
+
+- `high`
+- `medium`
+- `low`
+
+このログは、後続 PR で以下に使います。
+
+- よく出る調整候補の集計
+- `params.json` への正式反映候補の選定
+- 勝率比較
+- Action Value Learning 用の教師データ候補
+
+### 関連テスト
+
+```bash
+python experiments/test_live_tuning_panel.py
+python experiments/test_runtime_param_overrides.py
+python experiments/test_live_disagreement_review.py
+python experiments/test_disagreement_review_builder.py
+python experiments/test_disagreement_label_analyzer.py
+```
+
+CI では Live Tuning / Runtime Override 系テストも実行します。
 
 ---
 
@@ -238,40 +522,3 @@ python experiments/run_matches.py --n 100 --output logs/after.csv
 # 比較
 python experiments/analyze_logs.py --results logs/after.csv
 ```
-
----
-
-## 公式環境への接続
-
-公式 API 仕様が公開されたら `main.py` の以下 2 関数だけ修正します。
-
-```python
-def _extract_state(obs) -> dict:
-    # obs の形式に合わせて state dict を返す
-
-def _extract_legal_actions(obs) -> list:
-    # obs から合法手リストを返す
-```
-
-`agent/` ディレクトリ内のコードは変更不要です。
-
----
-
-## 注意事項・未確定事項
-
-> **公式 API 仕様が未確定の箇所があります。確認が取れたら更新してください。**
-
-| 項目 | 現在の仮定 | 確認が必要な点 |
-|------|-----------|----------------|
-| エントリ関数名 | `agent(obs, config)` | Kaggle の公式ドキュメント参照 |
-| `state` の構造 | `obs["state"]` | 公式環境で確認 |
-| `legal_actions` の場所 | `obs["legal_actions"]` | 公式環境で確認 |
-| `deck.csv` フォーマット | `card_id,card_name,count` | 公式仕様書参照 |
-| カード ID | PDF の Card ID | Card_ID List_EN.pdf で要確認 |
-
----
-
-## 締め切り
-
-- Simulation カテゴリ: **2026 年 8 月 17 日**
-- Strategy カテゴリ: 2026 年 9 月 14 日

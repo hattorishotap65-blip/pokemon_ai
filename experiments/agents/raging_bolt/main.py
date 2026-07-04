@@ -623,6 +623,10 @@ class RagingBoltPolicy:
 
         if self.field_ready:
             if cid == C.ENERGY_RETRIEVAL:
+                if self.energy_in_hand >= 3:
+                    # Hand already flush with energy — save it for after the
+                    # next Bellowing Thunder (observed: human ended turn instead)
+                    return 250
                 if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2):
                     return 1200
                 if self.energy_in_discard >= 1:
@@ -681,6 +685,14 @@ class RagingBoltPolicy:
                           self.my_index)
         if target is None:
             return self.p("score_attach_energy_other", 200)
+
+        # Attach-for-lethal: one more energy anywhere turns Bellowing Thunder
+        # into a KO this turn — BT counts all field energy (observed: human
+        # attached a surplus F, then attacked for the KO)
+        if (self.active_id == C.RAGING_BOLT_EX and self.bolt_ready
+                and self.opp_active and not self.can_ko_with_bt
+                and (self.bt_total_energy + 1) * 70 >= self.opp_active_hp):
+            return 1800
 
         is_active = getattr(opt, 'inPlayArea', None) == AreaType.ACTIVE
         target_energy = _count_energy(target) if target else 0
@@ -772,14 +784,9 @@ class RagingBoltPolicy:
             if c.id == C.UNFAIR_STAMP:
                 return 550
             if c.id in BASIC_ENERGY_IDS:
-                if not self.bolt_ready:
-                    if c.id == C.BASIC_LIGHTNING_ENERGY and not self.bolt_has_lightning:
-                        return 800
-                    if c.id == C.BASIC_FIGHTING_ENERGY and not self.bolt_has_fighting:
-                        return 800
-                if c.id == C.BASIC_GRASS_ENERGY and len(self.ogerpon_on_field) > 0:
-                    return 700
-                return 550
+                # Need-based with hand-duplicate penalty (observed: hand already
+                # held Fighting, human took Grass/Lightning instead)
+                return self._score_energy_pick(c.id) + 50
             return 400
 
         if ctx == SelectContext.DISCARD:
@@ -829,6 +836,16 @@ class RagingBoltPolicy:
             if bolt_will_die:
                 return 900
             if is_on_bolt and energy_id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                # Duplicates of a type are safe to discard — only the last L/F
+                # matters for next turn's attack cost (observed: Bolt had L+F+F,
+                # human discarded the extra F and kept the L+F core)
+                try:
+                    etype = 4 if energy_id == C.BASIC_LIGHTNING_ENERGY else 6
+                    same_count = sum(1 for e in (poke.energies or []) if e == etype) if poke else 1
+                    if same_count >= 2:
+                        return 450
+                except Exception:
+                    pass
                 return 50
             last_ko = self.my_prizes <= self._opp_prize_value()
             if last_ko:
@@ -1007,6 +1024,12 @@ class RagingBoltPolicy:
             if energy_type == C.BASIC_FIGHTING_ENERGY:
                 return 300
             return 500
+        # Non-discard energy selections (attach/搬送 effects): pick by field need
+        # instead of a flat 400 (observed: AI took Grass over the Fighting the
+        # active Bolt still needed for its attack cost)
+        etype_cid = self._get_energy_type_from_opt(opt)
+        if etype_cid in BASIC_ENERGY_IDS:
+            return self._score_energy_pick(etype_cid)
         return 400
 
     def _get_energy_type_from_opt(self, opt):

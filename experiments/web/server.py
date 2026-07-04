@@ -595,9 +595,19 @@ def state_json(msg=''):
                 ranked, scores = policy.rank()
                 ai_pick = normalize_selection(ranked, scores, obs.select)
             # Prefer the real agent()'s pick (may include engine search lookahead);
-            # heuristic scores above are kept for display.
+            # heuristic scores above are kept for display. Cached per decision:
+            # the UI polls state repeatedly and the search costs ~1s per call.
             if ME['mod'].__dict__.get('agent') is not None:
-                agent_pick = sorted(set(ME['mod'].agent(g['obs_dict'])))
+                cache = g.get('agent_pick_cache')
+                # id() alone can be reused after GC — add state features so a
+                # stale pick can never leak onto a different decision.
+                key = (id(g['obs_dict']), st.turn, int(obs.select.context),
+                       len(obs.select.option), g['logseq'])
+                if cache and cache[0] == key:
+                    agent_pick = cache[1]
+                else:
+                    agent_pick = sorted(set(ME['mod'].agent(g['obs_dict'])))
+                    g['agent_pick_cache'] = (key, agent_pick)
                 if agent_pick:
                     ai_pick = agent_pick
         except Exception:
@@ -905,6 +915,15 @@ def _log_tuning_event(param=None, old_value=None, new_value=None, preview=None,
             param=param, old_value=old_value, new_value=new_value,
             preview=preview or {}, review_label=review_label, confidence=confidence, note=note,
         )
+        # Record which select context the decision belongs to — needed to map
+        # flat-score disagreements back to the right scoring branch.
+        try:
+            _obc = to_observation_class(_turn_obs_dict) if _turn_obs_dict else None
+            if _obc is not None and _obc.select is not None:
+                entry['select_context'] = CTX.get(_obc.select.context, str(_obc.select.context))
+                entry['option_types'] = sorted(set(int(o.type) for o in (_obc.select.option or [])))
+        except Exception:
+            pass
         LT.append_tuning_log(entry)
     except Exception:
         pass
@@ -1037,7 +1056,7 @@ class H(BaseHTTPRequestHandler):
             GAME['last_override'] = None
             GAME['frozen_review_obs'] = None
             LT.reset_runtime_overrides()
-            if ME.get('mod') is not None:
+            if ME.get('mod') is not None and hasattr(ME['mod'], 'P'):
                 ME['mod'].P.clear(); ME['mod'].P.update(ME.get('base_params', {}))
             try:
                 from human_trace_writer import trace_path as _tp
@@ -1123,7 +1142,7 @@ class H(BaseHTTPRequestHandler):
             }))
         if u.path == '/runtime_params/reset':
             LT.reset_runtime_overrides()
-            if ME.get('mod') is not None:
+            if ME.get('mod') is not None and hasattr(ME['mod'], 'P'):
                 ME['mod'].P.clear(); ME['mod'].P.update(ME.get('base_params', {}))
             GAME['last_override'] = None
             return self._send(200, json.dumps({'ok': True, 'overrides': LT.get_runtime_overrides()}))

@@ -1300,10 +1300,39 @@ class RagingBoltPolicy:
         score -= sum(len(p.energies or []) for p in opp_all) * self.p("se_opp_energy", 25)
         return score
 
-    def _rollforward(self, search_state, max_steps=14):
-        """Greedily play out the rest of my turn inside the search tree using
-        the heuristic policy. Stops at turn boundary / game end. Returns final State."""
+    def _opp_sim_picks(self, sel):
+        """Simple adversarial policy for the opponent's simulated turn:
+        strongest attack > end turn > forced first options."""
+        best_attack = None
+        end_idx = None
+        for i, o in enumerate(sel.option):
+            if o.type == OptionType.ATTACK:
+                a = attack_table.get(o.attackId)
+                dmg = (a.damage or 0) if a else 0
+                if best_attack is None or dmg > best_attack[0]:
+                    best_attack = (dmg, i)
+            elif o.type == OptionType.END and end_idx is None:
+                end_idx = i
+        if best_attack is not None and best_attack[0] > 0:
+            return [best_attack[1]]
+        if end_idx is not None:
+            return [end_idx]
+        n = len(sel.option)
+        need = max(sel.minCount, 1 if sel.maxCount > 0 else 0)
+        return list(range(min(need, n, sel.maxCount)))
+
+    def _rollforward(self, search_state, max_steps=None):
+        """Play out the rest of my turn (heuristic policy), then optionally the
+        opponent's response turn (strongest attack), stopping at the start of my
+        next turn / game end. Returns the final State."""
         from cg.api import search_step
+        # Default off: benchmarked neutral (Lucario 14% vs 15%, mirror 49-51)
+        # because the simulated opponent's hand is filler — their response adds
+        # no information beyond the static threat term in _eval_search_state.
+        sim_opp = bool(self.p("engine_search_opp_turn", 0))
+        if max_steps is None:
+            max_steps = 30 if sim_opp else 14
+        t0 = self.state.turn
         ss = search_state
         last_state = ss.observation.current if ss.observation else None
         for _ in range(max_steps):
@@ -1311,18 +1340,27 @@ class RagingBoltPolicy:
             if obs is None or obs.current is None:
                 break
             last_state = obs.current
-            if obs.current.result >= 0:
+            st = obs.current
+            if st.result >= 0:
                 break
             sel = obs.select
-            if sel is None or obs.current.yourIndex != self.my_index:
-                break  # opponent's decision — stop here
-            if not sel.option:
+            if sel is None or not sel.option:
                 break
-            try:
-                sub = RagingBoltPolicy(obs)
-                picks = sub.choose()
-            except Exception:
-                picks = list(range(min(max(sel.minCount, 1), len(sel.option))))
+            if st.yourIndex == self.my_index:
+                if st.turn >= t0 + 2:
+                    break  # my next turn has begun — evaluation horizon reached
+                try:
+                    sub = RagingBoltPolicy(obs)
+                    picks = sub.choose()
+                except Exception:
+                    picks = list(range(min(max(sel.minCount, 1), len(sel.option))))
+            else:
+                if not sim_opp:
+                    break
+                try:
+                    picks = self._opp_sim_picks(sel)
+                except Exception:
+                    break
             n = len(sel.option)
             picks = [i for i in picks if 0 <= i < n][:sel.maxCount]
             if len(picks) < sel.minCount:

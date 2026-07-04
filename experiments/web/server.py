@@ -594,8 +594,12 @@ def state_json(msg=''):
                 policy = ME['Policy'](obs)
                 ranked, scores = policy.rank()
                 ai_pick = normalize_selection(ranked, scores, obs.select)
-            elif ME['mod'].__dict__.get('agent') is not None:
-                ai_pick = sorted(set(ME['mod'].agent(g['obs_dict'])))
+            # Prefer the real agent()'s pick (may include engine search lookahead);
+            # heuristic scores above are kept for display.
+            if ME['mod'].__dict__.get('agent') is not None:
+                agent_pick = sorted(set(ME['mod'].agent(g['obs_dict'])))
+                if agent_pick:
+                    ai_pick = agent_pick
         except Exception:
             scores = [0] * len(obs.select.option); ai_pick = []
         out['ai_pick'] = ai_pick

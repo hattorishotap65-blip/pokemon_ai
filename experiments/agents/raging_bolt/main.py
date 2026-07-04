@@ -633,14 +633,25 @@ class RagingBoltPolicy:
             if cid == C.TERA_ORB:
                 return 650  # finds Tera Pokemon (Ogerpon); no hand cost
             if cid == C.ULTRA_BALL:
+                # Even with the field ready, a 2nd Ogerpon is worth it when the
+                # hand has 2+ disposable items to pay the cost (observed: human
+                # used Ultra Ball for a 2nd Ogerpon with spare items in hand)
+                disposable = sum(1 for h in self.hand_ids
+                                 if h in (C.POKEMON_CATCHER, C.POKEGEAR, C.SWITCH, C.UNFAIR_STAMP))
+                if len(self.ogerpon_on_field) < 2 and disposable >= 2:
+                    return 700
                 return 350  # hand cost of 2 cards is too high when field is ready
             if cid == C.POKEGEAR:
                 return 500
         else:
             if cid == C.ULTRA_BALL:
-                if not self.bolt_on_field:
-                    return 1100  # need to find Raging Bolt
-                return 400  # Bolt on field: BCS/Tera Orb find Ogerpon without hand cost
+                if not self.bolt_on_field or not self.ogerpon_on_field:
+                    # A core attacker/engine piece is missing. BCS (1200) and
+                    # Tera Orb (1150) still outrank this when in hand, so Ultra
+                    # Ball is the fallback Ogerpon access, not the first choice
+                    # (observed: human used Ultra Ball for Ogerpon on T2)
+                    return 1100
+                return 400  # both on field: hand cost of 2 is too high
             if cid == C.BUG_CATCHING_SET:
                 return 1200  # finds Ogerpon/Bolt, no discard cost
             if cid == C.TERA_ORB:
@@ -653,6 +664,10 @@ class RagingBoltPolicy:
                 return 500
 
         if cid == C.POKEMON_CATCHER:
+            if not self.bolt_ready:
+                # Can't capitalize on the gust this turn — save the Catcher
+                # (observed: human ended turn rather than burn it)
+                return 5
             return self.p("score_item_pokemon_catcher", 300)
         if cid == C.UNFAIR_STAMP:
             return self.p("score_item_unfair_stamp", 600)
@@ -733,7 +748,9 @@ class RagingBoltPolicy:
                 return 800 if bolt_on_field is None else 400
             if c.id == C.TEAL_MASK_OGERPON_EX:
                 ogre_on_field, _ = _find_pokemon_on_field(self.me, C.TEAL_MASK_OGERPON_EX)
-                return 850 if ogre_on_field is None else 400
+                # 2nd+ Ogerpon still beats 2nd Bolt: each adds a Teal Dance per turn
+                # (observed: human picked Ogerpon over Bolt when both on field)
+                return 850 if ogre_on_field is None else 500
             if c.id == C.CRISPIN:
                 return 700 if self.energy_in_hand < 3 else 400
             if c.id == C.LILLIE_DETERMINATION:
@@ -835,6 +852,9 @@ class RagingBoltPolicy:
             return 400
 
         if ctx == SelectContext.SETUP_ACTIVE_POKEMON:
+            # Ogerpon leads: tanks early chip while Bolt charges on the bench.
+            # (Human preferred Bolt lead, but A/B showed Ogerpon lead wins more:
+            # mirror 54-46 against the Bolt-lead variant.)
             if c.id == C.TEAL_MASK_OGERPON_EX:
                 return 800
             if c.id == C.RAGING_BOLT_EX:
@@ -882,12 +902,63 @@ class RagingBoltPolicy:
                     return 800
                 return 750  # even without Ogerpon on field, Grass enables Teal Dance soon
             if c.id == C.BASIC_LIGHTNING_ENERGY:
+                if self._field_bolt_missing(4):
+                    return 750  # a bench Bolt still needs Lightning
                 return 500
             if c.id == C.BASIC_FIGHTING_ENERGY:
+                if self._field_bolt_missing(6):
+                    return 750  # a bench Bolt still needs Fighting
                 return 500
             return 400
 
+        # ── Generic fallbacks for unhandled contexts (previously flat 400) ──
+        # Selecting one of my field Pokemon (e.g. Crispin attach target)
+        area = getattr(opt, 'area', None)
+        if area in (AreaType.ACTIVE, AreaType.BENCH):
+            return self._score_field_target(c, area)
+        # Selecting an energy card (e.g. Crispin's deck pick)
+        if c.id in BASIC_ENERGY_IDS:
+            return self._score_energy_pick(c.id)
+
         return 400
+
+    def _field_bolt_missing(self, etype):
+        """True if any of my field Raging Bolts lacks this energy type."""
+        return any(not any(e == etype for e in (p.energies or []))
+                   for p in self.bolt_on_field)
+
+    def _score_field_target(self, c, area):
+        """Score a field Pokemon as an effect/attach target (energy delivery).
+        Prefer a Bolt still missing its attack cost; avoid loading a dying active
+        (observed: AI fed energy to a 30HP active over a healthy bench Bolt)."""
+        if c.id == C.RAGING_BOLT_EX:
+            missing = (not any(e == 4 for e in (c.energies or []))
+                       or not any(e == 6 for e in (c.energies or [])))
+            if area == AreaType.ACTIVE and getattr(c, 'hp', 999) <= 60:
+                return 300  # likely KO'd next turn — energy would be stranded
+            if missing:
+                return 800 if area == AreaType.BENCH else 700
+            return 500
+        if c.id == C.TEAL_MASK_OGERPON_EX:
+            return 600
+        return 400
+
+    def _score_energy_pick(self, cid):
+        """Score picking an energy card (search/retrieval effects): prefer types
+        a field Bolt still needs and that the hand doesn't already hold
+        (observed: hand had L, human picked F for the attack cost)."""
+        score = 500
+        if cid == C.BASIC_LIGHTNING_ENERGY and self._field_bolt_missing(4):
+            score += 250
+        if cid == C.BASIC_FIGHTING_ENERGY and self._field_bolt_missing(6):
+            score += 250
+        if cid == C.BASIC_GRASS_ENERGY:
+            if self.ogerpon_on_field:
+                score += 100
+            if self.grass_in_hand == 0:
+                score += 50
+        score -= 100 * min(self.hand_counts.get(cid, 0), 2)
+        return score
 
     def _score_energy_select(self, i, opt):
         """Score ENERGY type options (e.g. Bellowing Thunder energy discard)."""
@@ -1383,9 +1454,17 @@ class RagingBoltPolicy:
             from cg.api import search_step
             top_k = min(int(self.p("engine_search_top_k", 5)), len(ranked))
             w_heur = self.p("engine_search_heuristic_weight", 0.15)
+            candidates = list(ranked[:top_k])
+            # The free energy attach is use-it-or-lose-it: always let the search
+            # compare attach-first vs attack-now, even if no attach ranks top-k
+            # (observed: AI attacked before attaching, wasting the attach)
+            if not any(self.select.option[i].type == OptionType.ATTACH for i in candidates):
+                attach_idxs = [i for i in ranked
+                               if self.select.option[i].type == OptionType.ATTACH]
+                if attach_idxs:
+                    candidates.append(attach_idxs[0])
             best = None
-            for pos in range(top_k):
-                i = ranked[pos]
+            for i in candidates:
                 try:
                     ss = search_step(root.searchId, [i])
                     final_state = self._rollforward(ss)

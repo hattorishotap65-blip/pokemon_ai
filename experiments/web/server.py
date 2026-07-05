@@ -610,6 +610,11 @@ def state_json(msg=''):
                     g['agent_pick_cache'] = (key, agent_pick)
                 if agent_pick:
                     ai_pick = agent_pick
+                    # Remember the search pick's labels so flagged reviews can
+                    # record what the green highlight actually recommended
+                    g['last_agent_pick_labels'] = [
+                        label_option(obs, obs.select.option[i], g['human'])
+                        for i in agent_pick if i < len(obs.select.option)]
         except Exception:
             scores = [0] * len(obs.select.option); ai_pick = []
         out['ai_pick'] = ai_pick
@@ -922,6 +927,10 @@ def _log_tuning_event(param=None, old_value=None, new_value=None, preview=None,
             if _obc is not None and _obc.select is not None:
                 entry['select_context'] = CTX.get(_obc.select.context, str(_obc.select.context))
                 entry['option_types'] = sorted(set(int(o.type) for o in (_obc.select.option or [])))
+            # What the green highlight (engine search) recommended — distinct
+            # from ai_action_before, which is the heuristic score leader
+            if GAME.get('last_agent_pick_labels'):
+                entry['ai_search_pick'] = GAME['last_agent_pick_labels']
         except Exception:
             pass
         LT.append_tuning_log(entry)

@@ -598,15 +598,28 @@ class RagingBoltPolicy:
             return 600
 
         if cid == C.LILLIE_DETERMINATION:
-            # if hand has Ogerpon-deployable cards (not Ultra Ball), play those first
-            # to reduce hand size, then draw with Lillie for maximum efficiency
-            can_add_ogerpon = (
-                C.TEAL_MASK_OGERPON_EX in self.hand_ids or
-                C.BUG_CATCHING_SET in self.hand_ids or
-                C.TERA_ORB in self.hand_ids
-            )
-            if can_add_ogerpon:
-                return 700 if len(self.hand_ids) <= 2 else 500
+            # Lillie draws best on a small hand — exhaust every hand-consuming
+            # combo first (Teal Dance draws, energy attach, ER->grass, benching
+            # Ogerpon/Bolt, BCS/Tera Orb), THEN refill. Counted generically so
+            # the rollforward also sequences the full combo before Lillie.
+            pending_plays = 0
+            if self.grass_in_hand > 0 and self.ogerpon_on_field:
+                pending_plays += 1  # Teal Dance draw still available
+            if not getattr(self.state, 'energyAttached', True):
+                needs_l = self._field_bolt_missing(4) and C.BASIC_LIGHTNING_ENERGY in self.hand_ids
+                needs_f = self._field_bolt_missing(6) and C.BASIC_FIGHTING_ENERGY in self.hand_ids
+                if needs_l or needs_f or self.grass_in_hand > 0:
+                    pending_plays += 1  # useful free attach unused
+            if (C.TEAL_MASK_OGERPON_EX in self.hand_ids or
+                    C.BUG_CATCHING_SET in self.hand_ids or
+                    C.TERA_ORB in self.hand_ids):
+                pending_plays += 1  # can add Ogerpon without a supporter slot
+            if C.RAGING_BOLT_EX in self.hand_ids:
+                pending_plays += 1  # benchable attacker in hand
+            if C.ENERGY_RETRIEVAL in self.hand_ids and self.energy_in_discard >= 1:
+                pending_plays += 1  # recovers grass to feed Teal Dance
+            if pending_plays > 0 and self.p("rule_lillie_combo_defer", 1):
+                return self.p("lillie_pending_defer_score", 550)  # combos first
             if self.field_ready:
                 return 1000 if len(self.hand_ids) <= 3 else 700
             return 1300 if len(self.hand_ids) <= 2 else 1200
@@ -623,10 +636,11 @@ class RagingBoltPolicy:
 
         if self.field_ready:
             if cid == C.ENERGY_RETRIEVAL:
-                if self.energy_in_hand >= 3:
+                if (self.energy_in_hand >= self.p("er_hold_hand_energy", 3)
+                        and self.p("rule_er_hold", 1)):
                     # Hand already flush with energy — save it for after the
                     # next Bellowing Thunder (observed: human ended turn instead)
-                    return 250
+                    return self.p("er_hold_score", 250)
                 if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2):
                     return 1200
                 if self.energy_in_discard >= 1:
@@ -668,10 +682,10 @@ class RagingBoltPolicy:
                 return 500
 
         if cid == C.POKEMON_CATCHER:
-            if not self.bolt_ready:
+            if not self.bolt_ready and self.p("rule_catcher_hold", 1):
                 # Can't capitalize on the gust this turn — save the Catcher
                 # (observed: human ended turn rather than burn it)
-                return 5
+                return self.p("catcher_hold_score", 5)
             return self.p("score_item_pokemon_catcher", 300)
         if cid == C.UNFAIR_STAMP:
             return self.p("score_item_unfair_stamp", 600)
@@ -689,10 +703,11 @@ class RagingBoltPolicy:
         # Attach-for-lethal: one more energy anywhere turns Bellowing Thunder
         # into a KO this turn — BT counts all field energy (observed: human
         # attached a surplus F, then attacked for the KO)
-        if (self.active_id == C.RAGING_BOLT_EX and self.bolt_ready
+        if (self.p("rule_attach_for_lethal", 1)
+                and self.active_id == C.RAGING_BOLT_EX and self.bolt_ready
                 and self.opp_active and not self.can_ko_with_bt
                 and (self.bt_total_energy + 1) * 70 >= self.opp_active_hp):
-            return 1800
+            return self.p("attach_for_lethal_score", 1800)
 
         is_active = getattr(opt, 'inPlayArea', None) == AreaType.ACTIVE
         target_energy = _count_energy(target) if target else 0
@@ -861,6 +876,10 @@ class RagingBoltPolicy:
                 return 750
             if c.id == C.RAGING_BOLT_EX:
                 return 700
+            if c.id in BASIC_ENERGY_IDS:
+                # Crispin's flow also asks WHICH ENERGY under ATTACH_TO
+                # (confirmed via select_context logging) — score by field need
+                return self._score_energy_pick(c.id)
             return 400
 
         if ctx == SelectContext.ATTACH_FROM:
@@ -965,16 +984,17 @@ class RagingBoltPolicy:
         a field Bolt still needs and that the hand doesn't already hold
         (observed: hand had L, human picked F for the attack cost)."""
         score = 500
+        need_bonus = self.p("energy_pick_need_bonus", 250)
         if cid == C.BASIC_LIGHTNING_ENERGY and self._field_bolt_missing(4):
-            score += 250
+            score += need_bonus
         if cid == C.BASIC_FIGHTING_ENERGY and self._field_bolt_missing(6):
-            score += 250
+            score += need_bonus
         if cid == C.BASIC_GRASS_ENERGY:
             if self.ogerpon_on_field:
-                score += 100
+                score += self.p("energy_pick_grass_teal_dance", 100)
             if self.grass_in_hand == 0:
-                score += 50
-        score -= 100 * min(self.hand_counts.get(cid, 0), 2)
+                score += self.p("energy_pick_grass_first", 50)
+        score -= self.p("energy_pick_dup_penalty", 100) * min(self.hand_counts.get(cid, 0), 2)
         return score
 
     def _score_energy_select(self, i, opt):

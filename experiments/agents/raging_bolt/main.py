@@ -1401,6 +1401,24 @@ class RagingBoltPolicy:
         if act:
             score -= (act.maxHp - act.hp) * self.p("se_my_damage", 1.0)
 
+        # ── bench damage (generic bench-snipe / spread awareness) ──
+        # The evaluator was blind to damage on my bench; spread decks (Phantom
+        # Dive etc.) pick off wounded bench attackers for prizes. Penalize
+        # accumulated bench damage, and extra for ex bench mons near KO range.
+        bench_dmg_w = self.p("se_bench_damage", 0.6)
+        bench_ko_risk_w = self.p("se_bench_ko_risk", 120)
+        for p in (me.bench or []):
+            if not p:
+                continue
+            dmg = (p.maxHp or 0) - (p.hp or 0)
+            if dmg <= 0:
+                continue
+            score -= dmg * bench_dmg_w
+            # An ex on the bench already in spread-KO range gives up prizes soon
+            pdata = card_table.get(p.id)
+            if pdata and pdata.ex and (p.hp or 0) <= 60:
+                score -= bench_ko_risk_w * prize_count(p)
+
         # ── hand quality: cards + refuel resources for the BT loop ──
         hand_ids = [c.id for c in (me.hand or [])]
         score += min(len(hand_ids), 8) * self.p("se_hand_card", 40)

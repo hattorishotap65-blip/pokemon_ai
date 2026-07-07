@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import random
 from collections import Counter, defaultdict
+
+_rng = random.Random(1234)
 
 from cg.api import (
     AreaType,
@@ -1309,9 +1312,11 @@ class RagingBoltPolicy:
 
     def _predict_hidden(self):
         """Build hidden-zone predictions for search_begin.
-        Own deck/prize: decklist minus seen cards. Opponent zones: filler —
-        rollforward stops at our turn boundary so their contents barely matter."""
+        Own deck/prize: decklist minus seen cards, shuffled so repeated calls
+        sample different draw orders / prize splits (multi-sample rollouts).
+        Opponent zones: filler — rollforward stops at our turn boundary."""
         unseen = self._my_unseen_cards()
+        _rng.shuffle(unseen)
         n_prize = len(self.me.prize)
         n_deck = self.me.deckCount or 0
         need = n_prize + n_deck
@@ -1505,42 +1510,52 @@ class RagingBoltPolicy:
 
     def _engine_search_choose(self, ranked, scores):
         """Real lookahead: apply each top candidate in the engine's search tree,
-        greedily finish my turn, evaluate the resulting board. Returns [index] or None."""
+        greedily finish my turn, evaluate the resulting board. Hidden zones are
+        re-shuffled per sample so draw-dependent lines (Lillie, Burst Roar) are
+        averaged over multiple possible decks. Returns [index] or None."""
         if self.select.maxCount != 1:
             return None
-        from cg.api import search_begin, search_end
-        preds = self._predict_hidden()
-        root = search_begin(self.obs, *preds)
-        try:
-            from cg.api import search_step
-            top_k = min(int(self.p("engine_search_top_k", 5)), len(ranked))
-            w_heur = self.p("engine_search_heuristic_weight", 0.15)
-            candidates = list(ranked[:top_k])
-            # The free energy attach is use-it-or-lose-it: always let the search
-            # compare attach-first vs attack-now, even if no attach ranks top-k
-            # (observed: AI attacked before attaching, wasting the attach)
-            if not any(self.select.option[i].type == OptionType.ATTACH for i in candidates):
-                attach_idxs = [i for i in ranked
-                               if self.select.option[i].type == OptionType.ATTACH]
-                if attach_idxs:
-                    candidates.append(attach_idxs[0])
-            best = None
-            for i in candidates:
-                try:
-                    ss = search_step(root.searchId, [i])
-                    final_state = self._rollforward(ss)
-                    ev = self._eval_search_state(final_state, self.my_index)
-                except Exception:
-                    continue
-                total = ev + scores[i] * w_heur
-                if best is None or total > best[0]:
-                    best = (total, i)
-            return [best[1]] if best else None
-        finally:
+        from cg.api import search_begin, search_end, search_step
+        top_k = min(int(self.p("engine_search_top_k", 5)), len(ranked))
+        w_heur = self.p("engine_search_heuristic_weight", 0.15)
+        n_samples = max(1, int(self.p("engine_search_samples", 1)))
+        candidates = list(ranked[:top_k])
+        # The free energy attach is use-it-or-lose-it: always let the search
+        # compare attach-first vs attack-now, even if no attach ranks top-k
+        # (observed: AI attacked before attaching, wasting the attach)
+        if not any(self.select.option[i].type == OptionType.ATTACH for i in candidates):
+            attach_idxs = [i for i in ranked
+                           if self.select.option[i].type == OptionType.ATTACH]
+            if attach_idxs:
+                candidates.append(attach_idxs[0])
+
+        totals = {i: 0.0 for i in candidates}
+        counts = {i: 0 for i in candidates}
+        for _s in range(n_samples):
+            preds = self._predict_hidden()  # fresh shuffle each sample
+            root = search_begin(self.obs, *preds)
             try:
-                search_end()
-            except Exception:
-                pass
+                for i in candidates:
+                    try:
+                        ss = search_step(root.searchId, [i])
+                        final_state = self._rollforward(ss)
+                        totals[i] += self._eval_search_state(final_state, self.my_index)
+                        counts[i] += 1
+                    except Exception:
+                        continue
+            finally:
+                try:
+                    search_end()
+                except Exception:
+                    pass
+        best = None
+        for i in candidates:
+            if counts[i] == 0:
+                continue
+            total = totals[i] / counts[i] + scores[i] * w_heur
+            if best is None or total > best[0]:
+                best = (total, i)
+        return [best[1]] if best else None
 
     # ── Shallow Search ──
 

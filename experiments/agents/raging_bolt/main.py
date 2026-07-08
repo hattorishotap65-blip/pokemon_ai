@@ -40,6 +40,9 @@ class C:
     BOSS_ORDERS = 1182
     LILLIE_DETERMINATION = 1227
     CRISPIN = 1198
+    ENERGY_SEARCH_PRO = 1100   # ACE SPEC: all different-type basic energy from deck
+    NIGHT_STRETCHER = 1097     # Pokemon or basic energy from discard to hand
+    ENERGY_SEARCH = 1119       # 1 basic energy from deck to hand
 
 
 BURST_ROAR = 71
@@ -474,7 +477,8 @@ class RagingBoltPolicy:
                 return base + self._strategy_bonus("supporter", card_id=cid)
             if cd and cd.hp and cd.hp > 0:
                 return base + self._strategy_bonus("play_pokemon", card_id=cid)
-            if cid in (C.ULTRA_BALL, C.BUG_CATCHING_SET, C.TERA_ORB, C.POKEGEAR):
+            if cid in (C.ULTRA_BALL, C.BUG_CATCHING_SET, C.TERA_ORB, C.POKEGEAR,
+                       C.ENERGY_SEARCH_PRO, C.NIGHT_STRETCHER, C.ENERGY_SEARCH):
                 return base + self._strategy_bonus("search_item", card_id=cid)
             return base
 
@@ -619,8 +623,11 @@ class RagingBoltPolicy:
                 pending_plays += 1  # can add Ogerpon without a supporter slot
             if C.RAGING_BOLT_EX in self.hand_ids:
                 pending_plays += 1  # benchable attacker in hand
-            if C.ENERGY_RETRIEVAL in self.hand_ids and self.energy_in_discard >= 1:
+            if ((C.ENERGY_RETRIEVAL in self.hand_ids or C.NIGHT_STRETCHER in self.hand_ids)
+                    and self.energy_in_discard >= 1):
                 pending_plays += 1  # recovers grass to feed Teal Dance
+            if C.ENERGY_SEARCH_PRO in self.hand_ids:
+                pending_plays += 1  # fetches energy from deck before refilling
             if pending_plays > 0 and self.p("rule_lillie_combo_defer", 1):
                 return self.p("lillie_pending_defer_score", 550)  # combos first
             if self.field_ready:
@@ -636,6 +643,25 @@ class RagingBoltPolicy:
             if self.can_ko_with_bt:
                 return 400
             return 800
+
+        # Energy Search Pro: one item assembles L+F+G from deck — highest value
+        # while the attack cost is incomplete, still fine later for grass restock
+        if cid == C.ENERGY_SEARCH_PRO:
+            if not self.bolt_ready or not self.field_ready:
+                return 1250
+            return 600
+        if cid == C.NIGHT_STRETCHER:
+            # Flexible discard recovery: energy for the BT loop, or a KO'd attacker
+            bolt_in_discard = any(c2.id == C.RAGING_BOLT_EX for c2 in (self.me.discard or []))
+            if self.energy_in_discard >= 1 or bolt_in_discard:
+                return 950 if not self.field_ready else 800
+            return 300
+        if cid == C.ENERGY_SEARCH:
+            if not self.bolt_ready and (self._field_bolt_missing(4) or self._field_bolt_missing(6)):
+                return 900  # digs the missing attack-cost type from the deck
+            if self.grass_in_hand == 0 and self.ogerpon_on_field:
+                return 650
+            return 400
 
         if self.field_ready:
             if cid == C.ENERGY_RETRIEVAL:

@@ -50,6 +50,10 @@ BELLOWING_THUNDER = 72
 MYRIAD_LEAF_SHOWER = 120
 
 BASIC_ENERGY_IDS = {C.BASIC_GRASS_ENERGY, C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY}
+# All 8 basic energy card IDs in the full pool (Grass/Fire/Water/Lightning/
+# Psychic/Fighting/Darkness/Metal) — generic, deck-independent constant used
+# to infer an opponent's energy-type mix from public evidence.
+ALL_BASIC_ENERGY_IDS = (1, 2, 3, 4, 5, 6, 7, 8)
 
 _PARAMS_PATH = os.environ.get(
     "POKEMON_AI_PARAMS_PATH",
@@ -444,12 +448,12 @@ class RagingBoltPolicy:
 
         if t == OptionType.YES:
             if self.context == SelectContext.IS_FIRST:
-                return 100
+                return self.p("is_first_yes", 100)
             return 500
 
         if t == OptionType.NO:
             if self.context == SelectContext.IS_FIRST:
-                return 900
+                return self.p("is_first_no", 900)
             return 400
 
         if t == OptionType.ATTACK:
@@ -1336,11 +1340,49 @@ class RagingBoltPolicy:
             out.extend([cid] * cnt)
         return out
 
+    def _infer_opp_energy_mix(self):
+        """Bayesian estimate of the opponent's basic-energy type distribution
+        from public evidence only (energies attached to their Pokemon + basic
+        energy cards in their discard). Dirichlet(alpha=1) smoothing over the
+        8 basic types -> posterior mean = (count_t + 1) / (total + 8).
+        Generic: uses only observable energy-type ids, no opponent-specific
+        card/deck knowledge, so it applies to any opponent archetype."""
+        counts = Counter()
+        opp = self.opponent
+        for p in list(opp.active or []) + list(opp.bench or []):
+            if not p:
+                continue
+            for e in (p.energies or []):
+                if e in ALL_BASIC_ENERGY_IDS:
+                    counts[e] += 1
+        for c in (opp.discard or []):
+            if c.id in ALL_BASIC_ENERGY_IDS:
+                counts[c.id] += 1
+        total = sum(counts.values())
+        alpha = 1  # weak uniform prior
+        types = list(ALL_BASIC_ENERGY_IDS)
+        weights = [counts.get(t, 0) + alpha for t in types]
+        wsum = sum(weights)
+        probs = [w / wsum for w in weights]
+        return types, probs
+
+    def _sample_opp_energy(self, n):
+        if n <= 0:
+            return []
+        if not self.p("rule_opp_energy_inference", 1):
+            return [C.BASIC_FIGHTING_ENERGY] * n
+        types, probs = self._infer_opp_energy_mix()
+        return _rng.choices(types, weights=probs, k=n)
+
     def _predict_hidden(self):
         """Build hidden-zone predictions for search_begin.
         Own deck/prize: decklist minus seen cards, shuffled so repeated calls
         sample different draw orders / prize splits (multi-sample rollouts).
-        Opponent zones: filler — rollforward stops at our turn boundary."""
+        Opponent zones: Pokemon identity is filler (rollforward stops at our
+        turn boundary in the common case), but energy-card filler is sampled
+        from a posterior over basic-energy types inferred from what the
+        opponent has actually played/discarded, instead of a hardcoded type —
+        matters when endgame deepening simulates the opponent's turn."""
         unseen = self._my_unseen_cards()
         _rng.shuffle(unseen)
         n_prize = len(self.me.prize)
@@ -1353,9 +1395,10 @@ class RagingBoltPolicy:
 
         opp = self.opponent
         filler_pokemon = C.RAGING_BOLT_EX  # any valid Basic Pokemon card ID
-        opp_deck = [filler_pokemon] + [C.BASIC_FIGHTING_ENERGY] * max(0, (opp.deckCount or 0) - 1)
-        opp_prize = [C.BASIC_FIGHTING_ENERGY] * len(opp.prize)
-        opp_hand = [C.BASIC_FIGHTING_ENERGY] * (opp.handCount or 0)
+        opp_deck_n = max(0, (opp.deckCount or 0) - 1)
+        opp_deck = [filler_pokemon] + self._sample_opp_energy(opp_deck_n)
+        opp_prize = self._sample_opp_energy(len(opp.prize))
+        opp_hand = self._sample_opp_energy(opp.handCount or 0)
         opp_active = []
         if opp.active and len(opp.active) > 0 and opp.active[0] is None:
             opp_active = [filler_pokemon]
@@ -1484,17 +1527,20 @@ class RagingBoltPolicy:
         need = max(sel.minCount, 1 if sel.maxCount > 0 else 0)
         return list(range(min(need, n, sel.maxCount)))
 
-    def _rollforward(self, search_state, max_steps=None):
+    def _rollforward(self, search_state, max_steps=None, sim_opp=None, horizon=2):
         """Play out the rest of my turn (heuristic policy), then optionally the
-        opponent's response turn (strongest attack), stopping at the start of my
-        next turn / game end. Returns the final State."""
+        opponent's response turn (strongest attack), stopping `horizon` turns
+        after the current one / at game end. Returns the final State.
+        horizon=2: stop at the start of my next turn (default).
+        horizon=4: continue through opponent's turn + my next full turn
+        (endgame deepening)."""
         from cg.api import search_step
-        # Default off: benchmarked neutral (Lucario 14% vs 15%, mirror 49-51)
-        # because the simulated opponent's hand is filler — their response adds
-        # no information beyond the static threat term in _eval_search_state.
-        sim_opp = bool(self.p("engine_search_opp_turn", 0))
+        if sim_opp is None:
+            # Default off: benchmarked neutral in the mid-game because the
+            # simulated opponent's hand is filler; endgame deepening overrides.
+            sim_opp = bool(self.p("engine_search_opp_turn", 0))
         if max_steps is None:
-            max_steps = 30 if sim_opp else 14
+            max_steps = 14 + (16 if (sim_opp or horizon > 2) else 0)
         t0 = self.state.turn
         ss = search_state
         last_state = ss.observation.current if ss.observation else None
@@ -1510,8 +1556,8 @@ class RagingBoltPolicy:
             if sel is None or not sel.option:
                 break
             if st.yourIndex == self.my_index:
-                if st.turn >= t0 + 2:
-                    break  # my next turn has begun — evaluation horizon reached
+                if st.turn >= t0 + horizon:
+                    break  # evaluation horizon reached
                 try:
                     sub = RagingBoltPolicy(obs)
                     picks = sub.choose()
@@ -1555,33 +1601,70 @@ class RagingBoltPolicy:
             if attach_idxs:
                 candidates.append(attach_idxs[0])
 
-        totals = {i: 0.0 for i in candidates}
-        counts = {i: 0 for i in candidates}
-        for _s in range(n_samples):
-            preds = self._predict_hidden()  # fresh shuffle each sample
-            root = search_begin(self.obs, *preds)
-            try:
-                for i in candidates:
-                    try:
-                        ss = search_step(root.searchId, [i])
-                        final_state = self._rollforward(ss)
-                        totals[i] += self._eval_search_state(final_state, self.my_index)
-                        counts[i] += 1
-                    except Exception:
-                        continue
-            finally:
+        # Endgame deepening: when either side is within 2 prizes of winning,
+        # one mistake decides the game and the board is simple enough that a
+        # 2-turn lookahead (incl. opponent's strongest response) is meaningful.
+        endgame = (len(self.me.prize) <= self.p("endgame_prize_threshold", 2)
+                   or len(self.opponent.prize) <= self.p("endgame_prize_threshold", 2))
+        horizon = 4 if (endgame and self.p("rule_endgame_deepen", 1)) else 2
+        sim_opp = True if horizon > 2 else None
+        if endgame and self.p("rule_endgame_deepen", 1):
+            n_samples = max(n_samples, int(self.p("endgame_samples", 2)))
+
+        def eval_candidates(cand_list, samples):
+            totals = {i: 0.0 for i in cand_list}
+            counts = {i: 0 for i in cand_list}
+            for _s in range(samples):
+                preds = self._predict_hidden()  # fresh shuffle each sample
+                root = search_begin(self.obs, *preds)
                 try:
-                    search_end()
-                except Exception:
-                    pass
-        best = None
-        for i in candidates:
-            if counts[i] == 0:
-                continue
-            total = totals[i] / counts[i] + scores[i] * w_heur
-            if best is None or total > best[0]:
-                best = (total, i)
-        return [best[1]] if best else None
+                    for i in cand_list:
+                        try:
+                            ss = search_step(root.searchId, [i])
+                            final_state = self._rollforward(ss, sim_opp=sim_opp,
+                                                            horizon=horizon)
+                            totals[i] += self._eval_search_state(final_state, self.my_index)
+                            counts[i] += 1
+                        except Exception:
+                            continue
+                finally:
+                    try:
+                        search_end()
+                    except Exception:
+                        pass
+            return totals, counts
+
+        totals, counts = eval_candidates(candidates, n_samples)
+
+        def ranked_by_total():
+            out = []
+            for i in candidates:
+                if counts[i]:
+                    out.append((totals[i] / counts[i] + scores[i] * w_heur, i))
+            out.sort(key=lambda x: -x[0])
+            return out
+
+        order = ranked_by_total()
+        # Adaptive compute: when the top-2 are within the noise margin, spend
+        # extra samples on just those two instead of guessing.
+        # Default OFF: regressed vs Lucario (100g 14.0% vs 17-18% baseline)
+        # while mirror looked fine (58-42) — a selection-bias/winner's-curse
+        # effect where extra samples pulled a legitimately-best top-1 back
+        # toward a mediocre top-2 that happened to score well by variance.
+        # Ablation isolated this cleanly: disabling it alone recovered to 25%
+        # (60g) while the other two new features stayed neutral-to-positive.
+        if (len(order) >= 2 and not endgame
+                and self.p("rule_adaptive_samples", 0)
+                and order[0][0] - order[1][0] < self.p("adaptive_margin", 120)):
+            extra = int(self.p("adaptive_extra_samples", 2))
+            top2 = [order[0][1], order[1][1]]
+            t2, c2 = eval_candidates(top2, extra)
+            for i in top2:
+                totals[i] += t2[i]
+                counts[i] += c2[i]
+            order = ranked_by_total()
+
+        return [order[0][1]] if order else None
 
     # ── Shallow Search ──
 

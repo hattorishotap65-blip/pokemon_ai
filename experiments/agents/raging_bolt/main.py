@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import random
 from collections import Counter, defaultdict
@@ -1597,15 +1598,19 @@ class RagingBoltPolicy:
 
     def _engine_search_choose(self, ranked, scores):
         """Real lookahead: apply each top candidate in the engine's search tree,
-        greedily finish my turn, evaluate the resulting board. Hidden zones are
-        re-shuffled per sample so draw-dependent lines (Lillie, Burst Roar) are
-        averaged over multiple possible decks. Returns [index] or None."""
+        greedily finish my turn, evaluate the resulting board, and pick via a
+        UCB1 bandit allocation of rollout budget (AIMA ch.5 MCTS selection
+        rule, applied to our flat single-ply setting -- root has k
+        already-enumerated children with no deeper tree needed, so full MCTS
+        collapses to a bandit). Hidden zones are re-shuffled every rollout
+        (AIMA's "determinization" treatment of hidden-info games) so
+        draw-dependent lines (Lillie, Burst Roar) are averaged over multiple
+        possible decks/hands. Returns [index] or None."""
         if self.select.maxCount != 1:
             return None
         from cg.api import search_begin, search_end, search_step
         top_k = min(int(self.p("engine_search_top_k", 5)), len(ranked))
         w_heur = self.p("engine_search_heuristic_weight", 0.15)
-        n_samples = max(1, int(self.p("engine_search_samples", 1)))
         candidates = list(ranked[:top_k])
         # The free energy attach is use-it-or-lose-it: always let the search
         # compare attach-first vs attack-now, even if no attach ranks top-k
@@ -1623,63 +1628,114 @@ class RagingBoltPolicy:
                    or len(self.opponent.prize) <= self.p("endgame_prize_threshold", 2))
         horizon = 4 if (endgame and self.p("rule_endgame_deepen", 1)) else 2
         sim_opp = True if horizon > 2 else None
+
+        def rollout_once(i):
+            preds = self._predict_hidden()  # fresh shuffle every rollout
+            root = search_begin(self.obs, *preds)
+            try:
+                ss = search_step(root.searchId, [i])
+                final_state = self._rollforward(ss, sim_opp=sim_opp, horizon=horizon)
+                return self._eval_search_state(final_state, self.my_index)
+            finally:
+                try:
+                    search_end()
+                except Exception:
+                    pass
+
+        # Default OFF: 100g confirmation was statistically inconclusive
+        # (vs Lucario 16.0% vs 20.0% baseline, z~0.74; mirror 53-47, also not
+        # significant) -- neither a clear win nor a clear regression at this
+        # sample size. Exploration constant C=200 and rollout budgets
+        # (+3 mid-game / +8 endgame) were never calibrated; a proper C sweep
+        # is the natural next step before trusting this path either way.
+        if self.p("rule_ucb1_search", 0):
+            return self._ucb1_choose(candidates, scores, w_heur, endgame, rollout_once)
+
+        # Legacy flat allocation, kept for rollback/ablation: every candidate
+        # gets the same fixed number of rollouts, no adaptive reallocation.
+        n_samples = max(1, int(self.p("engine_search_samples", 1)))
         if endgame and self.p("rule_endgame_deepen", 1):
             n_samples = max(n_samples, int(self.p("endgame_samples", 2)))
-
-        def eval_candidates(cand_list, samples):
-            totals = {i: 0.0 for i in cand_list}
-            counts = {i: 0 for i in cand_list}
-            for _s in range(samples):
-                preds = self._predict_hidden()  # fresh shuffle each sample
-                root = search_begin(self.obs, *preds)
+        totals = {i: 0.0 for i in candidates}
+        counts = {i: 0 for i in candidates}
+        for i in candidates:
+            for _ in range(n_samples):
                 try:
-                    for i in cand_list:
-                        try:
-                            ss = search_step(root.searchId, [i])
-                            final_state = self._rollforward(ss, sim_opp=sim_opp,
-                                                            horizon=horizon)
-                            totals[i] += self._eval_search_state(final_state, self.my_index)
-                            counts[i] += 1
-                        except Exception:
-                            continue
-                finally:
-                    try:
-                        search_end()
-                    except Exception:
-                        pass
-            return totals, counts
+                    totals[i] += rollout_once(i)
+                    counts[i] += 1
+                except Exception:
+                    continue
+        best = None
+        for i in candidates:
+            if not counts[i]:
+                continue
+            q = totals[i] / counts[i] + scores[i] * w_heur
+            if best is None or q > best[0]:
+                best = (q, i)
+        return [best[1]] if best else None
 
-        totals, counts = eval_candidates(candidates, n_samples)
+    def _ucb1_choose(self, candidates, scores, w_heur, endgame, rollout_once):
+        """UCB1 bandit allocation of rollout budget across candidate moves.
+        Replaces the earlier one-shot "boost top-2 if close" heuristic
+        (rule_adaptive_samples, disabled -- regressed vs Lucario via a
+        winner's-curse/selection-bias effect: a single coarse margin check
+        could lock a lucky-but-wrong leader in). UCB1 re-evaluates after
+        every single new rollout instead, so a leader that only *looked*
+        good by variance gets deprioritized as soon as real samples come in,
+        rather than being reinforced by one batch decision."""
+        N = {i: 0 for i in candidates}
+        total = {i: 0.0 for i in candidates}
 
-        def ranked_by_total():
-            out = []
+        # Seed every candidate with one rollout so UCB1 has data to reason
+        # about from the start.
+        for i in candidates:
+            try:
+                v = rollout_once(i)
+                N[i] += 1
+                total[i] += v
+            except Exception:
+                continue
+
+        extra_budget = int(self.p(
+            "ucb1_endgame_extra_rollouts" if endgame else "ucb1_extra_rollouts",
+            8 if endgame else 3))
+        # C is NOT the textbook sqrt(2) -- that assumes rewards normalized to
+        # [0,1]. _eval_search_state scores are raw linear-eval units (order
+        # of hundreds), so C must be calibrated to that scale; the old
+        # "adaptive_margin" (~120) was already a "how close counts as noise"
+        # estimate in the same units -- start near that magnitude and retune
+        # via the same A/B benchmark protocol as everything else in this file.
+        c = self.p("ucb1_exploration_c", 200.0)
+
+        for _ in range(extra_budget):
+            total_n = max(1, sum(N.values()))
+            best_i, best_ucb = None, None
             for i in candidates:
-                if counts[i]:
-                    out.append((totals[i] / counts[i] + scores[i] * w_heur, i))
-            out.sort(key=lambda x: -x[0])
-            return out
+                if N[i] == 0:
+                    ucb = float("inf")  # never-successfully-sampled -- try it
+                else:
+                    q = total[i] / N[i]
+                    ucb = q + c * math.sqrt(math.log(total_n) / N[i])
+                if best_ucb is None or ucb > best_ucb:
+                    best_ucb, best_i = ucb, i
+            if best_i is None:
+                break
+            try:
+                v = rollout_once(best_i)
+                N[best_i] += 1
+                total[best_i] += v
+            except Exception:
+                N[best_i] += 1  # count the attempt so a persistently-erroring
+                                 # candidate can't dominate the UCB score forever
 
-        order = ranked_by_total()
-        # Adaptive compute: when the top-2 are within the noise margin, spend
-        # extra samples on just those two instead of guessing.
-        # Default OFF: regressed vs Lucario (100g 14.0% vs 17-18% baseline)
-        # while mirror looked fine (58-42) — a selection-bias/winner's-curse
-        # effect where extra samples pulled a legitimately-best top-1 back
-        # toward a mediocre top-2 that happened to score well by variance.
-        # Ablation isolated this cleanly: disabling it alone recovered to 25%
-        # (60g) while the other two new features stayed neutral-to-positive.
-        if (len(order) >= 2 and not endgame
-                and self.p("rule_adaptive_samples", 0)
-                and order[0][0] - order[1][0] < self.p("adaptive_margin", 120)):
-            extra = int(self.p("adaptive_extra_samples", 2))
-            top2 = [order[0][1], order[1][1]]
-            t2, c2 = eval_candidates(top2, extra)
-            for i in top2:
-                totals[i] += t2[i]
-                counts[i] += c2[i]
-            order = ranked_by_total()
-
-        return [order[0][1]] if order else None
+        best = None
+        for i in candidates:
+            if N[i] == 0:
+                continue
+            q = total[i] / N[i] + scores[i] * w_heur
+            if best is None or q > best[0]:
+                best = (q, i)
+        return [best[1]] if best else None
 
     # ── Shallow Search ──
 

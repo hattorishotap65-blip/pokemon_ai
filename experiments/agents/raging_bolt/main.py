@@ -1404,6 +1404,112 @@ class RagingBoltPolicy:
             opp_active = [filler_pokemon]
         return your_deck, your_prize, opp_deck, opp_prize, opp_hand, opp_active
 
+    # Default weights for the linear board evaluator. Names match params.json
+    # keys (self.p() reads overrides from there). Signs already fold in the
+    # "cost" direction (e.g. se_prize_given is negative: more prizes given up
+    # is bad) so scoring is a plain sum(feature_i * weight_i) -- this is the
+    # same convention a fitted linear-regression weight vector would use
+    # (see fit_eval_weights.py / PRML ch.3 ridge-regression tuning).
+    _EVAL_FEATURE_WEIGHTS = {
+        "se_prize_taken": 900, "se_prize_given": -800, "se_closing": 300,
+        "se_opp_closing": -400, "se_field_energy": 60, "se_bolt_ready": 350,
+        "se_can_ko": 400, "se_bench_bolt_ready": 250,
+        "se_active_dies_prize": -350, "se_active_dies_energy": -40,
+        "se_no_backup": -200, "se_disabled": -150, "se_dot": -60,
+        "se_opp_damage": 2.0, "se_my_damage": -1.0, "se_bench_damage": -0.6,
+        "se_bench_ko_risk": -120, "se_hand_card": 40, "se_refuel_resource": 50,
+        "se_ogerpon": 120, "se_board_pokemon": 30, "se_opp_energy": -25,
+    }
+
+    def _extract_eval_features(self, state, my_index):
+        """Named feature dict for the linear board evaluator. Single source of
+        truth shared by the live weighted-sum evaluator (_eval_search_state)
+        and the offline weight-fitting script (fit_eval_weights.py), so
+        weights fitted from self-play outcome data map directly onto these
+        same param names."""
+        me = state.players[my_index]
+        opp = state.players[1 - my_index]
+        f = {}
+
+        f["se_prize_taken"] = float(6 - len(me.prize))
+        f["se_prize_given"] = float(6 - len(opp.prize))
+        f["se_closing"] = 1.0 if len(me.prize) <= 2 else 0.0
+        f["se_opp_closing"] = 1.0 if len(opp.prize) <= 2 else 0.0
+
+        my_all = [p for p in list(me.active or []) + list(me.bench or []) if p]
+        opp_all = [p for p in list(opp.active or []) + list(opp.bench or []) if p]
+        my_energy = sum(len(p.energies or []) for p in my_all)
+        f["se_field_energy"] = float(my_energy)
+
+        act = me.active[0] if me.active else None
+        opp_act = opp.active[0] if opp.active else None
+
+        act_bolt_ready = False
+        can_ko_now = False
+        if act and act.id == C.RAGING_BOLT_EX:
+            has_l = any(e == 4 for e in (act.energies or []))
+            has_f = any(e == 6 for e in (act.energies or []))
+            act_bolt_ready = has_l and has_f
+            if act_bolt_ready and opp_act and my_energy * 70 >= opp_act.hp:
+                can_ko_now = True
+        f["se_bolt_ready"] = 1.0 if act_bolt_ready else 0.0
+        f["se_can_ko"] = 1.0 if can_ko_now else 0.0
+
+        bench_bolt_ready = False
+        for p in (me.bench or []):
+            if p and p.id == C.RAGING_BOLT_EX:
+                b_l = any(e == 4 for e in (p.energies or []))
+                b_f = any(e == 6 for e in (p.energies or []))
+                if b_l and b_f:
+                    bench_bolt_ready = True
+                    break
+        f["se_bench_bolt_ready"] = 1.0 if bench_bolt_ready else 0.0
+
+        active_dies_prize = active_dies_energy = no_backup = 0.0
+        if act and opp_act:
+            opp_dmg = _static_opp_max_damage(opp_act, act.id)
+            if act.hp <= opp_dmg:
+                active_dies_prize = float(prize_count(act))
+                active_dies_energy = float(len(act.energies or []))
+                if not any(p and len(p.energies or []) > 0 for p in (me.bench or [])):
+                    no_backup = 1.0
+        f["se_active_dies_prize"] = active_dies_prize
+        f["se_active_dies_energy"] = active_dies_energy
+        f["se_no_backup"] = no_backup
+
+        f["se_disabled"] = 1.0 if (me.paralyzed or me.asleep) else 0.0
+        f["se_dot"] = 1.0 if (me.poisoned or me.burned) else 0.0
+
+        f["se_opp_damage"] = float((opp_act.maxHp - opp_act.hp)) if opp_act else 0.0
+        f["se_my_damage"] = float((act.maxHp - act.hp)) if act else 0.0
+
+        # ── bench damage (generic bench-snipe / spread awareness) ──
+        bench_damage_total = 0.0
+        bench_ko_risk_prizes = 0.0
+        for p in (me.bench or []):
+            if not p:
+                continue
+            dmg = (p.maxHp or 0) - (p.hp or 0)
+            if dmg <= 0:
+                continue
+            bench_damage_total += dmg
+            pdata = card_table.get(p.id)
+            if pdata and pdata.ex and (p.hp or 0) <= 60:
+                bench_ko_risk_prizes += prize_count(p)
+        f["se_bench_damage"] = bench_damage_total
+        f["se_bench_ko_risk"] = bench_ko_risk_prizes
+
+        hand_ids = [c.id for c in (me.hand or [])]
+        f["se_hand_card"] = float(min(len(hand_ids), 8))
+        refuel = sum(1 for cid in hand_ids
+                     if cid in (C.CRISPIN, C.ENERGY_RETRIEVAL) or cid in BASIC_ENERGY_IDS)
+        f["se_refuel_resource"] = float(min(refuel, 4))
+
+        f["se_ogerpon"] = float(sum(1 for p in my_all if p.id == C.TEAL_MASK_OGERPON_EX))
+        f["se_board_pokemon"] = float(len(my_all))
+        f["se_opp_energy"] = float(sum(len(p.energies or []) for p in opp_all))
+        return f
+
     def _eval_search_state(self, state, my_index):
         """Static evaluation of a simulated end-of-turn board from my perspective.
         Focus: prize race + can I keep attacking next turn + what do I lose to
@@ -1412,99 +1518,8 @@ class RagingBoltPolicy:
             return 0.0
         if state.result >= 0:
             return 1_000_000.0 if state.result == my_index else -1_000_000.0
-        me = state.players[my_index]
-        opp = state.players[1 - my_index]
-        score = 0.0
-
-        # ── prize race (each side's remaining prizes; closing bonuses) ──
-        my_taken = 6 - len(me.prize)
-        opp_taken = 6 - len(opp.prize)
-        score += my_taken * self.p("se_prize_taken", 900)
-        score -= opp_taken * self.p("se_prize_given", 800)
-        if len(me.prize) <= 2:
-            score += self.p("se_closing", 300)
-        if len(opp.prize) <= 2:
-            score -= self.p("se_opp_closing", 400)
-
-        my_all = [p for p in list(me.active or []) + list(me.bench or []) if p]
-        opp_all = [p for p in list(opp.active or []) + list(opp.bench or []) if p]
-        my_energy = sum(len(p.energies or []) for p in my_all)
-        score += my_energy * self.p("se_field_energy", 60)
-
-        act = me.active[0] if me.active else None
-        opp_act = opp.active[0] if opp.active else None
-
-        # ── next-turn attackability (cadence is the deck's weak point) ──
-        act_bolt_ready = False
-        if act and act.id == C.RAGING_BOLT_EX:
-            has_l = any(e == 4 for e in (act.energies or []))
-            has_f = any(e == 6 for e in (act.energies or []))
-            act_bolt_ready = has_l and has_f
-            if act_bolt_ready:
-                score += self.p("se_bolt_ready", 350)
-                if opp_act and my_energy * 70 >= opp_act.hp:
-                    score += self.p("se_can_ko", 400)
-        # backup attacker on bench keeps the engine running after a KO
-        for p in (me.bench or []):
-            if p and p.id == C.RAGING_BOLT_EX:
-                b_l = any(e == 4 for e in (p.energies or []))
-                b_f = any(e == 6 for e in (p.energies or []))
-                if b_l and b_f:
-                    score += self.p("se_bench_bolt_ready", 250)
-                    break
-
-        # ── opponent's response: does my active just die? ──
-        if act and opp_act:
-            opp_dmg = _static_opp_max_damage(opp_act, act.id)
-            if act.hp <= opp_dmg:
-                # losing the active next turn: prizes given + stranded energy
-                score -= prize_count(act) * self.p("se_active_dies_prize", 350)
-                score -= len(act.energies or []) * self.p("se_active_dies_energy", 40)
-                if not any(p and len(p.energies or []) > 0 for p in (me.bench or [])):
-                    score -= self.p("se_no_backup", 200)
-
-        # ── special conditions on my active ──
-        if me.paralyzed or me.asleep:
-            score -= self.p("se_disabled", 150)
-        if me.poisoned or me.burned:
-            score -= self.p("se_dot", 60)
-
-        # ── damage exchange ──
-        if opp_act:
-            score += (opp_act.maxHp - opp_act.hp) * self.p("se_opp_damage", 2.0)
-        if act:
-            score -= (act.maxHp - act.hp) * self.p("se_my_damage", 1.0)
-
-        # ── bench damage (generic bench-snipe / spread awareness) ──
-        # The evaluator was blind to damage on my bench; spread decks (Phantom
-        # Dive etc.) pick off wounded bench attackers for prizes. Penalize
-        # accumulated bench damage, and extra for ex bench mons near KO range.
-        bench_dmg_w = self.p("se_bench_damage", 0.6)
-        bench_ko_risk_w = self.p("se_bench_ko_risk", 120)
-        for p in (me.bench or []):
-            if not p:
-                continue
-            dmg = (p.maxHp or 0) - (p.hp or 0)
-            if dmg <= 0:
-                continue
-            score -= dmg * bench_dmg_w
-            # An ex on the bench already in spread-KO range gives up prizes soon
-            pdata = card_table.get(p.id)
-            if pdata and pdata.ex and (p.hp or 0) <= 60:
-                score -= bench_ko_risk_w * prize_count(p)
-
-        # ── hand quality: cards + refuel resources for the BT loop ──
-        hand_ids = [c.id for c in (me.hand or [])]
-        score += min(len(hand_ids), 8) * self.p("se_hand_card", 40)
-        refuel = sum(1 for cid in hand_ids
-                     if cid in (C.CRISPIN, C.ENERGY_RETRIEVAL) or cid in BASIC_ENERGY_IDS)
-        score += min(refuel, 4) * self.p("se_refuel_resource", 50)
-
-        # ── board development ──
-        score += sum(1 for p in my_all if p.id == C.TEAL_MASK_OGERPON_EX) * self.p("se_ogerpon", 120)
-        score += len(my_all) * self.p("se_board_pokemon", 30)
-        score -= sum(len(p.energies or []) for p in opp_all) * self.p("se_opp_energy", 25)
-        return score
+        feats = self._extract_eval_features(state, my_index)
+        return sum(v * self.p(k, self._EVAL_FEATURE_WEIGHTS[k]) for k, v in feats.items())
 
     def _opp_sim_picks(self, sel):
         """Simple adversarial policy for the opponent's simulated turn:

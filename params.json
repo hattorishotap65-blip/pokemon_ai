@@ -72,5 +72,10 @@
   "search_weight_future": 0.3,
   "search_weight_risk": 0.1,
   "use_value_model": false,
-  "value_model_weight": 0.1
+  "value_model_weight": 0.1,
+
+  "rule_ucb1_search": 1,
+  "ucb1_extra_rollouts": 8,
+  "ucb1_endgame_extra_rollouts": 12,
+  "ucb1_exploration_c": 200.0
 }

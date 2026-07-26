@@ -18,8 +18,15 @@ def load_dataset(path):
     return rows
 
 
-def train(dataset_path, model_dir="experiments/agents/raging_bolt"):
-    rows = load_dataset(dataset_path)
+def train(dataset_paths, model_dir="experiments/agents/raging_bolt"):
+    if isinstance(dataset_paths, str):
+        dataset_paths = [dataset_paths]
+    rows = []
+    for p in dataset_paths:
+        r = load_dataset(p)
+        wins = sum(1 for row in r if row.get("result_win") in ("1", "1.0"))
+        print("Loaded %s: %d rows, win_rate=%.3f" % (p, len(r), wins / max(1, len(r))))
+        rows.extend(r)
     if len(rows) < 20:
         print("WARNING: only %d rows, model may be unreliable" % len(rows))
         if len(rows) < 5:
@@ -52,6 +59,7 @@ def train(dataset_path, model_dir="experiments/agents/raging_bolt"):
         from sklearn.ensemble import GradientBoostingClassifier
         from sklearn.model_selection import train_test_split
         from sklearn.metrics import accuracy_score, roc_auc_score, log_loss
+        from sklearn.utils.class_weight import compute_sample_weight
     except ImportError:
         print("ERROR: sklearn not installed. pip install scikit-learn")
         return None
@@ -67,10 +75,15 @@ def train(dataset_path, model_dir="experiments/agents/raging_bolt"):
         print("WARNING: train/test split has only one class; need more data")
         return None
 
+    # Self-play states skew heavily toward losses (a few % win rate), which
+    # would otherwise teach the model to just predict the majority class.
+    # Balanced sample weights correct for that without discarding data.
+    sample_weight = compute_sample_weight("balanced", y_train)
+
     model = GradientBoostingClassifier(
         n_estimators=100, max_depth=4, learning_rate=0.1, random_state=42
     )
-    model.fit(X_train, y_train)
+    model.fit(X_train, y_train, sample_weight=sample_weight)
 
     y_pred = model.predict(X_test)
     y_proba = model.predict_proba(X_test)[:, 1]
@@ -124,9 +137,9 @@ def train(dataset_path, model_dir="experiments/agents/raging_bolt"):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python train_value_model.py <dataset.csv>")
+        print("Usage: python train_value_model.py <dataset.csv> [<dataset2.csv> ...]")
         sys.exit(1)
-    train(sys.argv[1])
+    train(sys.argv[1:])
 
 
 if __name__ == "__main__":

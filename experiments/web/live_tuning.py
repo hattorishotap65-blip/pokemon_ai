@@ -242,10 +242,15 @@ def _empty_score_snapshot():
 
 
 def _score_snapshot(compute_fn, params, param_name, value, target_label):
-    """One (param_name=value) probe: target_label's score, the current top
-    candidate's label/score, and the gap between them. Returns the "empty"
-    shape (all None) if compute_fn fails or target_label isn't a candidate
-    at this value -- never raises."""
+    """One (param_name=value) probe: target_label's score, the best *rival*
+    candidate's label/score (every other label, target_label excluded), and
+    the gap between them. Comparing against rivals only -- not the overall
+    max, which could just be target_label itself once it's winning -- so the
+    gap and top_label stay meaningful (e.g. "AI推奨" shows the runner-up,
+    not a self-tie with the very label it's being compared against).
+    Returns the "empty" shape (all None) if compute_fn fails, target_label
+    isn't a candidate at this value, or there are no rivals to compare
+    against -- never raises."""
     eff = dict(params)
     eff[param_name] = value
     try:
@@ -265,9 +270,13 @@ def _score_snapshot(compute_fn, params, param_name, value, target_label):
         return _empty_score_snapshot()
     if target_label not in by_label or not by_label:
         return _empty_score_snapshot()
-    top_label = max(by_label, key=by_label.get)
+    rivals = {l: s for l, s in by_label.items() if l != target_label}
+    if not rivals:
+        return _empty_score_snapshot()
+    top_label = max(rivals, key=rivals.get)
+    top_score = rivals[top_label]
     return {"target_score": by_label[target_label], "top_label": top_label,
-            "top_score": by_label[top_label], "gap": by_label[target_label] - by_label[top_label]}
+            "top_score": top_score, "gap": by_label[target_label] - top_score}
 
 
 def find_param_value_for_target(compute_fn, params, param_name, target_label,
@@ -286,7 +295,14 @@ def find_param_value_for_target(compute_fn, params, param_name, target_label,
 
     Returns a dict, never raises:
         found              -- True if some tried value made target_label's
-                               score >= every other candidate's (ties count)
+                               score *strictly* exceed every other
+                               candidate's. An exact tie does NOT count as
+                               found: rank()'s tie-break is Python's stable
+                               sort over option order, i.e. whichever option
+                               happened to come first in the candidate list
+                               wins -- not something a continuous param value
+                               can reliably control, so reporting a tie as
+                               "found" would be a false positive.
         value              -- the value to try (the winning value if found,
                                else the best-gap value seen, else None if
                                target_label never appeared as a candidate)
@@ -302,13 +318,20 @@ def find_param_value_for_target(compute_fn, params, param_name, target_label,
                            -- the same numbers at `value`, e.g. after the
                               suggested change "あなたの手: 3200 / AI推奨:
                               あなたの手 3200" once found=True
+        has_leverage       -- False if every probed value produced the exact
+                               same gap as before_value -- i.e. this param has
+                               zero measurable effect on this decision (often
+                               because the option's score is a hardcoded
+                               literal in the agent's source, not read from
+                               this param at all). The panel should say so
+                               plainly instead of suggesting a value to try.
     """
     base_value = params.get(param_name, 0) or 0
 
     def _snap(value):
         return _score_snapshot(compute_fn, params, param_name, value, target_label)
 
-    def _result(found, value, after):
+    def _result(found, value, after, has_leverage):
         before = _snap(base_value)
         return {
             "found": found, "value": value, "before_value": base_value,
@@ -317,13 +340,15 @@ def find_param_value_for_target(compute_fn, params, param_name, target_label,
             "before_top_score": before["top_score"],
             "after_target_score": after["target_score"], "after_top_label": after["top_label"],
             "after_top_score": after["top_score"],
+            "has_leverage": has_leverage,
         }
 
     before = _snap(base_value)
-    if before["gap"] is not None and before["gap"] >= 0:
-        return _result(True, base_value, before)
+    if before["gap"] is not None and before["gap"] > 0:
+        return _result(True, base_value, before, True)
 
     best_value, best = base_value, before
+    leverage_seen = False
     for direction in (1, -1):
         step = max(abs(base_value) * 0.5, 0.05)
         value = base_value
@@ -335,13 +360,15 @@ def find_param_value_for_target(compute_fn, params, param_name, target_label,
             if cur["gap"] is None:
                 step *= 1.6
                 continue
+            if cur["gap"] != before["gap"]:
+                leverage_seen = True
             if best["gap"] is None or cur["gap"] > best["gap"]:
                 best, best_value = cur, value
-            if cur["gap"] >= 0:
-                return _result(True, round(value, 4), cur)
+            if cur["gap"] > 0:
+                return _result(True, round(value, 4), cur, True)
             step *= 1.6
 
-    return _result(False, (round(best_value, 4) if best["gap"] is not None else None), best)
+    return _result(False, (round(best_value, 4) if best["gap"] is not None else None), best, leverage_seen)
 
 
 def build_tuning_log_entry(game_id=None, turn=None, live_review=None,

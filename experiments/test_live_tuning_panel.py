@@ -168,9 +168,10 @@ check("found case: before_target_score is Crispin's starting score",
       result["before_target_score"] == REAL_PARAMS["impact_crispin_per_energy"] * 3 + 2400)
 check("found case: before_top_label is Bellowing Thunder", result["before_top_label"] == "Bellowing Thunder")
 check("found case: before_top_score is the attack score", result["before_top_score"] == 3200)
-check("found case: after_top_label is Crispin (now on top)", result["after_top_label"] == "Crispin")
-check("found case: after_target_score == after_top_score (tied/leading)",
-      result["after_target_score"] >= result["after_top_score"])
+check("found case: after_top_label is the rival, not Crispin itself",
+      result["after_top_label"] == "Bellowing Thunder")
+check("found case: after_target_score strictly beats the rival's score",
+      result["after_target_score"] > result["after_top_score"])
 
 print("\n=== find_param_value_for_target: already satisfied ===")
 result_ok = lt.find_param_value_for_target(_fake_compute2, {"impact_crispin_per_energy": 1000}, "impact_crispin_per_energy", "Crispin")
@@ -189,6 +190,54 @@ print("\n=== find_param_value_for_target: compute_fn raises -> no crash ===")
 result_boom = lt.find_param_value_for_target(_boom, REAL_PARAMS, "impact_crispin_per_energy", "Crispin")
 check("compute_fn raises: no exception propagated", isinstance(result_boom, dict))
 check("compute_fn raises: found False", result_boom["found"] is False)
+
+
+# === an exact score tie must NOT be reported as "found" ===
+# rank()'s tie-break is a stable sort over option order -- whichever option
+# came first in the candidate list wins a tie, not something a param value
+# can control. This mirrors a real case: score_item_ultra_ball /
+# score_item_bug_catching_set exist in params.json but _score_option() in
+# raging_bolt/main.py never reads them (hardcoded literals instead), so both
+# cards always score identically and no param can move the decision.
+print("\n=== find_param_value_for_target: exact tie is not 'found' ===")
+
+
+def _fake_compute_tied(params):
+    return [
+        {"label": "Ultra Ball", "score": 1100},
+        {"label": "Bug Catching Set", "score": 1100},
+    ]
+
+
+result_tie = lt.find_param_value_for_target(_fake_compute_tied, REAL_PARAMS, "impact_crispin_per_energy", "Bug Catching Set")
+check("exact tie: found False (ties don't count)", result_tie["found"] is False)
+check("exact tie: before_gap == 0", result_tie["before_gap"] == 0)
+check("exact tie: has_leverage False (param never moves either score)", result_tie["has_leverage"] is False)
+check("exact tie: value left at the unchanged base value",
+      result_tie["value"] == REAL_PARAMS["impact_crispin_per_energy"])
+
+# === a param that the scoring formula never reads has zero leverage ===
+print("\n=== find_param_value_for_target: irrelevant param has no leverage ===")
+
+
+def _fake_compute_other_param(params):
+    s = params.get("real_lever", 100)
+    return [
+        {"label": "AI Pick", "score": 1000},
+        {"label": "Human Pick", "score": 500 + s},
+    ]
+
+
+irrelevant_params = dict(REAL_PARAMS, irrelevant_param=42, real_lever=100)
+result_irrelevant = lt.find_param_value_for_target(
+    _fake_compute_other_param, irrelevant_params, "irrelevant_param", "Human Pick")
+check("irrelevant param: found False", result_irrelevant["found"] is False)
+check("irrelevant param: has_leverage False", result_irrelevant["has_leverage"] is False)
+
+result_relevant = lt.find_param_value_for_target(
+    _fake_compute_other_param, irrelevant_params, "real_lever", "Human Pick")
+check("relevant param: found True", result_relevant["found"] is True)
+check("relevant param: has_leverage True", result_relevant["has_leverage"] is True)
 check("compute_fn raises: before_target_score is None", result_boom["before_target_score"] is None)
 
 # === default params.json on disk is never touched by any of this ===

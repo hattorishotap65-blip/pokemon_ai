@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import math
 import os
-from collections import defaultdict
+import random
+from collections import Counter, defaultdict
+
+_rng = random.Random(1234)
 
 from cg.api import (
     AreaType,
@@ -37,6 +41,9 @@ class C:
     BOSS_ORDERS = 1182
     LILLIE_DETERMINATION = 1227
     CRISPIN = 1198
+    ENERGY_SEARCH_PRO = 1100   # ACE SPEC: all different-type basic energy from deck
+    NIGHT_STRETCHER = 1097     # Pokemon or basic energy from discard to hand
+    ENERGY_SEARCH = 1119       # 1 basic energy from deck to hand
 
 
 BURST_ROAR = 71
@@ -44,6 +51,10 @@ BELLOWING_THUNDER = 72
 MYRIAD_LEAF_SHOWER = 120
 
 BASIC_ENERGY_IDS = {C.BASIC_GRASS_ENERGY, C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY}
+# All 8 basic energy card IDs in the full pool (Grass/Fire/Water/Lightning/
+# Psychic/Fighting/Darkness/Metal) — generic, deck-independent constant used
+# to infer an opponent's energy-type mix from public evidence.
+ALL_BASIC_ENERGY_IDS = (1, 2, 3, 4, 5, 6, 7, 8)
 
 _PARAMS_PATH = os.environ.get(
     "POKEMON_AI_PARAMS_PATH",
@@ -75,6 +86,35 @@ P = _load_params()
 
 all_card = all_card_data()
 card_table = {card.cardId: card for card in all_card}
+
+try:
+    from cg.api import all_attack as _all_attack
+    attack_table = {a.attackId: a for a in _all_attack()}
+except Exception:
+    attack_table = {}
+
+
+def _static_opp_max_damage(opp_active, my_active_id):
+    """Max damage opponent's active can deal next turn with current energy."""
+    if opp_active is None:
+        return 0
+    opp_data = card_table.get(opp_active.id)
+    if not opp_data or not attack_table:
+        return 150
+    opp_energy = len(opp_active.energies or [])
+    max_dmg = 0
+    for aid in (opp_data.attacks or []):
+        a = attack_table.get(aid)
+        if not a:
+            continue
+        cost = len(a.energies) if a.energies else 0
+        if opp_energy >= cost and (a.damage or 0) > max_dmg:
+            max_dmg = a.damage or 0
+    my_data = card_table.get(my_active_id)
+    if my_data and my_data.weakness is not None:
+        if getattr(opp_data, 'energyType', None) == my_data.weakness:
+            max_dmg *= 2
+    return max_dmg
 
 pre_turn = -1
 ability_used_teal_dance = False
@@ -349,6 +389,7 @@ class RagingBoltPolicy:
             if action_type == "attach" and card_id != C.RAGING_BOLT_EX:
                 bonus -= 100
 
+
         if "behind_prize_race" in self.risks:
             if action_type == "attack":
                 bonus += 300
@@ -404,16 +445,16 @@ class RagingBoltPolicy:
         t = opt.type
 
         if t == OptionType.END:
-            return 50
+            return self.p("score_end_turn", 50)
 
         if t == OptionType.YES:
             if self.context == SelectContext.IS_FIRST:
-                return 100
+                return self.p("is_first_yes", 100)
             return 500
 
         if t == OptionType.NO:
             if self.context == SelectContext.IS_FIRST:
-                return 900
+                return self.p("is_first_no", 900)
             return 400
 
         if t == OptionType.ATTACK:
@@ -441,7 +482,8 @@ class RagingBoltPolicy:
                 return base + self._strategy_bonus("supporter", card_id=cid)
             if cd and cd.hp and cd.hp > 0:
                 return base + self._strategy_bonus("play_pokemon", card_id=cid)
-            if cid in (C.ULTRA_BALL, C.BUG_CATCHING_SET, C.TERA_ORB, C.POKEGEAR):
+            if cid in (C.ULTRA_BALL, C.BUG_CATCHING_SET, C.TERA_ORB, C.POKEGEAR,
+                       C.ENERGY_SEARCH_PRO, C.NIGHT_STRETCHER, C.ENERGY_SEARCH):
                 return base + self._strategy_bonus("search_item", card_id=cid)
             return base
 
@@ -539,8 +581,17 @@ class RagingBoltPolicy:
         cid = c.id
 
         if cid == C.RAGING_BOLT_EX:
+            if not self.bolt_on_field:
+                # first Bolt not yet on field: bench it directly over search/draw
+                # (observed 2x: human played Bolt over Lillie/Ultra Ball)
+                return 1250
             return self.p("score_play_pokemon_raging_bolt", 500)
         if cid == C.TEAL_MASK_OGERPON_EX:
+            ogerpon_bench = [p for p in (self.me.bench or []) if p and p.id == C.TEAL_MASK_OGERPON_EX]
+            if not self.ogerpon_on_field or not ogerpon_bench:
+                # always same high priority as first placement — Ogerpon on bench
+                # is essential for Teal Dance draw engine
+                return 1100
             return self.p("score_play_pokemon_ogerpon", 600)
 
         if cid == C.CRISPIN:
@@ -549,19 +600,44 @@ class RagingBoltPolicy:
             if self.field_ready and self.energy_in_discard >= 1:
                 return 1500
             if not self.bolt_ready and self.energy_in_discard >= 1:
+                if self.ogerpon_on_field and self.grass_in_hand > 0 and len(self.hand_ids) <= 3:
+                    # hand thin + Teal Dance available: draw via Ogerpon ability first,
+                    # attach energy next turn — observed 4x in session_tuning_log.jsonl
+                    return 1000
                 return 1300
             if self.energy_in_discard >= 1:
                 return 1100
             return 600
 
         if cid == C.LILLIE_DETERMINATION:
+            # Lillie draws best on a small hand — exhaust every hand-consuming
+            # combo first (Teal Dance draws, energy attach, ER->grass, benching
+            # Ogerpon/Bolt, BCS/Tera Orb), THEN refill. Counted generically so
+            # the rollforward also sequences the full combo before Lillie.
+            pending_plays = 0
+            if self.grass_in_hand > 0 and self.ogerpon_on_field:
+                pending_plays += 1  # Teal Dance draw still available
+            if not getattr(self.state, 'energyAttached', True):
+                needs_l = self._field_bolt_missing(4) and C.BASIC_LIGHTNING_ENERGY in self.hand_ids
+                needs_f = self._field_bolt_missing(6) and C.BASIC_FIGHTING_ENERGY in self.hand_ids
+                if needs_l or needs_f or self.grass_in_hand > 0:
+                    pending_plays += 1  # useful free attach unused
+            if (C.TEAL_MASK_OGERPON_EX in self.hand_ids or
+                    C.BUG_CATCHING_SET in self.hand_ids or
+                    C.TERA_ORB in self.hand_ids):
+                pending_plays += 1  # can add Ogerpon without a supporter slot
+            if C.RAGING_BOLT_EX in self.hand_ids:
+                pending_plays += 1  # benchable attacker in hand
+            if ((C.ENERGY_RETRIEVAL in self.hand_ids or C.NIGHT_STRETCHER in self.hand_ids)
+                    and self.energy_in_discard >= 1):
+                pending_plays += 1  # recovers grass to feed Teal Dance
+            if C.ENERGY_SEARCH_PRO in self.hand_ids:
+                pending_plays += 1  # fetches energy from deck before refilling
+            if pending_plays > 0 and self.p("rule_lillie_combo_defer", 1):
+                return self.p("lillie_pending_defer_score", 550)  # combos first
             if self.field_ready:
-                if len(self.hand_ids) <= 3:
-                    return 1000
-                return 700
-            if len(self.hand_ids) <= 2:
-                return 1300
-            return 1200
+                return 1000 if len(self.hand_ids) <= 3 else 700
+            return 1300 if len(self.hand_ids) <= 2 else 1200
 
         if cid == C.BOSS_ORDERS:
             if self.active_hp_pct <= 20:
@@ -573,36 +649,77 @@ class RagingBoltPolicy:
                 return 400
             return 800
 
+        # Energy Search Pro: one item assembles L+F+G from deck — highest value
+        # while the attack cost is incomplete, still fine later for grass restock
+        if cid == C.ENERGY_SEARCH_PRO:
+            if not self.bolt_ready or not self.field_ready:
+                return 1250
+            return 600
+        if cid == C.NIGHT_STRETCHER:
+            # Flexible discard recovery: energy for the BT loop, or a KO'd attacker
+            bolt_in_discard = any(c2.id == C.RAGING_BOLT_EX for c2 in (self.me.discard or []))
+            if self.energy_in_discard >= 1 or bolt_in_discard:
+                return 950 if not self.field_ready else 800
+            return 300
+        if cid == C.ENERGY_SEARCH:
+            if not self.bolt_ready and (self._field_bolt_missing(4) or self._field_bolt_missing(6)):
+                return 900  # digs the missing attack-cost type from the deck
+            if self.grass_in_hand == 0 and self.ogerpon_on_field:
+                return 650
+            return 400
+
         if self.field_ready:
             if cid == C.ENERGY_RETRIEVAL:
-                if self.energy_in_discard >= 2:
+                if (self.energy_in_hand >= self.p("er_hold_hand_energy", 3)
+                        and self.p("rule_er_hold", 1)):
+                    # Hand already flush with energy — save it for after the
+                    # next Bellowing Thunder (observed: human ended turn instead)
+                    return self.p("er_hold_score", 250)
+                if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2):
                     return 1200
                 if self.energy_in_discard >= 1:
                     return 1000
                 return 400
-            if cid == C.ULTRA_BALL:
-                return 600
-            if cid == C.POKEGEAR:
-                return 500
             if cid == C.BUG_CATCHING_SET:
-                return 500
+                return 700  # no hand cost; preferred for finding Ogerpon/energy
             if cid == C.TERA_ORB:
+                return 650  # finds Tera Pokemon (Ogerpon); no hand cost
+            if cid == C.ULTRA_BALL:
+                # Even with the field ready, a 2nd Ogerpon is worth it when the
+                # hand has 2+ disposable items to pay the cost (observed: human
+                # used Ultra Ball for a 2nd Ogerpon with spare items in hand)
+                disposable = sum(1 for h in self.hand_ids
+                                 if h in (C.POKEMON_CATCHER, C.POKEGEAR, C.SWITCH, C.UNFAIR_STAMP))
+                if len(self.ogerpon_on_field) < 2 and disposable >= 2:
+                    return 700
+                return 350  # hand cost of 2 cards is too high when field is ready
+            if cid == C.POKEGEAR:
                 return 500
         else:
             if cid == C.ULTRA_BALL:
-                return 1100
+                if not self.bolt_on_field or not self.ogerpon_on_field:
+                    # A core attacker/engine piece is missing. BCS (1200) and
+                    # Tera Orb (1150) still outrank this when in hand, so Ultra
+                    # Ball is the fallback Ogerpon access, not the first choice
+                    # (observed: human used Ultra Ball for Ogerpon on T2)
+                    return 1100
+                return 400  # both on field: hand cost of 2 is too high
             if cid == C.BUG_CATCHING_SET:
-                return 1100
+                return 1200  # finds Ogerpon/Bolt, no discard cost
             if cid == C.TERA_ORB:
-                return 1050
+                return 1150  # finds Tera Pokemon (Ogerpon), no discard cost
             if cid == C.POKEGEAR:
                 return 1000
             if cid == C.ENERGY_RETRIEVAL:
-                if self.energy_in_discard >= 2:
+                if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2):
                     return 900
                 return 500
 
         if cid == C.POKEMON_CATCHER:
+            if not self.bolt_ready and self.p("rule_catcher_hold", 1):
+                # Can't capitalize on the gust this turn — save the Catcher
+                # (observed: human ended turn rather than burn it)
+                return self.p("catcher_hold_score", 5)
             return self.p("score_item_pokemon_catcher", 300)
         if cid == C.UNFAIR_STAMP:
             return self.p("score_item_unfair_stamp", 600)
@@ -616,6 +733,15 @@ class RagingBoltPolicy:
                           self.my_index)
         if target is None:
             return self.p("score_attach_energy_other", 200)
+
+        # Attach-for-lethal: one more energy anywhere turns Bellowing Thunder
+        # into a KO this turn — BT counts all field energy (observed: human
+        # attached a surplus F, then attacked for the KO)
+        if (self.p("rule_attach_for_lethal", 1)
+                and self.active_id == C.RAGING_BOLT_EX and self.bolt_ready
+                and self.opp_active and not self.can_ko_with_bt
+                and (self.bt_total_energy + 1) * 70 >= self.opp_active_hp):
+            return self.p("attach_for_lethal_score", 1800)
 
         is_active = getattr(opt, 'inPlayArea', None) == AreaType.ACTIVE
         target_energy = _count_energy(target) if target else 0
@@ -632,14 +758,18 @@ class RagingBoltPolicy:
                 return 1400
             if energy_id == C.BASIC_GRASS_ENERGY:
                 return 100
+            if is_active and self.active_hp_pct <= self.p("retreat_hp_threshold_pct", 30):
+                return self.p("score_attach_energy_raging_bolt_active_low_hp", 350)
             if is_active:
                 return 500 + target_energy * 30
-            return 400
+            return self.p("score_attach_energy_raging_bolt_bench", 400)
 
         if target.id == C.TEAL_MASK_OGERPON_EX:
             if energy_id == C.BASIC_GRASS_ENERGY:
                 return 600
-            return 400
+            # L/F energy on Ogerpon is wasted — it only uses Grass energy
+            # (observed: human always attached L energy to Bolt instead)
+            return 100
 
         return self.p("score_attach_energy_other", 200)
 
@@ -660,8 +790,8 @@ class RagingBoltPolicy:
             bench_any = [p for p in (self.me.bench or []) if p and _count_energy(p) >= 1]
             if bench_any:
                 return 900
-        if self.active_hp_pct <= 30:
-            return 400
+        if self.active_hp_pct <= self.p("retreat_hp_threshold_pct", 30):
+            return self.p("score_retreat_damaged_active", 400)
         return 100
 
     def _score_card_select(self, i, opt):
@@ -679,7 +809,9 @@ class RagingBoltPolicy:
                 return 800 if bolt_on_field is None else 400
             if c.id == C.TEAL_MASK_OGERPON_EX:
                 ogre_on_field, _ = _find_pokemon_on_field(self.me, C.TEAL_MASK_OGERPON_EX)
-                return 850 if ogre_on_field is None else 400
+                # 2nd+ Ogerpon still beats 2nd Bolt: each adds a Teal Dance per turn
+                # (observed: human picked Ogerpon over Bolt when both on field)
+                return 850 if ogre_on_field is None else 500
             if c.id == C.CRISPIN:
                 return 700 if self.energy_in_hand < 3 else 400
             if c.id == C.LILLIE_DETERMINATION:
@@ -691,7 +823,7 @@ class RagingBoltPolicy:
             if c.id == C.TERA_ORB:
                 return 580
             if c.id == C.ENERGY_RETRIEVAL:
-                return 620 if self.energy_in_discard >= 2 else 450
+                return 620 if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2) else 450
             if c.id == C.POKEMON_CATCHER:
                 return 500
             if c.id == C.BUG_CATCHING_SET:
@@ -701,21 +833,39 @@ class RagingBoltPolicy:
             if c.id == C.UNFAIR_STAMP:
                 return 550
             if c.id in BASIC_ENERGY_IDS:
-                if not self.bolt_ready:
-                    if c.id == C.BASIC_LIGHTNING_ENERGY and not self.bolt_has_lightning:
-                        return 800
-                    if c.id == C.BASIC_FIGHTING_ENERGY and not self.bolt_has_fighting:
-                        return 800
-                if c.id == C.BASIC_GRASS_ENERGY and len(self.ogerpon_on_field) > 0:
-                    return 700
-                return 550
+                # Need-based with hand-duplicate penalty (observed: hand already
+                # held Fighting, human took Grass/Lightning instead)
+                return self._score_energy_pick(c.id) + 50
             return 400
 
-        if ctx in (SelectContext.DISCARD, SelectContext.DISCARD_ENERGY_CARD):
-            energy_id = self._get_energy_type_from_opt(opt) if ctx == SelectContext.DISCARD_ENERGY_CARD else c.id
+        if ctx == SelectContext.DISCARD:
+            # Ultra Ball hand-discard cost: discard items first, keep energy especially Grass
+            # (observed 4x: human discards Pokegear/Catcher/Tera Orb rather than Grass energy)
+            if c.id == C.POKEMON_CATCHER:
+                return 850
+            if c.id == C.POKEGEAR:
+                return 800
+            if c.id == C.UNFAIR_STAMP:
+                return 750
+            if c.id in (C.TERA_ORB, C.BUG_CATCHING_SET):
+                return 600
+            if c.id == C.ENERGY_RETRIEVAL:
+                return 550
+            if c.id in (C.RAGING_BOLT_EX, C.TEAL_MASK_OGERPON_EX):
+                return 100
+            if c.id == C.BASIC_GRASS_ENERGY:
+                return 200  # keep Grass for Ogerpon Teal Dance
+            if c.id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                return 300
+            if c.id in (C.LILLIE_DETERMINATION, C.CRISPIN):
+                return 380
+            return 500
+
+        if ctx == SelectContext.DISCARD_ENERGY_CARD:
+            energy_id = self._get_energy_type_from_opt(opt)
             is_on_bolt = False
             is_active_bolt = False
-            if ctx == SelectContext.DISCARD_ENERGY_CARD:
+            if True:  # always DISCARD_ENERGY_CARD here
                 area_d = getattr(opt, 'area', None)
                 try:
                     player = self.obs.current.players[self.my_index]
@@ -735,6 +885,16 @@ class RagingBoltPolicy:
             if bolt_will_die:
                 return 900
             if is_on_bolt and energy_id in (C.BASIC_LIGHTNING_ENERGY, C.BASIC_FIGHTING_ENERGY):
+                # Duplicates of a type are safe to discard — only the last L/F
+                # matters for next turn's attack cost (observed: Bolt had L+F+F,
+                # human discarded the extra F and kept the L+F core)
+                try:
+                    etype = 4 if energy_id == C.BASIC_LIGHTNING_ENERGY else 6
+                    same_count = sum(1 for e in (poke.energies or []) if e == etype) if poke else 1
+                    if same_count >= 2:
+                        return 450
+                except Exception:
+                    pass
                 return 50
             last_ko = self.my_prizes <= self._opp_prize_value()
             if last_ko:
@@ -750,6 +910,10 @@ class RagingBoltPolicy:
                 return 750
             if c.id == C.RAGING_BOLT_EX:
                 return 700
+            if c.id in BASIC_ENERGY_IDS:
+                # Crispin's flow also asks WHICH ENERGY under ATTACH_TO
+                # (confirmed via select_context logging) — score by field need
+                return self._score_energy_pick(c.id)
             return 400
 
         if ctx == SelectContext.ATTACH_FROM:
@@ -758,6 +922,9 @@ class RagingBoltPolicy:
             return 400
 
         if ctx == SelectContext.SETUP_ACTIVE_POKEMON:
+            # Ogerpon leads: tanks early chip while Bolt charges on the bench.
+            # (Human preferred Bolt lead, but A/B showed Ogerpon lead wins more:
+            # mirror 54-46 against the Bolt-lead variant.)
             if c.id == C.TEAL_MASK_OGERPON_EX:
                 return 800
             if c.id == C.RAGING_BOLT_EX:
@@ -779,6 +946,15 @@ class RagingBoltPolicy:
                 return 600
             return 300
 
+        if ctx == SelectContext.TO_ACTIVE:
+            # Replacing fainted active — prefer Bolt (with energy) then Ogerpon
+            if c.id == C.RAGING_BOLT_EX:
+                bolt_energy = _count_energy(c) if hasattr(c, 'energies') else 0
+                return 700 + bolt_energy * 50
+            if c.id == C.TEAL_MASK_OGERPON_EX:
+                return 600
+            return 300
+
         if ctx == SelectContext.TO_DECK:
             return 400
 
@@ -790,15 +966,70 @@ class RagingBoltPolicy:
                     return 900
             if c.id == C.BASIC_GRASS_ENERGY:
                 if len(self.ogerpon_on_field) > 0:
+                    fighting_in_hand = C.BASIC_FIGHTING_ENERGY in self.hand_ids
+                    if not self.bolt_has_fighting and fighting_in_hand:
+                        return 950
                     return 800
-                return 600
+                return 750  # even without Ogerpon on field, Grass enables Teal Dance soon
             if c.id == C.BASIC_LIGHTNING_ENERGY:
+                if self._field_bolt_missing(4):
+                    return 750  # a bench Bolt still needs Lightning
                 return 500
             if c.id == C.BASIC_FIGHTING_ENERGY:
+                if self._field_bolt_missing(6):
+                    return 750  # a bench Bolt still needs Fighting
                 return 500
             return 400
 
+        # ── Generic fallbacks for unhandled contexts (previously flat 400) ──
+        # Selecting one of my field Pokemon (e.g. Crispin attach target)
+        area = getattr(opt, 'area', None)
+        if area in (AreaType.ACTIVE, AreaType.BENCH):
+            return self._score_field_target(c, area)
+        # Selecting an energy card (e.g. Crispin's deck pick)
+        if c.id in BASIC_ENERGY_IDS:
+            return self._score_energy_pick(c.id)
+
         return 400
+
+    def _field_bolt_missing(self, etype):
+        """True if any of my field Raging Bolts lacks this energy type."""
+        return any(not any(e == etype for e in (p.energies or []))
+                   for p in self.bolt_on_field)
+
+    def _score_field_target(self, c, area):
+        """Score a field Pokemon as an effect/attach target (energy delivery).
+        Prefer a Bolt still missing its attack cost; avoid loading a dying active
+        (observed: AI fed energy to a 30HP active over a healthy bench Bolt)."""
+        if c.id == C.RAGING_BOLT_EX:
+            missing = (not any(e == 4 for e in (c.energies or []))
+                       or not any(e == 6 for e in (c.energies or [])))
+            if area == AreaType.ACTIVE and getattr(c, 'hp', 999) <= 60:
+                return 300  # likely KO'd next turn — energy would be stranded
+            if missing:
+                return 800 if area == AreaType.BENCH else 700
+            return 500
+        if c.id == C.TEAL_MASK_OGERPON_EX:
+            return 600
+        return 400
+
+    def _score_energy_pick(self, cid):
+        """Score picking an energy card (search/retrieval effects): prefer types
+        a field Bolt still needs and that the hand doesn't already hold
+        (observed: hand had L, human picked F for the attack cost)."""
+        score = 500
+        need_bonus = self.p("energy_pick_need_bonus", 250)
+        if cid == C.BASIC_LIGHTNING_ENERGY and self._field_bolt_missing(4):
+            score += need_bonus
+        if cid == C.BASIC_FIGHTING_ENERGY and self._field_bolt_missing(6):
+            score += need_bonus
+        if cid == C.BASIC_GRASS_ENERGY:
+            if self.ogerpon_on_field:
+                score += self.p("energy_pick_grass_teal_dance", 100)
+            if self.grass_in_hand == 0:
+                score += self.p("energy_pick_grass_first", 50)
+        score -= self.p("energy_pick_dup_penalty", 100) * min(self.hand_counts.get(cid, 0), 2)
+        return score
 
     def _score_energy_select(self, i, opt):
         """Score ENERGY type options (e.g. Bellowing Thunder energy discard)."""
@@ -847,6 +1078,12 @@ class RagingBoltPolicy:
             if energy_type == C.BASIC_FIGHTING_ENERGY:
                 return 300
             return 500
+        # Non-discard energy selections (attach/搬送 effects): pick by field need
+        # instead of a flat 400 (observed: AI took Grass over the Fighting the
+        # active Bolt still needed for its attack cost)
+        etype_cid = self._get_energy_type_from_opt(opt)
+        if etype_cid in BASIC_ENERGY_IDS:
+            return self._score_energy_pick(etype_cid)
         return 400
 
     def _get_energy_type_from_opt(self, opt):
@@ -1071,6 +1308,435 @@ class RagingBoltPolicy:
 
         return scenarios
 
+    # ── Engine Search (real 1-turn lookahead via cg search API) ──
+
+    def _my_unseen_cards(self):
+        """My deck+prize contents = full decklist minus everything I can see."""
+        remaining = Counter(my_deck)
+
+        def dec(cid):
+            if remaining.get(cid, 0) > 0:
+                remaining[cid] -= 1
+
+        for c in (self.me.hand or []):
+            dec(c.id)
+        for c in (self.me.discard or []):
+            dec(c.id)
+        for p in list(self.me.active or []) + list(self.me.bench or []):
+            if not p:
+                continue
+            dec(p.id)
+            for c in (p.energyCards or []):
+                dec(c.id)
+            for c in (p.tools or []):
+                dec(c.id)
+            for c in (p.preEvolution or []):
+                dec(c.id)
+        for c in (self.state.stadium or []):
+            if c is not None and getattr(c, 'playerIndex', -1) == self.my_index:
+                dec(c.id)
+
+        out = []
+        for cid, cnt in remaining.items():
+            out.extend([cid] * cnt)
+        return out
+
+    def _infer_opp_energy_mix(self):
+        """Bayesian estimate of the opponent's basic-energy type distribution
+        from public evidence only (energies attached to their Pokemon + basic
+        energy cards in their discard). Dirichlet(alpha=1) smoothing over the
+        8 basic types -> posterior mean = (count_t + 1) / (total + 8).
+        Generic: uses only observable energy-type ids, no opponent-specific
+        card/deck knowledge, so it applies to any opponent archetype."""
+        counts = Counter()
+        opp = self.opponent
+        for p in list(opp.active or []) + list(opp.bench or []):
+            if not p:
+                continue
+            for e in (p.energies or []):
+                if e in ALL_BASIC_ENERGY_IDS:
+                    counts[e] += 1
+        for c in (opp.discard or []):
+            if c.id in ALL_BASIC_ENERGY_IDS:
+                counts[c.id] += 1
+        total = sum(counts.values())
+        alpha = 1  # weak uniform prior
+        types = list(ALL_BASIC_ENERGY_IDS)
+        weights = [counts.get(t, 0) + alpha for t in types]
+        wsum = sum(weights)
+        probs = [w / wsum for w in weights]
+        return types, probs
+
+    def _sample_opp_energy(self, n):
+        if n <= 0:
+            return []
+        if not self.p("rule_opp_energy_inference", 1):
+            return [C.BASIC_FIGHTING_ENERGY] * n
+        types, probs = self._infer_opp_energy_mix()
+        return _rng.choices(types, weights=probs, k=n)
+
+    def _predict_hidden(self):
+        """Build hidden-zone predictions for search_begin.
+        Own deck/prize: decklist minus seen cards, shuffled so repeated calls
+        sample different draw orders / prize splits (multi-sample rollouts).
+        Opponent zones: Pokemon identity is filler (rollforward stops at our
+        turn boundary in the common case), but energy-card filler is sampled
+        from a posterior over basic-energy types inferred from what the
+        opponent has actually played/discarded, instead of a hardcoded type —
+        matters when endgame deepening simulates the opponent's turn."""
+        unseen = self._my_unseen_cards()
+        _rng.shuffle(unseen)
+        n_prize = len(self.me.prize)
+        n_deck = self.me.deckCount or 0
+        need = n_prize + n_deck
+        if len(unseen) < need:
+            unseen = unseen + [C.BASIC_LIGHTNING_ENERGY] * (need - len(unseen))
+        your_prize = unseen[:n_prize]
+        your_deck = unseen[n_prize:n_prize + n_deck]
+
+        opp = self.opponent
+        filler_pokemon = C.RAGING_BOLT_EX  # any valid Basic Pokemon card ID
+        opp_deck_n = max(0, (opp.deckCount or 0) - 1)
+        opp_deck = [filler_pokemon] + self._sample_opp_energy(opp_deck_n)
+        opp_prize = self._sample_opp_energy(len(opp.prize))
+        opp_hand = self._sample_opp_energy(opp.handCount or 0)
+        opp_active = []
+        if opp.active and len(opp.active) > 0 and opp.active[0] is None:
+            opp_active = [filler_pokemon]
+        return your_deck, your_prize, opp_deck, opp_prize, opp_hand, opp_active
+
+    # Default weights for the linear board evaluator. Names match params.json
+    # keys (self.p() reads overrides from there). Signs already fold in the
+    # "cost" direction (e.g. se_prize_given is negative: more prizes given up
+    # is bad) so scoring is a plain sum(feature_i * weight_i) -- this is the
+    # same convention a fitted linear-regression weight vector would use
+    # (see fit_eval_weights.py / PRML ch.3 ridge-regression tuning).
+    _EVAL_FEATURE_WEIGHTS = {
+        "se_prize_taken": 900, "se_prize_given": -800, "se_closing": 300,
+        "se_opp_closing": -400, "se_field_energy": 60, "se_bolt_ready": 350,
+        "se_can_ko": 400, "se_bench_bolt_ready": 250,
+        "se_active_dies_prize": -350, "se_active_dies_energy": -40,
+        "se_no_backup": -200, "se_disabled": -150, "se_dot": -60,
+        "se_opp_damage": 2.0, "se_my_damage": -1.0, "se_bench_damage": -0.6,
+        "se_bench_ko_risk": -120, "se_hand_card": 40, "se_refuel_resource": 50,
+        "se_ogerpon": 120, "se_board_pokemon": 30, "se_opp_energy": -25,
+    }
+
+    def _extract_eval_features(self, state, my_index):
+        """Named feature dict for the linear board evaluator. Single source of
+        truth shared by the live weighted-sum evaluator (_eval_search_state)
+        and the offline weight-fitting script (fit_eval_weights.py), so
+        weights fitted from self-play outcome data map directly onto these
+        same param names."""
+        me = state.players[my_index]
+        opp = state.players[1 - my_index]
+        f = {}
+
+        f["se_prize_taken"] = float(6 - len(me.prize))
+        f["se_prize_given"] = float(6 - len(opp.prize))
+        f["se_closing"] = 1.0 if len(me.prize) <= 2 else 0.0
+        f["se_opp_closing"] = 1.0 if len(opp.prize) <= 2 else 0.0
+
+        my_all = [p for p in list(me.active or []) + list(me.bench or []) if p]
+        opp_all = [p for p in list(opp.active or []) + list(opp.bench or []) if p]
+        my_energy = sum(len(p.energies or []) for p in my_all)
+        f["se_field_energy"] = float(my_energy)
+
+        act = me.active[0] if me.active else None
+        opp_act = opp.active[0] if opp.active else None
+
+        act_bolt_ready = False
+        can_ko_now = False
+        if act and act.id == C.RAGING_BOLT_EX:
+            has_l = any(e == 4 for e in (act.energies or []))
+            has_f = any(e == 6 for e in (act.energies or []))
+            act_bolt_ready = has_l and has_f
+            if act_bolt_ready and opp_act and my_energy * 70 >= opp_act.hp:
+                can_ko_now = True
+        f["se_bolt_ready"] = 1.0 if act_bolt_ready else 0.0
+        f["se_can_ko"] = 1.0 if can_ko_now else 0.0
+
+        bench_bolt_ready = False
+        for p in (me.bench or []):
+            if p and p.id == C.RAGING_BOLT_EX:
+                b_l = any(e == 4 for e in (p.energies or []))
+                b_f = any(e == 6 for e in (p.energies or []))
+                if b_l and b_f:
+                    bench_bolt_ready = True
+                    break
+        f["se_bench_bolt_ready"] = 1.0 if bench_bolt_ready else 0.0
+
+        active_dies_prize = active_dies_energy = no_backup = 0.0
+        if act and opp_act:
+            opp_dmg = _static_opp_max_damage(opp_act, act.id)
+            if act.hp <= opp_dmg:
+                active_dies_prize = float(prize_count(act))
+                active_dies_energy = float(len(act.energies or []))
+                if not any(p and len(p.energies or []) > 0 for p in (me.bench or [])):
+                    no_backup = 1.0
+        f["se_active_dies_prize"] = active_dies_prize
+        f["se_active_dies_energy"] = active_dies_energy
+        f["se_no_backup"] = no_backup
+
+        f["se_disabled"] = 1.0 if (me.paralyzed or me.asleep) else 0.0
+        f["se_dot"] = 1.0 if (me.poisoned or me.burned) else 0.0
+
+        f["se_opp_damage"] = float((opp_act.maxHp - opp_act.hp)) if opp_act else 0.0
+        f["se_my_damage"] = float((act.maxHp - act.hp)) if act else 0.0
+
+        # ── bench damage (generic bench-snipe / spread awareness) ──
+        bench_damage_total = 0.0
+        bench_ko_risk_prizes = 0.0
+        for p in (me.bench or []):
+            if not p:
+                continue
+            dmg = (p.maxHp or 0) - (p.hp or 0)
+            if dmg <= 0:
+                continue
+            bench_damage_total += dmg
+            pdata = card_table.get(p.id)
+            if pdata and pdata.ex and (p.hp or 0) <= 60:
+                bench_ko_risk_prizes += prize_count(p)
+        f["se_bench_damage"] = bench_damage_total
+        f["se_bench_ko_risk"] = bench_ko_risk_prizes
+
+        hand_ids = [c.id for c in (me.hand or [])]
+        f["se_hand_card"] = float(min(len(hand_ids), 8))
+        refuel = sum(1 for cid in hand_ids
+                     if cid in (C.CRISPIN, C.ENERGY_RETRIEVAL) or cid in BASIC_ENERGY_IDS)
+        f["se_refuel_resource"] = float(min(refuel, 4))
+
+        f["se_ogerpon"] = float(sum(1 for p in my_all if p.id == C.TEAL_MASK_OGERPON_EX))
+        f["se_board_pokemon"] = float(len(my_all))
+        f["se_opp_energy"] = float(sum(len(p.energies or []) for p in opp_all))
+        return f
+
+    def _eval_search_state(self, state, my_index):
+        """Static evaluation of a simulated end-of-turn board from my perspective.
+        Focus: prize race + can I keep attacking next turn + what do I lose to
+        the opponent's response."""
+        if state is None:
+            return 0.0
+        if state.result >= 0:
+            return 1_000_000.0 if state.result == my_index else -1_000_000.0
+        feats = self._extract_eval_features(state, my_index)
+        return sum(v * self.p(k, self._EVAL_FEATURE_WEIGHTS[k]) for k, v in feats.items())
+
+    def _opp_sim_picks(self, sel):
+        """Simple adversarial policy for the opponent's simulated turn:
+        strongest attack > end turn > forced first options."""
+        best_attack = None
+        end_idx = None
+        for i, o in enumerate(sel.option):
+            if o.type == OptionType.ATTACK:
+                a = attack_table.get(o.attackId)
+                dmg = (a.damage or 0) if a else 0
+                if best_attack is None or dmg > best_attack[0]:
+                    best_attack = (dmg, i)
+            elif o.type == OptionType.END and end_idx is None:
+                end_idx = i
+        if best_attack is not None and best_attack[0] > 0:
+            return [best_attack[1]]
+        if end_idx is not None:
+            return [end_idx]
+        n = len(sel.option)
+        need = max(sel.minCount, 1 if sel.maxCount > 0 else 0)
+        return list(range(min(need, n, sel.maxCount)))
+
+    def _rollforward(self, search_state, max_steps=None, sim_opp=None, horizon=2):
+        """Play out the rest of my turn (heuristic policy), then optionally the
+        opponent's response turn (strongest attack), stopping `horizon` turns
+        after the current one / at game end. Returns the final State.
+        horizon=2: stop at the start of my next turn (default).
+        horizon=4: continue through opponent's turn + my next full turn
+        (endgame deepening)."""
+        from cg.api import search_step
+        if sim_opp is None:
+            # Default off: benchmarked neutral in the mid-game because the
+            # simulated opponent's hand is filler; endgame deepening overrides.
+            sim_opp = bool(self.p("engine_search_opp_turn", 0))
+        if max_steps is None:
+            max_steps = 14 + (16 if (sim_opp or horizon > 2) else 0)
+        t0 = self.state.turn
+        ss = search_state
+        last_state = ss.observation.current if ss.observation else None
+        for _ in range(max_steps):
+            obs = ss.observation
+            if obs is None or obs.current is None:
+                break
+            last_state = obs.current
+            st = obs.current
+            if st.result >= 0:
+                break
+            sel = obs.select
+            if sel is None or not sel.option:
+                break
+            if st.yourIndex == self.my_index:
+                if st.turn >= t0 + horizon:
+                    break  # evaluation horizon reached
+                try:
+                    sub = RagingBoltPolicy(obs)
+                    picks = sub.choose()
+                except Exception:
+                    picks = list(range(min(max(sel.minCount, 1), len(sel.option))))
+            else:
+                if not sim_opp:
+                    break
+                try:
+                    picks = self._opp_sim_picks(sel)
+                except Exception:
+                    break
+            n = len(sel.option)
+            picks = [i for i in picks if 0 <= i < n][:sel.maxCount]
+            if len(picks) < sel.minCount:
+                extra = [i for i in range(n) if i not in picks]
+                picks += extra[:sel.minCount - len(picks)]
+            ss = search_step(ss.searchId, picks)
+        if ss.observation and ss.observation.current is not None:
+            last_state = ss.observation.current
+        return last_state
+
+    def _engine_search_choose(self, ranked, scores):
+        """Real lookahead: apply each top candidate in the engine's search tree,
+        greedily finish my turn, evaluate the resulting board, and pick via a
+        UCB1 bandit allocation of rollout budget (AIMA ch.5 MCTS selection
+        rule, applied to our flat single-ply setting -- root has k
+        already-enumerated children with no deeper tree needed, so full MCTS
+        collapses to a bandit). Hidden zones are re-shuffled every rollout
+        (AIMA's "determinization" treatment of hidden-info games) so
+        draw-dependent lines (Lillie, Burst Roar) are averaged over multiple
+        possible decks/hands. Returns [index] or None."""
+        if self.select.maxCount != 1:
+            return None
+        from cg.api import search_begin, search_end, search_step
+        top_k = min(int(self.p("engine_search_top_k", 5)), len(ranked))
+        w_heur = self.p("engine_search_heuristic_weight", 0.15)
+        candidates = list(ranked[:top_k])
+        # The free energy attach is use-it-or-lose-it: always let the search
+        # compare attach-first vs attack-now, even if no attach ranks top-k
+        # (observed: AI attacked before attaching, wasting the attach)
+        if not any(self.select.option[i].type == OptionType.ATTACH for i in candidates):
+            attach_idxs = [i for i in ranked
+                           if self.select.option[i].type == OptionType.ATTACH]
+            if attach_idxs:
+                candidates.append(attach_idxs[0])
+
+        # Endgame deepening: when either side is within 2 prizes of winning,
+        # one mistake decides the game and the board is simple enough that a
+        # 2-turn lookahead (incl. opponent's strongest response) is meaningful.
+        endgame = (len(self.me.prize) <= self.p("endgame_prize_threshold", 2)
+                   or len(self.opponent.prize) <= self.p("endgame_prize_threshold", 2))
+        horizon = 4 if (endgame and self.p("rule_endgame_deepen", 1)) else 2
+        sim_opp = True if horizon > 2 else None
+
+        def rollout_once(i):
+            preds = self._predict_hidden()  # fresh shuffle every rollout
+            root = search_begin(self.obs, *preds)
+            try:
+                ss = search_step(root.searchId, [i])
+                final_state = self._rollforward(ss, sim_opp=sim_opp, horizon=horizon)
+                return self._eval_search_state(final_state, self.my_index)
+            finally:
+                try:
+                    search_end()
+                except Exception:
+                    pass
+
+        # Default OFF: 100g confirmation was statistically inconclusive
+        # (vs Lucario 16.0% vs 20.0% baseline, z~0.74; mirror 53-47, also not
+        # significant) -- neither a clear win nor a clear regression at this
+        # sample size. Exploration constant C=200 and rollout budgets
+        # (+3 mid-game / +8 endgame) were never calibrated; a proper C sweep
+        # is the natural next step before trusting this path either way.
+        if self.p("rule_ucb1_search", 0):
+            return self._ucb1_choose(candidates, scores, w_heur, endgame, rollout_once)
+
+        # Legacy flat allocation, kept for rollback/ablation: every candidate
+        # gets the same fixed number of rollouts, no adaptive reallocation.
+        n_samples = max(1, int(self.p("engine_search_samples", 1)))
+        if endgame and self.p("rule_endgame_deepen", 1):
+            n_samples = max(n_samples, int(self.p("endgame_samples", 2)))
+        totals = {i: 0.0 for i in candidates}
+        counts = {i: 0 for i in candidates}
+        for i in candidates:
+            for _ in range(n_samples):
+                try:
+                    totals[i] += rollout_once(i)
+                    counts[i] += 1
+                except Exception:
+                    continue
+        best = None
+        for i in candidates:
+            if not counts[i]:
+                continue
+            q = totals[i] / counts[i] + scores[i] * w_heur
+            if best is None or q > best[0]:
+                best = (q, i)
+        return [best[1]] if best else None
+
+    def _ucb1_choose(self, candidates, scores, w_heur, endgame, rollout_once):
+        """UCB1 bandit allocation of rollout budget across candidate moves.
+        Replaces the earlier one-shot "boost top-2 if close" heuristic
+        (rule_adaptive_samples, disabled -- regressed vs Lucario via a
+        winner's-curse/selection-bias effect: a single coarse margin check
+        could lock a lucky-but-wrong leader in). UCB1 re-evaluates after
+        every single new rollout instead, so a leader that only *looked*
+        good by variance gets deprioritized as soon as real samples come in,
+        rather than being reinforced by one batch decision."""
+        N = {i: 0 for i in candidates}
+        total = {i: 0.0 for i in candidates}
+
+        # Seed every candidate with one rollout so UCB1 has data to reason
+        # about from the start.
+        for i in candidates:
+            try:
+                v = rollout_once(i)
+                N[i] += 1
+                total[i] += v
+            except Exception:
+                continue
+
+        extra_budget = int(self.p(
+            "ucb1_endgame_extra_rollouts" if endgame else "ucb1_extra_rollouts",
+            8 if endgame else 3))
+        # C is NOT the textbook sqrt(2) -- that assumes rewards normalized to
+        # [0,1]. _eval_search_state scores are raw linear-eval units (order
+        # of hundreds), so C must be calibrated to that scale; the old
+        # "adaptive_margin" (~120) was already a "how close counts as noise"
+        # estimate in the same units -- start near that magnitude and retune
+        # via the same A/B benchmark protocol as everything else in this file.
+        c = self.p("ucb1_exploration_c", 200.0)
+
+        for _ in range(extra_budget):
+            total_n = max(1, sum(N.values()))
+            best_i, best_ucb = None, None
+            for i in candidates:
+                if N[i] == 0:
+                    ucb = float("inf")  # never-successfully-sampled -- try it
+                else:
+                    q = total[i] / N[i]
+                    ucb = q + c * math.sqrt(math.log(total_n) / N[i])
+                if best_ucb is None or ucb > best_ucb:
+                    best_ucb, best_i = ucb, i
+            if best_i is None:
+                break
+            try:
+                v = rollout_once(best_i)
+                N[best_i] += 1
+                total[best_i] += v
+            except Exception:
+                N[best_i] += 1  # count the attempt so a persistently-erroring
+                                 # candidate can't dominate the UCB score forever
+
+        best = None
+        for i in candidates:
+            if N[i] == 0:
+                continue
+            q = total[i] / N[i] + scores[i] * w_heur
+            if best is None or q > best[0]:
+                best = (q, i)
+        return [best[1]] if best else None
+
     # ── Shallow Search ──
 
     def choose_with_search(self):
@@ -1080,6 +1746,15 @@ class RagingBoltPolicy:
 
         if self.context != SelectContext.MAIN:
             return self.choose()
+
+        if self.p("use_engine_search", 1):
+            try:
+                ranked_e, scores_e = self.rank()
+                picked = self._engine_search_choose(ranked_e, scores_e)
+                if picked is not None:
+                    return picked
+            except Exception:
+                pass  # fall back to heuristic blend below
 
         ranked, scores = self.rank()
         n = len(self.select.option)

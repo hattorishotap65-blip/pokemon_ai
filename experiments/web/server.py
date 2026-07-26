@@ -433,10 +433,26 @@ def _pos_label(area, index):
 
 def _resolve_player_index(obs, opt, my_index):
     """Determine which player's card an option refers to.
-    Try my_index first; if no card found, try opponent."""
+    TO_ACTIVE + BENCH: if own active is empty (fainted), pick from own bench;
+    otherwise it's Boss Orders / Catcher targeting opponent's bench."""
     area = getattr(opt, 'area', None)
     if area is None or area not in (AreaType.ACTIVE, AreaType.BENCH):
         return my_index
+    sel = getattr(obs, 'select', None)
+    ctx = getattr(sel, 'context', None)
+    ctx_name = CTX.get(ctx, '') if ctx is not None else ''
+    if area == AreaType.BENCH and ctx_name == 'TO_ACTIVE':
+        my_active = obs.current.players[my_index].active
+        if not my_active:
+            # Own active fainted — replacing from own bench
+            c = get_card(obs, area, opt.index, my_index)
+            if c is not None:
+                return my_index
+        else:
+            # Own active alive — Boss Orders / Catcher targeting opponent's bench
+            c = get_card(obs, area, opt.index, 1 - my_index)
+            if c is not None:
+                return 1 - my_index
     c = get_card(obs, area, opt.index, my_index)
     if c is not None:
         return my_index
@@ -578,8 +594,27 @@ def state_json(msg=''):
                 policy = ME['Policy'](obs)
                 ranked, scores = policy.rank()
                 ai_pick = normalize_selection(ranked, scores, obs.select)
-            elif ME['mod'].__dict__.get('agent') is not None:
-                ai_pick = sorted(set(ME['mod'].agent(g['obs_dict'])))
+            # Prefer the real agent()'s pick (may include engine search lookahead);
+            # heuristic scores above are kept for display. Cached per decision:
+            # the UI polls state repeatedly and the search costs ~1s per call.
+            if ME['mod'].__dict__.get('agent') is not None:
+                cache = g.get('agent_pick_cache')
+                # id() alone can be reused after GC — add state features so a
+                # stale pick can never leak onto a different decision.
+                key = (id(g['obs_dict']), st.turn, int(obs.select.context),
+                       len(obs.select.option), g['logseq'])
+                if cache and cache[0] == key:
+                    agent_pick = cache[1]
+                else:
+                    agent_pick = sorted(set(ME['mod'].agent(g['obs_dict'])))
+                    g['agent_pick_cache'] = (key, agent_pick)
+                if agent_pick:
+                    ai_pick = agent_pick
+                    # Remember the search pick's labels so flagged reviews can
+                    # record what the green highlight actually recommended
+                    g['last_agent_pick_labels'] = [
+                        label_option(obs, obs.select.option[i], g['human'])
+                        for i in agent_pick if i < len(obs.select.option)]
         except Exception:
             scores = [0] * len(obs.select.option); ai_pick = []
         out['ai_pick'] = ai_pick
@@ -885,6 +920,19 @@ def _log_tuning_event(param=None, old_value=None, new_value=None, preview=None,
             param=param, old_value=old_value, new_value=new_value,
             preview=preview or {}, review_label=review_label, confidence=confidence, note=note,
         )
+        # Record which select context the decision belongs to — needed to map
+        # flat-score disagreements back to the right scoring branch.
+        try:
+            _obc = to_observation_class(_turn_obs_dict) if _turn_obs_dict else None
+            if _obc is not None and _obc.select is not None:
+                entry['select_context'] = CTX.get(_obc.select.context, str(_obc.select.context))
+                entry['option_types'] = sorted(set(int(o.type) for o in (_obc.select.option or [])))
+            # What the green highlight (engine search) recommended — distinct
+            # from ai_action_before, which is the heuristic score leader
+            if GAME.get('last_agent_pick_labels'):
+                entry['ai_search_pick'] = GAME['last_agent_pick_labels']
+        except Exception:
+            pass
         LT.append_tuning_log(entry)
     except Exception:
         pass
@@ -1017,7 +1065,7 @@ class H(BaseHTTPRequestHandler):
             GAME['last_override'] = None
             GAME['frozen_review_obs'] = None
             LT.reset_runtime_overrides()
-            if ME.get('mod') is not None:
+            if ME.get('mod') is not None and hasattr(ME['mod'], 'P'):
                 ME['mod'].P.clear(); ME['mod'].P.update(ME.get('base_params', {}))
             try:
                 from human_trace_writer import trace_path as _tp
@@ -1072,6 +1120,7 @@ class H(BaseHTTPRequestHandler):
                     payload['live_review'] = _live_review_for(traced_entry)
                     payload['suggested_params'] = _suggested_params_payload(payload['live_review'])
                     GAME['last_live_review'] = payload['live_review']
+                    GAME['last_override'] = None
                     lr = payload['live_review']
                     GAME['frozen_review_obs'] = pre_select_obs_dict if (lr and lr.get('show')) else None
                 return self._send(200, json.dumps(payload))
@@ -1102,7 +1151,7 @@ class H(BaseHTTPRequestHandler):
             }))
         if u.path == '/runtime_params/reset':
             LT.reset_runtime_overrides()
-            if ME.get('mod') is not None:
+            if ME.get('mod') is not None and hasattr(ME['mod'], 'P'):
                 ME['mod'].P.clear(); ME['mod'].P.update(ME.get('base_params', {}))
             GAME['last_override'] = None
             return self._send(200, json.dumps({'ok': True, 'overrides': LT.get_runtime_overrides()}))

@@ -1,0 +1,15 @@
+{"game_id": "20260701_114249", "date": "2026-07-01", "result": "win", "note": "Fix A+B first game"}
+{"game_id": "20260701_115125", "date": "2026-07-01", "result": "loss", "note": "Fix A+B second game - user loss"}
+{"game_id": "20260701_132350", "date": "2026-07-01", "result": "win", "note": "Fix A-F active"}
+{"game_id": "20260701_133927", "date": "2026-07-01", "result": "win", "note": "Fix A-F active"}
+{"game_id": "20260701_134729", "date": "2026-07-01", "result": "win", "note": "Fix A-F active"}
+{"game_id": "20260701_140522", "date": "2026-07-01", "result": "win", "note": "Fix A-F active"}
+{"game_id": "20260701_142551", "date": "2026-07-01", "result": "win", "note": "Fix A-F active"}
+{"game_id": "20260701_150533", "date": "2026-07-01", "result": "win", "note": "Fix A-F active"}
+{"game_id": "20260701_152939", "date": "2026-07-01", "result": "win", "note": "Fix A-F active"}
+{"game_id": "20260701_155628", "date": "2026-07-01", "result": "loss", "note": "Fix A-F active"}
+{"game_id": "20260704_hand1", "date": "2026-07-04", "result": "win", "note": "handfix round2 game1 - CPU stalled, counted as surrender win"}
+{"game_id": "20260704_hand2", "date": "2026-07-04", "result": "win", "note": "handfix round2 game2"}
+{"game_id": "20260704_hand3", "date": "2026-07-04", "result": "win", "note": "handfix round2 game3"}
+{"game_id": "20260705_hand1", "date": "2026-07-05", "result": "win", "note": "round3 verification game1"}
+{"game_id": "20260705_hand2", "date": "2026-07-05", "result": "win", "note": "round3 verification game2 - CPU stalled, surrender win"}

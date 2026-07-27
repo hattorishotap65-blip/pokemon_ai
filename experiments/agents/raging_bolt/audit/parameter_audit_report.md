@@ -1,0 +1,203 @@
+# Parameter Contract Audit Report (PR0-A)
+Total keys examined: 112
+- ACTIVE: 97
+- UNUSED: 15
+- SHADOWED: 0
+- Not persisted in params.json (code-default only): 35
+- Hardcoded non-parameterized scores found: 133
+
+## UNUSED (in params.json, never read by code)
+- `score_ability_teal_dance` = 850
+- `score_attach_energy_ogerpon_active` = 550
+- `score_attach_energy_ogerpon_bench` = 500
+- `score_attach_energy_raging_bolt_active` = 600
+- `score_attack_bellowing_thunder` = 840
+- `score_attack_myriad_leaf_shower` = 700
+- `score_item_energy_retrieval` = 900
+- `score_item_energy_retrieval_low_energy` = 700
+- `score_item_pokegear` = 790
+- `score_item_tera_orb` = 840
+- `score_retreat` = 80
+- `score_supporter_boss` = 900
+- `score_supporter_boss_can_ko` = 1200
+- `score_supporter_crispin` = 1030
+- `score_supporter_lillie` = 650
+
+## SHADOWED (inconsistent defaults across call sites)
+
+## Not persisted in params.json (relies on code default only)
+- `attach_for_lethal_score` code default(s)={'1800'} (lines [744])
+- `catcher_hold_score` code default(s)={'5'} (lines [722])
+- `endgame_prize_threshold` code default(s)={'2'} (lines [1627, 1628])
+- `endgame_samples` code default(s)={'2'} (lines [1658])
+- `energy_pick_dup_penalty` code default(s)={'100'} (lines [1031])
+- `energy_pick_grass_first` code default(s)={'50'} (lines [1030])
+- `energy_pick_grass_teal_dance` code default(s)={'100'} (lines [1028])
+- `energy_pick_need_bonus` code default(s)={'250'} (lines [1021])
+- `engine_search_heuristic_weight` code default(s)={'0.15'} (lines [1613])
+- `engine_search_opp_turn` code default(s)={'0'} (lines [1557])
+- `engine_search_samples` code default(s)={'1'} (lines [1656])
+- `engine_search_top_k` code default(s)={'5'} (lines [1612])
+- `er_hold_hand_energy` code default(s)={'3'} (lines [673])
+- `er_hold_score` code default(s)={'250'} (lines [677])
+- `is_first_no` code default(s)={'900'} (lines [457])
+- `is_first_yes` code default(s)={'100'} (lines [452])
+- `lillie_pending_defer_score` code default(s)={'550'} (lines [637])
+- `rule_attach_for_lethal` code default(s)={'1'} (lines [740])
+- `rule_catcher_hold` code default(s)={'1'} (lines [719])
+- `rule_endgame_deepen` code default(s)={'1'} (lines [1629, 1657])
+- `rule_er_hold` code default(s)={'1'} (lines [674])
+- `rule_lillie_combo_defer` code default(s)={'1'} (lines [636])
+- `rule_opp_energy_inference` code default(s)={'1'} (lines [1373])
+- `se_bench_bolt_ready` code default(s)={'250'} (lines [1414])
+- `se_board_pokemon` code default(s)={'30'} (lines [1414])
+- `se_bolt_ready` code default(s)={'350'} (lines [1414])
+- `se_can_ko` code default(s)={'400'} (lines [1414])
+- `se_closing` code default(s)={'300'} (lines [1414])
+- `se_field_energy` code default(s)={'60'} (lines [1414])
+- `se_hand_card` code default(s)={'40'} (lines [1414])
+- `se_ogerpon` code default(s)={'120'} (lines [1414])
+- `se_opp_damage` code default(s)={'2.0'} (lines [1414])
+- `se_prize_taken` code default(s)={'900'} (lines [1414])
+- `se_refuel_resource` code default(s)={'50'} (lines [1414])
+- `use_engine_search` code default(s)={'1'} (lines [1750])
+
+## Possible DUPLICATE concept groups (heuristic, needs human review)
+- stem `eval_can_ko`: ['eval_can_ko', 'eval_can_ko_prize_mult']
+- stem `score_attach_energy_ogerpon`: ['score_attach_energy_ogerpon_active', 'score_attach_energy_ogerpon_bench']
+- stem `score_attach_energy_raging_bolt`: ['score_attach_energy_raging_bolt_active', 'score_attach_energy_raging_bolt_bench']
+
+## Hardcoded scores bypassing self.p() (not tunable via params.json)
+- `_score_option` line 518: literal return 300
+- `_score_option` line 453: literal return 500
+- `_score_option` line 458: literal return 400
+- `_score_option` line 507: literal return 800
+- `_score_attack` line 565: literal return 500
+- `_score_attack` line 535: literal return 800
+- `_score_attack` line 563: literal return 45
+- `_score_attack` line 525: literal return 400
+- `_score_attack` line 527: literal return 300
+- `_score_attack` line 532: literal return 1200
+- `_score_attack` line 534: literal return 1000
+- `_score_attack` line 547: literal return 400
+- `_score_attack` line 556: literal return 30
+- `_score_attack` line 560: literal return 40
+- `_score_attack` line 562: literal return 500
+- `_score_ability` line 575: literal return 500
+- `_score_ability` line 574: literal return 200
+- `_score_ability` line 573: literal return 1300
+- `_score_ability` line 572: literal return 1500
+- `_score_play` line 727: literal return 300
+- `_score_play` line 580: literal return 300
+- `_score_play` line 610: literal return 600
+- `_score_play` line 650: literal return 800
+- `_score_play` line 657: literal return 600
+- `_score_play` line 663: literal return 300
+- `_score_play` line 669: literal return 400
+- `_score_play` line 587: literal return 1250
+- `_score_play` line 594: literal return 1100
+- `_score_play` line 599: literal return 500
+- `_score_play` line 601: literal return 1500
+- `_score_play` line 607: literal return 1300
+- `_score_play` line 609: literal return 1100
+- `_score_play` line 644: literal return 200
+- `_score_play` line 647: literal return 1600
+- `_score_play` line 649: literal return 400
+- `_score_play` line 656: literal return 1250
+- `_score_play` line 666: literal return 900
+- `_score_play` line 668: literal return 650
+- `_score_play` line 682: literal return 400
+- `_score_play` line 684: literal return 700
+- `_score_play` line 686: literal return 650
+- `_score_play` line 695: literal return 350
+- `_score_play` line 697: literal return 500
+- `_score_play` line 706: literal return 400
+- `_score_play` line 708: literal return 1200
+- `_score_play` line 710: literal return 1150
+- `_score_play` line 712: literal return 1000
+- `_score_play` line 716: literal return 500
+- `_score_play` line 606: literal return 1000
+- `_score_play` line 679: literal return 1200
+- `_score_play` line 681: literal return 1000
+- `_score_play` line 694: literal return 700
+- `_score_play` line 705: literal return 1100
+- `_score_play` line 715: literal return 900
+- `_score_attach` line 772: literal return 100
+- `_score_attach` line 758: literal return 1400
+- `_score_attach` line 760: literal return 100
+- `_score_attach` line 769: literal return 600
+- `_score_retreat` line 795: literal return 100
+- `_score_retreat` line 783: literal return 1500
+- `_score_retreat` line 788: literal return 800
+- `_score_retreat` line 792: literal return 900
+- `_score_card_select` line 993: literal return 400
+- `_score_card_select` line 802: literal return 300
+- `_score_card_select` line 839: literal return 400
+- `_score_card_select` line 862: literal return 500
+- `_score_card_select` line 906: literal return 400
+- `_score_card_select` line 917: literal return 400
+- `_score_card_select` line 922: literal return 400
+- `_score_card_select` line 932: literal return 300
+- `_score_card_select` line 939: literal return 300
+- `_score_card_select` line 947: literal return 300
+- `_score_card_select` line 956: literal return 300
+- `_score_card_select` line 959: literal return 400
+- `_score_card_select` line 982: literal return 400
+- `_score_card_select` line 822: literal return 600
+- `_score_card_select` line 824: literal return 580
+- `_score_card_select` line 828: literal return 500
+- `_score_card_select` line 830: literal return 520
+- `_score_card_select` line 832: literal return 480
+- `_score_card_select` line 834: literal return 550
+- `_score_card_select` line 845: literal return 850
+- `_score_card_select` line 847: literal return 800
+- `_score_card_select` line 849: literal return 750
+- `_score_card_select` line 851: literal return 600
+- `_score_card_select` line 853: literal return 550
+- `_score_card_select` line 855: literal return 100
+- `_score_card_select` line 857: literal return 200
+- `_score_card_select` line 859: literal return 300
+- `_score_card_select` line 861: literal return 380
+- `_score_card_select` line 886: literal return 900
+- `_score_card_select` line 898: literal return 50
+- `_score_card_select` line 901: literal return 700
+- `_score_card_select` line 903: literal return 800
+- `_score_card_select` line 905: literal return 200
+- `_score_card_select` line 910: literal return 750
+- `_score_card_select` line 912: literal return 700
+- `_score_card_select` line 921: literal return 600
+- `_score_card_select` line 929: literal return 800
+- `_score_card_select` line 931: literal return 700
+- `_score_card_select` line 936: literal return 800
+- `_score_card_select` line 938: literal return 700
+- `_score_card_select` line 946: literal return 600
+- `_score_card_select` line 955: literal return 600
+- `_score_card_select` line 973: literal return 750
+- `_score_card_select` line 977: literal return 500
+- `_score_card_select` line 981: literal return 500
+- `_score_card_select` line 964: literal return 900
+- `_score_card_select` line 966: literal return 900
+- `_score_card_select` line 972: literal return 800
+- `_score_card_select` line 976: literal return 750
+- `_score_card_select` line 980: literal return 750
+- `_score_card_select` line 895: literal return 450
+- `_score_card_select` line 971: literal return 950
+- `_score_field_target` line 1014: literal return 400
+- `_score_field_target` line 1011: literal return 500
+- `_score_field_target` line 1013: literal return 600
+- `_score_field_target` line 1008: literal return 300
+- `_score_energy_select` line 1087: literal return 400
+- `_score_energy_select` line 1080: literal return 500
+- `_score_energy_select` line 1067: literal return 700
+- `_score_energy_select` line 1070: literal return 900
+- `_score_energy_select` line 1073: literal return 800
+- `_score_energy_select` line 1075: literal return 50
+- `_score_energy_select` line 1077: literal return 300
+- `_score_energy_select` line 1079: literal return 300
+- `_score_energy_select` line 1066: literal return 50
+- `_score_number` line 1134: literal return 500
+- `_score_number` line 1127: literal return 950
+- `_score_number` line 1129: literal return 800
+- `_score_number` line 1131: literal return 850
+- `_score_number` line 1124: literal return 1000
+- `_eval_search_state` line 1519: literal return 0.0

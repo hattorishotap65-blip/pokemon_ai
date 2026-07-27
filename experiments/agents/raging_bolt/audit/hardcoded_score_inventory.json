@@ -1,0 +1,667 @@
+[
+ {
+  "method": "_score_option",
+  "lineno": 518,
+  "value": 300
+ },
+ {
+  "method": "_score_option",
+  "lineno": 453,
+  "value": 500
+ },
+ {
+  "method": "_score_option",
+  "lineno": 458,
+  "value": 400
+ },
+ {
+  "method": "_score_option",
+  "lineno": 507,
+  "value": 800
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 565,
+  "value": 500
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 535,
+  "value": 800
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 563,
+  "value": 45
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 525,
+  "value": 400
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 527,
+  "value": 300
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 532,
+  "value": 1200
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 534,
+  "value": 1000
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 547,
+  "value": 400
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 556,
+  "value": 30
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 560,
+  "value": 40
+ },
+ {
+  "method": "_score_attack",
+  "lineno": 562,
+  "value": 500
+ },
+ {
+  "method": "_score_ability",
+  "lineno": 575,
+  "value": 500
+ },
+ {
+  "method": "_score_ability",
+  "lineno": 574,
+  "value": 200
+ },
+ {
+  "method": "_score_ability",
+  "lineno": 573,
+  "value": 1300
+ },
+ {
+  "method": "_score_ability",
+  "lineno": 572,
+  "value": 1500
+ },
+ {
+  "method": "_score_play",
+  "lineno": 727,
+  "value": 300
+ },
+ {
+  "method": "_score_play",
+  "lineno": 580,
+  "value": 300
+ },
+ {
+  "method": "_score_play",
+  "lineno": 610,
+  "value": 600
+ },
+ {
+  "method": "_score_play",
+  "lineno": 650,
+  "value": 800
+ },
+ {
+  "method": "_score_play",
+  "lineno": 657,
+  "value": 600
+ },
+ {
+  "method": "_score_play",
+  "lineno": 663,
+  "value": 300
+ },
+ {
+  "method": "_score_play",
+  "lineno": 669,
+  "value": 400
+ },
+ {
+  "method": "_score_play",
+  "lineno": 587,
+  "value": 1250
+ },
+ {
+  "method": "_score_play",
+  "lineno": 594,
+  "value": 1100
+ },
+ {
+  "method": "_score_play",
+  "lineno": 599,
+  "value": 500
+ },
+ {
+  "method": "_score_play",
+  "lineno": 601,
+  "value": 1500
+ },
+ {
+  "method": "_score_play",
+  "lineno": 607,
+  "value": 1300
+ },
+ {
+  "method": "_score_play",
+  "lineno": 609,
+  "value": 1100
+ },
+ {
+  "method": "_score_play",
+  "lineno": 644,
+  "value": 200
+ },
+ {
+  "method": "_score_play",
+  "lineno": 647,
+  "value": 1600
+ },
+ {
+  "method": "_score_play",
+  "lineno": 649,
+  "value": 400
+ },
+ {
+  "method": "_score_play",
+  "lineno": 656,
+  "value": 1250
+ },
+ {
+  "method": "_score_play",
+  "lineno": 666,
+  "value": 900
+ },
+ {
+  "method": "_score_play",
+  "lineno": 668,
+  "value": 650
+ },
+ {
+  "method": "_score_play",
+  "lineno": 682,
+  "value": 400
+ },
+ {
+  "method": "_score_play",
+  "lineno": 684,
+  "value": 700
+ },
+ {
+  "method": "_score_play",
+  "lineno": 686,
+  "value": 650
+ },
+ {
+  "method": "_score_play",
+  "lineno": 695,
+  "value": 350
+ },
+ {
+  "method": "_score_play",
+  "lineno": 697,
+  "value": 500
+ },
+ {
+  "method": "_score_play",
+  "lineno": 706,
+  "value": 400
+ },
+ {
+  "method": "_score_play",
+  "lineno": 708,
+  "value": 1200
+ },
+ {
+  "method": "_score_play",
+  "lineno": 710,
+  "value": 1150
+ },
+ {
+  "method": "_score_play",
+  "lineno": 712,
+  "value": 1000
+ },
+ {
+  "method": "_score_play",
+  "lineno": 716,
+  "value": 500
+ },
+ {
+  "method": "_score_play",
+  "lineno": 606,
+  "value": 1000
+ },
+ {
+  "method": "_score_play",
+  "lineno": 679,
+  "value": 1200
+ },
+ {
+  "method": "_score_play",
+  "lineno": 681,
+  "value": 1000
+ },
+ {
+  "method": "_score_play",
+  "lineno": 694,
+  "value": 700
+ },
+ {
+  "method": "_score_play",
+  "lineno": 705,
+  "value": 1100
+ },
+ {
+  "method": "_score_play",
+  "lineno": 715,
+  "value": 900
+ },
+ {
+  "method": "_score_attach",
+  "lineno": 772,
+  "value": 100
+ },
+ {
+  "method": "_score_attach",
+  "lineno": 758,
+  "value": 1400
+ },
+ {
+  "method": "_score_attach",
+  "lineno": 760,
+  "value": 100
+ },
+ {
+  "method": "_score_attach",
+  "lineno": 769,
+  "value": 600
+ },
+ {
+  "method": "_score_retreat",
+  "lineno": 795,
+  "value": 100
+ },
+ {
+  "method": "_score_retreat",
+  "lineno": 783,
+  "value": 1500
+ },
+ {
+  "method": "_score_retreat",
+  "lineno": 788,
+  "value": 800
+ },
+ {
+  "method": "_score_retreat",
+  "lineno": 792,
+  "value": 900
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 993,
+  "value": 400
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 802,
+  "value": 300
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 839,
+  "value": 400
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 862,
+  "value": 500
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 906,
+  "value": 400
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 917,
+  "value": 400
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 922,
+  "value": 400
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 932,
+  "value": 300
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 939,
+  "value": 300
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 947,
+  "value": 300
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 956,
+  "value": 300
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 959,
+  "value": 400
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 982,
+  "value": 400
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 822,
+  "value": 600
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 824,
+  "value": 580
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 828,
+  "value": 500
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 830,
+  "value": 520
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 832,
+  "value": 480
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 834,
+  "value": 550
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 845,
+  "value": 850
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 847,
+  "value": 800
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 849,
+  "value": 750
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 851,
+  "value": 600
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 853,
+  "value": 550
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 855,
+  "value": 100
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 857,
+  "value": 200
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 859,
+  "value": 300
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 861,
+  "value": 380
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 886,
+  "value": 900
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 898,
+  "value": 50
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 901,
+  "value": 700
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 903,
+  "value": 800
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 905,
+  "value": 200
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 910,
+  "value": 750
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 912,
+  "value": 700
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 921,
+  "value": 600
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 929,
+  "value": 800
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 931,
+  "value": 700
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 936,
+  "value": 800
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 938,
+  "value": 700
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 946,
+  "value": 600
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 955,
+  "value": 600
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 973,
+  "value": 750
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 977,
+  "value": 500
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 981,
+  "value": 500
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 964,
+  "value": 900
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 966,
+  "value": 900
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 972,
+  "value": 800
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 976,
+  "value": 750
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 980,
+  "value": 750
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 895,
+  "value": 450
+ },
+ {
+  "method": "_score_card_select",
+  "lineno": 971,
+  "value": 950
+ },
+ {
+  "method": "_score_field_target",
+  "lineno": 1014,
+  "value": 400
+ },
+ {
+  "method": "_score_field_target",
+  "lineno": 1011,
+  "value": 500
+ },
+ {
+  "method": "_score_field_target",
+  "lineno": 1013,
+  "value": 600
+ },
+ {
+  "method": "_score_field_target",
+  "lineno": 1008,
+  "value": 300
+ },
+ {
+  "method": "_score_energy_select",
+  "lineno": 1087,
+  "value": 400
+ },
+ {
+  "method": "_score_energy_select",
+  "lineno": 1080,
+  "value": 500
+ },
+ {
+  "method": "_score_energy_select",
+  "lineno": 1067,
+  "value": 700
+ },
+ {
+  "method": "_score_energy_select",
+  "lineno": 1070,
+  "value": 900
+ },
+ {
+  "method": "_score_energy_select",
+  "lineno": 1073,
+  "value": 800
+ },
+ {
+  "method": "_score_energy_select",
+  "lineno": 1075,
+  "value": 50
+ },
+ {
+  "method": "_score_energy_select",
+  "lineno": 1077,
+  "value": 300
+ },
+ {
+  "method": "_score_energy_select",
+  "lineno": 1079,
+  "value": 300
+ },
+ {
+  "method": "_score_energy_select",
+  "lineno": 1066,
+  "value": 50
+ },
+ {
+  "method": "_score_number",
+  "lineno": 1134,
+  "value": 500
+ },
+ {
+  "method": "_score_number",
+  "lineno": 1127,
+  "value": 950
+ },
+ {
+  "method": "_score_number",
+  "lineno": 1129,
+  "value": 800
+ },
+ {
+  "method": "_score_number",
+  "lineno": 1131,
+  "value": 850
+ },
+ {
+  "method": "_score_number",
+  "lineno": 1124,
+  "value": 1000
+ },
+ {
+  "method": "_eval_search_state",
+  "lineno": 1519,
+  "value": 0.0
+ }
+]

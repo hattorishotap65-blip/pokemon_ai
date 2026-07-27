@@ -1,0 +1,1501 @@
+{
+ "attach_for_lethal_score": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 744,
+    "default_repr": "1800",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "catcher_hold_score": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 722,
+    "default_repr": "5",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "endgame_prize_threshold": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1627,
+    "default_repr": "2",
+    "dynamic_default": false,
+    "via": "self.p()"
+   },
+   {
+    "lineno": 1628,
+    "default_repr": "2",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "endgame_samples": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1658,
+    "default_repr": "2",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "energy_pick_dup_penalty": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1031,
+    "default_repr": "100",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "energy_pick_grass_first": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1030,
+    "default_repr": "50",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "energy_pick_grass_teal_dance": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1028,
+    "default_repr": "100",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "energy_pick_need_bonus": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1021,
+    "default_repr": "250",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "energy_retrieval_threshold": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 2,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 678,
+    "default_repr": "2",
+    "dynamic_default": false,
+    "via": "self.p()"
+   },
+   {
+    "lineno": 714,
+    "default_repr": "2",
+    "dynamic_default": false,
+    "via": "self.p()"
+   },
+   {
+    "lineno": 826,
+    "default_repr": "2",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "engine_search_heuristic_weight": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1613,
+    "default_repr": "0.15",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "engine_search_opp_turn": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1557,
+    "default_repr": "0",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "engine_search_samples": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1656,
+    "default_repr": "1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "engine_search_top_k": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1612,
+    "default_repr": "5",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "er_hold_hand_energy": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 673,
+    "default_repr": "3",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "er_hold_score": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 677,
+    "default_repr": "250",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_active_ko_risk": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": -400,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1263,
+    "default_repr": "UnaryOp(op=USub(), operand=Constant(value=300))",
+    "dynamic_default": true,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_bench_bolt_ready": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 300,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1259,
+    "default_repr": "300",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_bench_liability": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": -100,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1273,
+    "default_repr": "UnaryOp(op=USub(), operand=Constant(value=100))",
+    "dynamic_default": true,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_bolt_on_field": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 100,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1250,
+    "default_repr": "100",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_boss_win": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 800,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1248,
+    "default_repr": "800",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_bt_partial": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 300,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1223,
+    "default_repr": "200",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_bt_ready": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 500,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1221,
+    "default_repr": "400",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_can_ko": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 500,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1226,
+    "default_repr": "500",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_can_ko_prize_mult": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 200,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1226,
+    "default_repr": "200",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_deck_out_risk": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": -200,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1268,
+    "default_repr": "UnaryOp(op=USub(), operand=Constant(value=200))",
+    "dynamic_default": true,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_field_energy": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 60,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1233,
+    "default_repr": "50",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_grass_in_hand": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 80,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1234,
+    "default_repr": "80",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_hand_card": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 40,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1240,
+    "default_repr": "30",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_near_ko": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 200,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1230,
+    "default_repr": "200",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_no_backup_risk": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": -400,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1265,
+    "default_repr": "UnaryOp(op=USub(), operand=Constant(value=200))",
+    "dynamic_default": true,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_ogerpon_value": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 150,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1232,
+    "default_repr": "150",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_prize_given": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 150,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1218,
+    "default_repr": "150",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_prize_taken": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 200,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1217,
+    "default_repr": "200",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "eval_supporter_in_hand": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 150,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1239,
+    "default_repr": "100",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_attach_bt_req": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 350,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1885,
+    "default_repr": "350",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_attach_ogerpon": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 80,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1889,
+    "default_repr": "80",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_attach_other": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 50,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1887,
+    "default_repr": "50",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_boss_prize_mult": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 300,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1865,
+    "default_repr": "300",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_bt_energy_loss": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 20,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1833,
+    "default_repr": "20",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_bt_energy_value": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 40,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1832,
+    "default_repr": "40",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_bt_ko_prize_mult": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 300,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1829,
+    "default_repr": "300",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_burst_roar_penalty": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": -100,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1844,
+    "default_repr": "UnaryOp(op=USub(), operand=Constant(value=100))",
+    "dynamic_default": true,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_burst_roar_value": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 50,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1843,
+    "default_repr": "50",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_crispin_bolt_bonus": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 200,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1859,
+    "default_repr": "200",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_crispin_per_energy": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 100,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1857,
+    "default_repr": "100",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_end_penalty": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": -50,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1898,
+    "default_repr": "UnaryOp(op=USub(), operand=Constant(value=50))",
+    "dynamic_default": true,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_energy_retrieval_per": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 80,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1873,
+    "default_repr": "80",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_lillie_per_card": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 40,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1861,
+    "default_repr": "40",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_mls_damage_mult": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 1.5,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1841,
+    "default_repr": "1.5",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_mls_ko_prize_mult": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 300,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1839,
+    "default_repr": "300",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_play_bolt": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 300,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1867,
+    "default_repr": "200",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_play_ogerpon": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 250,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1869,
+    "default_repr": "250",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_retreat_penalty": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": -50,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1895,
+    "default_repr": "UnaryOp(op=USub(), operand=Constant(value=50))",
+    "dynamic_default": true,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_retreat_safety": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 200,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1893,
+    "default_repr": "200",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_search_item": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 150,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1871,
+    "default_repr": "150",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_teal_dance": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 150,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1849,
+    "default_repr": "150",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "impact_teal_dance_bolt_ready": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 100,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1851,
+    "default_repr": "100",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "is_first_no": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 457,
+    "default_repr": "900",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "is_first_yes": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 452,
+    "default_repr": "100",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "lillie_pending_defer_score": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 637,
+    "default_repr": "550",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "retreat_hp_threshold_pct": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 30,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 761,
+    "default_repr": "30",
+    "dynamic_default": false,
+    "via": "self.p()"
+   },
+   {
+    "lineno": 793,
+    "default_repr": "30",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "rule_attach_for_lethal": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 740,
+    "default_repr": "1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "rule_catcher_hold": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 719,
+    "default_repr": "1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "rule_endgame_deepen": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1629,
+    "default_repr": "1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   },
+   {
+    "lineno": 1657,
+    "default_repr": "1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "rule_er_hold": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 674,
+    "default_repr": "1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "rule_lillie_combo_defer": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 636,
+    "default_repr": "1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "rule_opp_energy_inference": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1373,
+    "default_repr": "1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "rule_ucb1_search": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 1,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1651,
+    "default_repr": "0",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_ability_teal_dance": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 850,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_attach_energy_ogerpon_active": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 550,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_attach_energy_ogerpon_bench": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 500,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_attach_energy_other": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 200,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 735,
+    "default_repr": "200",
+    "dynamic_default": false,
+    "via": "self.p()"
+   },
+   {
+    "lineno": 774,
+    "default_repr": "200",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_attach_energy_raging_bolt_active": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 600,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_attach_energy_raging_bolt_active_low_hp": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 350,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 762,
+    "default_repr": "350",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_attach_energy_raging_bolt_bench": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 400,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 765,
+    "default_repr": "400",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_attack_bellowing_thunder": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 840,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_attack_myriad_leaf_shower": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 700,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_end_turn": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 50,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 448,
+    "default_repr": "50",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_item_energy_retrieval": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 900,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_item_energy_retrieval_low_energy": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 700,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_item_pokegear": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 790,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_item_pokemon_catcher": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 300,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 723,
+    "default_repr": "300",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_item_tera_orb": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 840,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_item_unfair_stamp": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 700,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 725,
+    "default_repr": "600",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_play_pokemon_ogerpon": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 790,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 595,
+    "default_repr": "600",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_play_pokemon_raging_bolt": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 760,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 588,
+    "default_repr": "500",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_retreat": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 80,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_retreat_damaged_active": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 400,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 794,
+    "default_repr": "400",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "score_supporter_boss": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 900,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_supporter_boss_can_ko": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 1200,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_supporter_crispin": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 1030,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "score_supporter_lillie": {
+  "status": "UNUSED",
+  "in_params_json": true,
+  "params_json_value": 650,
+  "referenced_in_code": false,
+  "call_sites": []
+ },
+ "se_bench_bolt_ready": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "250",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_board_pokemon": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "30",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_bolt_ready": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "350",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_can_ko": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "400",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_closing": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "300",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_field_energy": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "60",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_hand_card": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "40",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_ogerpon": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "120",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_opp_damage": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "2.0",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_prize_taken": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "900",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "se_refuel_resource": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1414,
+    "default_repr": "50",
+    "dynamic_default": false,
+    "via": "_EVAL_FEATURE_WEIGHTS"
+   }
+  ]
+ },
+ "search_weight_future": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 0.3,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1791,
+    "default_repr": "0.3",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "search_weight_immediate": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 0.6,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1790,
+    "default_repr": "0.6",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "search_weight_risk": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 0.1,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1792,
+    "default_repr": "0.1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "ucb1_endgame_extra_rollouts": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 12,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1699,
+    "default_repr": "IfExp(test=Name(id='endgame', ctx=Load()), body=Constant(value=8), orelse=Constant(value=3))",
+    "dynamic_default": true,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "ucb1_exploration_c": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 200.0,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1708,
+    "default_repr": "200.0",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "ucb1_extra_rollouts": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 8,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1699,
+    "default_repr": "IfExp(test=Name(id='endgame', ctx=Load()), body=Constant(value=8), orelse=Constant(value=3))",
+    "dynamic_default": true,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "use_engine_search": {
+  "status": "ACTIVE",
+  "in_params_json": false,
+  "params_json_value": null,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1750,
+    "default_repr": "1",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "use_value_model": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": false,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1795,
+    "default_repr": "False",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ },
+ "value_model_weight": {
+  "status": "ACTIVE",
+  "in_params_json": true,
+  "params_json_value": 0.1,
+  "referenced_in_code": true,
+  "call_sites": [
+   {
+    "lineno": 1800,
+    "default_repr": "0.2",
+    "dynamic_default": false,
+    "via": "self.p()"
+   }
+  ]
+ }
+}

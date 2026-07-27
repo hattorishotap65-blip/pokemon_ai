@@ -1,12 +1,77 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
 import random
+import time
+import traceback
 from collections import Counter, defaultdict
 
 _rng = random.Random(1234)
+
+# ── PR0-A: Strict Benchmark Mode / Telemetry ──────────────────────────────
+# PRODUCTION: existing silent-fallback behavior, unchanged (default).
+# BENCHMARK:  same control flow as PRODUCTION (never re-raises), but records
+#             counters + per-exception detail so fallback/error rates are
+#             observable instead of invisible.
+# DEBUG:      records the same detail AND re-raises, so a failing decision
+#             stops instead of silently falling back.
+# Mode is read once at import time; this must never change which action a
+# decision returns in PRODUCTION or BENCHMARK mode (Baseline Fingerprint
+# Gate) -- only DEBUG intentionally alters behavior (stops on exception).
+EXEC_MODE = os.environ.get("POKEMON_AI_EXEC_MODE", "PRODUCTION").upper()
+if EXEC_MODE not in ("PRODUCTION", "BENCHMARK", "DEBUG"):
+    EXEC_MODE = "PRODUCTION"
+
+_TELEMETRY = {
+    "search_attempt_count": 0,
+    "search_success_count": 0,
+    "search_fallback_count": 0,
+    "search_override_count": 0,
+    "rollout_attempt_count": 0,
+    "rollout_success_count": 0,
+    "rollout_error_count": 0,
+    "cache_hit_count": 0,
+    "cache_miss_count": 0,
+    "decision_runtime_ms": [],
+    "errors": [],  # only populated in BENCHMARK/DEBUG (see _record_exception)
+}
+
+
+def reset_telemetry():
+    """Zero all counters. Call once per game (or per benchmark run) from a
+    test harness; never called by the agent itself mid-decision."""
+    for k in _TELEMETRY:
+        _TELEMETRY[k] = [] if isinstance(_TELEMETRY[k], list) else 0
+
+
+def get_telemetry():
+    """Return a shallow copy snapshot for a test harness to read/serialize."""
+    return {k: (list(v) if isinstance(v, list) else v) for k, v in _TELEMETRY.items()}
+
+
+def _record_exception(stage, exc):
+    """Never changes control flow in PRODUCTION/BENCHMARK (caller's existing
+    except-block body runs exactly as before this call returns). Only DEBUG
+    re-raises. Cheap in PRODUCTION: a single dict increment, no string/hash
+    work, so this cannot be the cause of a production behavior or latency
+    regression."""
+    if EXEC_MODE == "PRODUCTION":
+        return
+    _TELEMETRY.setdefault("exception_count", 0)
+    _TELEMETRY["exception_count"] += 1
+    msg = str(exc)
+    tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    _TELEMETRY["errors"].append({
+        "stage": stage,
+        "error_type": type(exc).__name__,
+        "error_message_hash": hashlib.sha256(msg.encode("utf-8", "replace")).hexdigest()[:16],
+        "traceback_hash": hashlib.sha256(tb.encode("utf-8", "replace")).hexdigest()[:16],
+    })
+    if EXEC_MODE == "DEBUG":
+        raise exc
 
 from cg.api import (
     AreaType,
@@ -878,8 +943,8 @@ class RagingBoltPolicy:
                         poke = player.bench[opt.index]
                     if poke and poke.id == C.RAGING_BOLT_EX:
                         is_on_bolt = True
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("discard_energy_bolt_lookup", _e)
             opp_dmg = self._estimate_opp_damage()
             bolt_will_die = is_active_bolt and self.active and self.active.hp <= opp_dmg
             if bolt_will_die:
@@ -893,8 +958,8 @@ class RagingBoltPolicy:
                     same_count = sum(1 for e in (poke.energies or []) if e == etype) if poke else 1
                     if same_count >= 2:
                         return 450
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("discard_energy_dup_count", _e)
                 return 50
             last_ko = self.my_prizes <= self._opp_prize_value()
             if last_ko:
@@ -1053,8 +1118,8 @@ class RagingBoltPolicy:
                             is_active_bolt = True
                     elif area == AreaType.BENCH and player.bench and opt.index < len(player.bench):
                         poke = player.bench[opt.index]
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("energy_select_bolt_lookup", _e)
                 if poke and poke.id == C.RAGING_BOLT_EX:
                     is_on_bolt = True
 
@@ -1106,8 +1171,8 @@ class RagingBoltPolicy:
                         etype = poke.energies[ei]
                         ETYPE_TO_CARD = {1: C.BASIC_GRASS_ENERGY, 4: C.BASIC_LIGHTNING_ENERGY, 6: C.BASIC_FIGHTING_ENERGY}
                         return ETYPE_TO_CARD.get(etype, 0)
-            except Exception:
-                pass
+            except Exception as _e:
+                _record_exception("get_energy_type_from_opt", _e)
         return 0
 
     def _score_number(self, opt):
@@ -1144,7 +1209,8 @@ class RagingBoltPolicy:
         try:
             from cg.api import all_attack
             AT_local = {a.attackId: a for a in all_attack()}
-        except Exception:
+        except Exception as _e:
+            _record_exception("estimate_opp_damage_attack_table", _e)
             return 200
         max_dmg = 0
         for aid in (opp_data.attacks or []):
@@ -1577,14 +1643,16 @@ class RagingBoltPolicy:
                 try:
                     sub = RagingBoltPolicy(obs)
                     picks = sub.choose()
-                except Exception:
+                except Exception as _e:
+                    _record_exception("rollforward_my_turn_choose", _e)
                     picks = list(range(min(max(sel.minCount, 1), len(sel.option))))
             else:
                 if not sim_opp:
                     break
                 try:
                     picks = self._opp_sim_picks(sel)
-                except Exception:
+                except Exception as _e:
+                    _record_exception("rollforward_opp_sim_picks", _e)
                     break
             n = len(sel.option)
             picks = [i for i in picks if 0 <= i < n][:sel.maxCount]
@@ -1630,17 +1698,23 @@ class RagingBoltPolicy:
         sim_opp = True if horizon > 2 else None
 
         def rollout_once(i):
+            _TELEMETRY["rollout_attempt_count"] += 1
             preds = self._predict_hidden()  # fresh shuffle every rollout
             root = search_begin(self.obs, *preds)
             try:
                 ss = search_step(root.searchId, [i])
                 final_state = self._rollforward(ss, sim_opp=sim_opp, horizon=horizon)
-                return self._eval_search_state(final_state, self.my_index)
+                value = self._eval_search_state(final_state, self.my_index)
+                _TELEMETRY["rollout_success_count"] += 1
+                return value
+            except Exception:
+                _TELEMETRY["rollout_error_count"] += 1
+                raise
             finally:
                 try:
                     search_end()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("engine_search_end_cleanup", _e)
 
         # Default OFF: 100g confirmation was statistically inconclusive
         # (vs Lucario 16.0% vs 20.0% baseline, z~0.74; mirror 53-47, also not
@@ -1748,13 +1822,25 @@ class RagingBoltPolicy:
             return self.choose()
 
         if self.p("use_engine_search", 1):
+            _TELEMETRY["search_attempt_count"] += 1
             try:
                 ranked_e, scores_e = self.rank()
                 picked = self._engine_search_choose(ranked_e, scores_e)
                 if picked is not None:
+                    _TELEMETRY["search_success_count"] += 1
+                    if ranked_e and picked[0] != ranked_e[0]:
+                        # Search picked something other than the plain
+                        # heuristic's top-ranked option -- a cheap proxy for
+                        # "search result overrode the heuristic ranking"
+                        # (there is no confidence gate yet; see PR3+ Branch
+                        # "Search Override Confidence Gate" in the roadmap).
+                        _TELEMETRY["search_override_count"] += 1
                     return picked
-            except Exception:
-                pass  # fall back to heuristic blend below
+                _TELEMETRY["search_fallback_count"] += 1
+            except Exception as _e:
+                _record_exception("engine_search_choose_toplevel", _e)
+                _TELEMETRY["search_fallback_count"] += 1
+                # fall back to heuristic blend below
 
         ranked, scores = self.rank()
         n = len(self.select.option)
@@ -1799,8 +1885,8 @@ class RagingBoltPolicy:
                     if v is not None:
                         w_val = self.p("value_model_weight", 0.2)
                         final += v * w_val * 1000
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("value_model_predict", _e)
 
             candidates.append((final, i, immediate, future_delta, risk_adj))
 
@@ -1912,7 +1998,11 @@ def agent(obs_dict):
         pre_turn = obs.current.turn
         ability_used_teal_dance = False
 
-    policy = RagingBoltPolicy(obs)
-    if obs.select.context == SelectContext.MAIN:
-        return policy.choose_with_search()
-    return policy.choose()
+    _t0 = time.monotonic()
+    try:
+        policy = RagingBoltPolicy(obs)
+        if obs.select.context == SelectContext.MAIN:
+            return policy.choose_with_search()
+        return policy.choose()
+    finally:
+        _TELEMETRY["decision_runtime_ms"].append((time.monotonic() - _t0) * 1000.0)

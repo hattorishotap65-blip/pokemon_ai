@@ -62,7 +62,7 @@
 プロジェクトルート:
 
 ```text
-C:/Users/shclo/projects/pokemon_card_ai
+<repository-root>
 ```
 
 入れ子のGitリポジトリはなく、検出された`.git`はルートの1個だけ。
@@ -192,8 +192,8 @@ WSL/Linuxが主な実行環境。
 - ルート`.gitignore`は`.env`、認証ファイル、`.mcp.json`内のローカル設定を無視しない。
 - Claudeの一時ファイルは`.git/info/exclude`で除外されているが、他のcloneへ共有されない。
 - `.claude/scheduled_tasks.lock`にはsession IDとPIDがあり、テンプレートへ含めてはならない。
-- `.mcp.json`にはトークン値を保存せず、必要な場合も環境変数名だけを参照する。
-- OpenAI APIやAnthropic APIは使用せず、ログイン済みローカルCLIだけを利用する。
+- `.mcp.json`は秘密情報を含まない場合に限ってGit管理する。APIキー、トークン、個人固有パスは記載せず、必要な場合も環境変数名だけを参照する。
+- OpenAI APIおよびAnthropic APIのAPIキー認証・従量課金は使用せず、ログイン済みのChatGPT Plus版Codex CLIとClaude Codeのサブスクリプション枠だけを使用する。
 - Webのチューニングログには自由記述の`note`があるため、個人情報を書かない運用が必要。
 
 ## 7. 導入可否
@@ -216,7 +216,7 @@ WSL/Linuxが主な実行環境。
 |---|---|
 | `CLAUDE.md` | 既存へ小規模統合。上書き禁止 |
 | `AGENTS.md` | 既存へ小規模統合。ただし旧構成の扱いを先に決定 |
-| `.mcp.json` | 新規作成可能だが、初期導入では延期推奨 |
+| `.mcp.json` | 秘密情報、APIキー、トークン、個人固有パスを含まない場合のみ新規作成・Git管理可能。初期導入では延期推奨 |
 | `.claude/agents/` | 新規作成可能。既存lockへ触れない |
 | `.claude/skills/multi-agent-design/` | 新規作成可能 |
 | `docs/agent-workflow/` | 安全に新規作成可能 |
@@ -224,23 +224,27 @@ WSL/Linuxが主な実行環境。
 
 ## 8. Step 2で変更してよい範囲
 
-### 新規作成候補
+Step 2では、新しいワークフロー機能を追加する前に既存エージェント指示を整合させる。
+
+### 既存ファイルへの変更候補
+
+1. 現在の正本がRaging Bolt構成であることを、現行コード、提出物、`HANDOFF.md`から確認して明記する。
+2. `AGENTS.md`の旧Iono's Kilowattrel構成を、正本と確認したRaging Bolt構成へ更新する。
+3. `CLAUDE.md`の`build_submission.py`に関する説明を、実際のスクリプトの動作と一致させる。
+4. Claude CodeとCodexに共通する開発ルールを一致させる。
+
+`CLAUDE.md`と`AGENTS.md`は上書きせず、既存の有効なルールを保持したまま差分を小さくする。
+
+### Step 3以降の新規作成候補
 
 - `docs/agent-workflow/README.md`
 - `docs/agent-workflow/review-protocol.md`
 - `docs/decisions/0001-multi-agent-workflow-boundary.md`
-
-後続Step候補:
-
+- `README.md`への案内リンク
+- `.mcp.json`
 - `.claude/agents/`
 - `.claude/skills/multi-agent-design/`
 - `.claude/.gitignore`
-
-### 既存ファイルへの追記候補
-
-- `README.md`への案内リンク
-- `CLAUDE.md`への短い参照節
-- `AGENTS.md`への同一内容の短い参照節
 
 ### 変更してはいけないファイル
 
@@ -254,6 +258,8 @@ WSL/Linuxが主な実行環境。
 - `reference/`
 - `submission.tar.gz`
 - 調査開始時点から存在する未追跡・削除扱いファイル
+
+Step 2ではアプリコード、AI評価ロジック、UI、設定値、データを変更しない。
 
 ## 9. 懸念事項
 
@@ -281,26 +287,22 @@ WSL/Linuxが主な実行環境。
 
 ## 10. 推奨するStep 2
 
-最初はドキュメントだけを追加する。
+最初に、既存エージェント指示の整合を行う。
 
-1. `docs/agent-workflow/README.md`
-   - Claude CodeとCodexの役割
-   - 独立提案、批評、反論、統合、実装後レビューの順序
-   - アプリ本体を変更しない境界
-   - 他リポジトリへ移植可能な部分
+1. 現在の正本をRaging Bolt構成と確定する。
+2. `AGENTS.md`の旧Iono's Kilowattrel構成を更新する。
+3. `CLAUDE.md`の`build_submission.py`に関する誤説明を修正する。
+4. Claude CodeとCodex間の共通ルールを一致させる。
+5. アプリコードを変更していないことを差分で確認する。
 
-2. `docs/agent-workflow/review-protocol.md`
-   - 入出力フォーマット
-   - レビュー判定
-   - 未解決事項の扱い
-   - commit、pushを人間承認に限定
+既存指示の整合を確認した後、次の順序で導入する。
 
-3. `docs/decisions/0001-multi-agent-workflow-boundary.md`
-   - 正本となる文書
-   - Claude/Codex固有設定と共通仕様の分離
-   - API、秘密情報、自動Git操作を使用しない決定
+1. 共通ワークフロー文書
+2. `.mcp.json`
+3. `.claude/agents/`
+4. `.claude/skills/multi-agent-design/`
 
-この段階では`.mcp.json`、`.claude/agents/`、skills、`CLAUDE.md`、`AGENTS.md`を変更しない。
+`.mcp.json`は秘密情報を含まない場合のみGit管理し、OpenAI APIおよびAnthropic APIのAPIキー認証・従量課金は使用しない。
 
 ## 調査時の変更確認
 

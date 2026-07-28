@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Parameter Contract artifacts are pinned to an exact source
+          # commit and the test verifies that commit's raw file hashes.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -144,6 +148,9 @@ jobs:
 
       - name: Run raging bolt agent tests
         run: python experiments/test_raging_bolt_agent.py
+
+      - name: Run parameter contract audit tests
+        run: python experiments/test_audit_parameter_contract.py
 
       - name: Run human trace tests
         run: python experiments/test_human_trace.py

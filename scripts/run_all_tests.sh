@@ -74,6 +74,10 @@ echo "=== Params loader ==="
 python experiments/test_params.py
 
 echo ""
+echo "=== Parameter contract audit ==="
+python experiments/test_audit_parameter_contract.py
+
+echo ""
 echo "=== Core param search ==="
 python experiments/test_core_param_search.py
 

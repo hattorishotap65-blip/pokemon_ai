@@ -1,12 +1,120 @@
-# Parameter Contract Audit Report (PR0-A)
-Total keys examined: 112
-- ACTIVE: 97
-- UNUSED: 15
-- SHADOWED: 0
-- Not persisted in params.json (code-default only): 35
-- Hardcoded non-parameterized scores found: 133
+# Parameter Contract Audit Report (PR0-A.1)
 
-## UNUSED (in params.json, never read by code)
+This is a static contract audit. `code reference`, `decision effect`, and `current-config reachability` are reported separately; none is silently treated as proof of the others.
+
+`ACTIVE` requires runtime counterfactual evidence that changing a parameter changes candidate rank or the selected action. Static references are deliberately reported as `REFERENCED_UNVERIFIED`.
+
+Total keys examined: 123
+- ACTIVE: 0
+- REFERENCED_UNVERIFIED: 89
+- EXPERIMENTAL: 0
+- DEPRECATED: 0
+- UNUSED: 15
+- SHADOWED: 19
+- Code-default only: 46
+- Current-config disabled: 3
+- Runtime override API-supported: 77
+- Runtime override declared-type not enforced: 71
+- Runtime override numeric-family mismatch: 1
+- Hardcoded numeric literals requiring review: 286
+
+Schema metadata (`unit`, `min`, `max`, `description`) remains `null` unless supported by an explicit source. The audit does not invent constraints.
+
+## Runtime Override declared-type risks
+- `energy_retrieval_threshold`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_active_ko_risk`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_bench_bolt_ready`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_bench_liability`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_bolt_on_field`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_boss_win`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_bt_partial`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_bt_ready`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_can_ko`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_can_ko_prize_mult`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_deck_out_risk`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_field_energy`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_grass_in_hand`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_hand_card`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_near_ko`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_no_backup_risk`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_ogerpon_value`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_prize_given`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_prize_taken`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `eval_supporter_in_hand`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_attach_bt_req`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_attach_ogerpon`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_attach_other`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_boss_prize_mult`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_bt_energy_loss`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_bt_energy_value`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_bt_ko_prize_mult`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_burst_roar_penalty`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_burst_roar_value`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_crispin_bolt_bonus`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_crispin_per_energy`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_end_penalty`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_energy_retrieval_per`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_lillie_per_card`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_mls_ko_prize_mult`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_play_bolt`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_play_ogerpon`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_retreat_penalty`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_retreat_safety`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_search_item`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_teal_dance`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `impact_teal_dance_bolt_ready`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `retreat_hp_threshold_pct`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `rule_ucb1_search`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_ability_teal_dance`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_attach_energy_ogerpon_active`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_attach_energy_ogerpon_bench`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_attach_energy_other`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_attach_energy_raging_bolt_active`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_attach_energy_raging_bolt_active_low_hp`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_attach_energy_raging_bolt_bench`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_attack_bellowing_thunder`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_attack_myriad_leaf_shower`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_end_turn`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_item_energy_retrieval`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_item_energy_retrieval_low_energy`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_item_pokegear`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_item_pokemon_catcher`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_item_tera_orb`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_item_unfair_stamp`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_play_pokemon_ogerpon`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_play_pokemon_raging_bolt`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_retreat`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_retreat_damaged_active`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_supporter_boss`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_supporter_boss_can_ko`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_supporter_crispin`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `score_supporter_lillie`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `ucb1_endgame_extra_rollouts`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `ucb1_extra_rollouts`: base type='integer'; the endpoint accepts both integer and non-integer numeric values.
+- `use_value_model`: base type='boolean'; the endpoint accepts both integer and non-integer numeric values.
+
+## SHADOWED / no observed decision effect
+- `eval_active_ko_risk`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_bench_bolt_ready`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_bench_liability`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_bolt_on_field`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_boss_win`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_bt_partial`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_bt_ready`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_can_ko`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_can_ko_prize_mult`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_deck_out_risk`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_field_energy`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_grass_in_hand`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_hand_card`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_near_ko`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_no_backup_risk`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_ogerpon_value`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_prize_given`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_prize_taken`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+- `eval_supporter_in_hand`: reason=enclosing_scoring_result_is_not_consumed, used_by=['evaluate_state']
+
+## UNUSED (present in params.json, no supported read in audited agent)
 - `score_ability_teal_dance` = 850
 - `score_attach_energy_ogerpon_active` = 550
 - `score_attach_energy_ogerpon_bench` = 500
@@ -23,181 +131,348 @@ Total keys examined: 112
 - `score_supporter_crispin` = 1030
 - `score_supporter_lillie` = 650
 
-## SHADOWED (inconsistent defaults across call sites)
+## Current configuration disables the guarded call site
+- `endgame_samples`: [{'lineno': 1732, 'state': 'DISABLED_BY_CURRENT_CONFIG', 'guards': [{'key': 'rule_ucb1_search', 'expected_truthy': False, 'default_value': 0, 'default_is_dynamic': False, 'source': 'post_early_return', 'current_value': 1, 'value_source': 'params.json', 'holds': False}]}]
+- `engine_search_samples`: [{'lineno': 1730, 'state': 'DISABLED_BY_CURRENT_CONFIG', 'guards': [{'key': 'rule_ucb1_search', 'expected_truthy': False, 'default_value': 0, 'default_is_dynamic': False, 'source': 'post_early_return', 'current_value': 1, 'value_source': 'params.json', 'holds': False}]}]
+- `value_model_weight`: [{'lineno': 1886, 'state': 'DISABLED_BY_CURRENT_CONFIG', 'guards': [{'key': 'use_value_model', 'expected_truthy': True, 'default_value': False, 'default_is_dynamic': False, 'source': 'if_guard', 'current_value': False, 'value_source': 'params.json', 'holds': False}]}]
 
-## Not persisted in params.json (relies on code default only)
-- `attach_for_lethal_score` code default(s)={'1800'} (lines [744])
-- `catcher_hold_score` code default(s)={'5'} (lines [722])
-- `endgame_prize_threshold` code default(s)={'2'} (lines [1627, 1628])
-- `endgame_samples` code default(s)={'2'} (lines [1658])
-- `energy_pick_dup_penalty` code default(s)={'100'} (lines [1031])
-- `energy_pick_grass_first` code default(s)={'50'} (lines [1030])
-- `energy_pick_grass_teal_dance` code default(s)={'100'} (lines [1028])
-- `energy_pick_need_bonus` code default(s)={'250'} (lines [1021])
-- `engine_search_heuristic_weight` code default(s)={'0.15'} (lines [1613])
-- `engine_search_opp_turn` code default(s)={'0'} (lines [1557])
-- `engine_search_samples` code default(s)={'1'} (lines [1656])
-- `engine_search_top_k` code default(s)={'5'} (lines [1612])
-- `er_hold_hand_energy` code default(s)={'3'} (lines [673])
-- `er_hold_score` code default(s)={'250'} (lines [677])
-- `is_first_no` code default(s)={'900'} (lines [457])
-- `is_first_yes` code default(s)={'100'} (lines [452])
-- `lillie_pending_defer_score` code default(s)={'550'} (lines [637])
-- `rule_attach_for_lethal` code default(s)={'1'} (lines [740])
-- `rule_catcher_hold` code default(s)={'1'} (lines [719])
-- `rule_endgame_deepen` code default(s)={'1'} (lines [1629, 1657])
-- `rule_er_hold` code default(s)={'1'} (lines [674])
-- `rule_lillie_combo_defer` code default(s)={'1'} (lines [636])
-- `rule_opp_energy_inference` code default(s)={'1'} (lines [1373])
-- `se_bench_bolt_ready` code default(s)={'250'} (lines [1414])
-- `se_board_pokemon` code default(s)={'30'} (lines [1414])
-- `se_bolt_ready` code default(s)={'350'} (lines [1414])
-- `se_can_ko` code default(s)={'400'} (lines [1414])
-- `se_closing` code default(s)={'300'} (lines [1414])
-- `se_field_energy` code default(s)={'60'} (lines [1414])
-- `se_hand_card` code default(s)={'40'} (lines [1414])
-- `se_ogerpon` code default(s)={'120'} (lines [1414])
-- `se_opp_damage` code default(s)={'2.0'} (lines [1414])
-- `se_prize_taken` code default(s)={'900'} (lines [1414])
-- `se_refuel_resource` code default(s)={'50'} (lines [1414])
-- `use_engine_search` code default(s)={'1'} (lines [1750])
+## Code-default only (not persisted in params.json)
+- `attach_for_lethal_score` code default(s)={'1800'} (sites=[('_score_attach', 809)])
+- `catcher_hold_score` code default(s)={'5'} (sites=[('_score_play', 787)])
+- `endgame_prize_threshold` code default(s)={'2'} (sites=[('_engine_search_choose', 1695), ('_engine_search_choose', 1696)])
+- `endgame_samples` code default(s)={'2'} (sites=[('_engine_search_choose', 1732)])
+- `energy_pick_dup_penalty` code default(s)={'100'} (sites=[('_score_energy_pick', 1096)])
+- `energy_pick_grass_first` code default(s)={'50'} (sites=[('_score_energy_pick', 1095)])
+- `energy_pick_grass_teal_dance` code default(s)={'100'} (sites=[('_score_energy_pick', 1093)])
+- `energy_pick_need_bonus` code default(s)={'250'} (sites=[('_score_energy_pick', 1086)])
+- `engine_search_heuristic_weight` code default(s)={'0.15'} (sites=[('_engine_search_choose', 1681)])
+- `engine_search_opp_turn` code default(s)={'0'} (sites=[('_rollforward', 1623)])
+- `engine_search_samples` code default(s)={'1'} (sites=[('_engine_search_choose', 1730)])
+- `engine_search_top_k` code default(s)={'5'} (sites=[('_engine_search_choose', 1680)])
+- `er_hold_hand_energy` code default(s)={'3'} (sites=[('_score_play', 738)])
+- `er_hold_score` code default(s)={'250'} (sites=[('_score_play', 742)])
+- `is_first_no` code default(s)={'900'} (sites=[('_score_option', 522)])
+- `is_first_yes` code default(s)={'100'} (sites=[('_score_option', 517)])
+- `lillie_pending_defer_score` code default(s)={'550'} (sites=[('_score_play', 702)])
+- `rule_attach_for_lethal` code default(s)={'1'} (sites=[('_score_attach', 805)])
+- `rule_catcher_hold` code default(s)={'1'} (sites=[('_score_play', 784)])
+- `rule_endgame_deepen` code default(s)={'1'} (sites=[('_engine_search_choose', 1697), ('_engine_search_choose', 1731)])
+- `rule_er_hold` code default(s)={'1'} (sites=[('_score_play', 739)])
+- `rule_lillie_combo_defer` code default(s)={'1'} (sites=[('_score_play', 701)])
+- `rule_opp_energy_inference` code default(s)={'1'} (sites=[('_sample_opp_energy', 1439)])
+- `se_active_dies_energy` code default(s)={'-40'} (sites=[('_eval_search_state', 1480)])
+- `se_active_dies_prize` code default(s)={'-350'} (sites=[('_eval_search_state', 1480)])
+- `se_bench_bolt_ready` code default(s)={'250'} (sites=[('_eval_search_state', 1480)])
+- `se_bench_damage` code default(s)={'-0.6'} (sites=[('_eval_search_state', 1480)])
+- `se_bench_ko_risk` code default(s)={'-120'} (sites=[('_eval_search_state', 1480)])
+- `se_board_pokemon` code default(s)={'30'} (sites=[('_eval_search_state', 1480)])
+- `se_bolt_ready` code default(s)={'350'} (sites=[('_eval_search_state', 1480)])
+- `se_can_ko` code default(s)={'400'} (sites=[('_eval_search_state', 1480)])
+- `se_closing` code default(s)={'300'} (sites=[('_eval_search_state', 1480)])
+- `se_disabled` code default(s)={'-150'} (sites=[('_eval_search_state', 1480)])
+- `se_dot` code default(s)={'-60'} (sites=[('_eval_search_state', 1480)])
+- `se_field_energy` code default(s)={'60'} (sites=[('_eval_search_state', 1480)])
+- `se_hand_card` code default(s)={'40'} (sites=[('_eval_search_state', 1480)])
+- `se_my_damage` code default(s)={'-1.0'} (sites=[('_eval_search_state', 1480)])
+- `se_no_backup` code default(s)={'-200'} (sites=[('_eval_search_state', 1480)])
+- `se_ogerpon` code default(s)={'120'} (sites=[('_eval_search_state', 1480)])
+- `se_opp_closing` code default(s)={'-400'} (sites=[('_eval_search_state', 1480)])
+- `se_opp_damage` code default(s)={'2.0'} (sites=[('_eval_search_state', 1480)])
+- `se_opp_energy` code default(s)={'-25'} (sites=[('_eval_search_state', 1480)])
+- `se_prize_given` code default(s)={'-800'} (sites=[('_eval_search_state', 1480)])
+- `se_prize_taken` code default(s)={'900'} (sites=[('_eval_search_state', 1480)])
+- `se_refuel_resource` code default(s)={'50'} (sites=[('_eval_search_state', 1480)])
+- `use_engine_search` code default(s)={'1'} (sites=[('choose_with_search', 1824)])
 
-## Possible DUPLICATE concept groups (heuristic, needs human review)
+## Possible DUPLICATE concepts (human review required)
 - stem `eval_can_ko`: ['eval_can_ko', 'eval_can_ko_prize_mult']
 - stem `score_attach_energy_ogerpon`: ['score_attach_energy_ogerpon_active', 'score_attach_energy_ogerpon_bench']
 - stem `score_attach_energy_raging_bolt`: ['score_attach_energy_raging_bolt_active', 'score_attach_energy_raging_bolt_bench']
 
-## Hardcoded scores bypassing self.p() (not tunable via params.json)
-- `_score_option` line 518: literal return 300
-- `_score_option` line 453: literal return 500
-- `_score_option` line 458: literal return 400
-- `_score_option` line 507: literal return 800
-- `_score_attack` line 565: literal return 500
-- `_score_attack` line 535: literal return 800
-- `_score_attack` line 563: literal return 45
-- `_score_attack` line 525: literal return 400
-- `_score_attack` line 527: literal return 300
-- `_score_attack` line 532: literal return 1200
-- `_score_attack` line 534: literal return 1000
-- `_score_attack` line 547: literal return 400
-- `_score_attack` line 556: literal return 30
-- `_score_attack` line 560: literal return 40
-- `_score_attack` line 562: literal return 500
-- `_score_ability` line 575: literal return 500
-- `_score_ability` line 574: literal return 200
-- `_score_ability` line 573: literal return 1300
-- `_score_ability` line 572: literal return 1500
-- `_score_play` line 727: literal return 300
-- `_score_play` line 580: literal return 300
-- `_score_play` line 610: literal return 600
-- `_score_play` line 650: literal return 800
-- `_score_play` line 657: literal return 600
-- `_score_play` line 663: literal return 300
-- `_score_play` line 669: literal return 400
-- `_score_play` line 587: literal return 1250
-- `_score_play` line 594: literal return 1100
-- `_score_play` line 599: literal return 500
-- `_score_play` line 601: literal return 1500
-- `_score_play` line 607: literal return 1300
-- `_score_play` line 609: literal return 1100
-- `_score_play` line 644: literal return 200
-- `_score_play` line 647: literal return 1600
-- `_score_play` line 649: literal return 400
-- `_score_play` line 656: literal return 1250
-- `_score_play` line 666: literal return 900
-- `_score_play` line 668: literal return 650
-- `_score_play` line 682: literal return 400
-- `_score_play` line 684: literal return 700
-- `_score_play` line 686: literal return 650
-- `_score_play` line 695: literal return 350
-- `_score_play` line 697: literal return 500
-- `_score_play` line 706: literal return 400
-- `_score_play` line 708: literal return 1200
-- `_score_play` line 710: literal return 1150
-- `_score_play` line 712: literal return 1000
-- `_score_play` line 716: literal return 500
-- `_score_play` line 606: literal return 1000
-- `_score_play` line 679: literal return 1200
-- `_score_play` line 681: literal return 1000
-- `_score_play` line 694: literal return 700
-- `_score_play` line 705: literal return 1100
-- `_score_play` line 715: literal return 900
-- `_score_attach` line 772: literal return 100
-- `_score_attach` line 758: literal return 1400
-- `_score_attach` line 760: literal return 100
-- `_score_attach` line 769: literal return 600
-- `_score_retreat` line 795: literal return 100
-- `_score_retreat` line 783: literal return 1500
-- `_score_retreat` line 788: literal return 800
-- `_score_retreat` line 792: literal return 900
-- `_score_card_select` line 993: literal return 400
-- `_score_card_select` line 802: literal return 300
-- `_score_card_select` line 839: literal return 400
-- `_score_card_select` line 862: literal return 500
-- `_score_card_select` line 906: literal return 400
-- `_score_card_select` line 917: literal return 400
-- `_score_card_select` line 922: literal return 400
-- `_score_card_select` line 932: literal return 300
-- `_score_card_select` line 939: literal return 300
-- `_score_card_select` line 947: literal return 300
-- `_score_card_select` line 956: literal return 300
-- `_score_card_select` line 959: literal return 400
-- `_score_card_select` line 982: literal return 400
-- `_score_card_select` line 822: literal return 600
-- `_score_card_select` line 824: literal return 580
-- `_score_card_select` line 828: literal return 500
-- `_score_card_select` line 830: literal return 520
-- `_score_card_select` line 832: literal return 480
-- `_score_card_select` line 834: literal return 550
-- `_score_card_select` line 845: literal return 850
-- `_score_card_select` line 847: literal return 800
-- `_score_card_select` line 849: literal return 750
-- `_score_card_select` line 851: literal return 600
-- `_score_card_select` line 853: literal return 550
-- `_score_card_select` line 855: literal return 100
-- `_score_card_select` line 857: literal return 200
-- `_score_card_select` line 859: literal return 300
-- `_score_card_select` line 861: literal return 380
-- `_score_card_select` line 886: literal return 900
-- `_score_card_select` line 898: literal return 50
-- `_score_card_select` line 901: literal return 700
-- `_score_card_select` line 903: literal return 800
-- `_score_card_select` line 905: literal return 200
-- `_score_card_select` line 910: literal return 750
-- `_score_card_select` line 912: literal return 700
-- `_score_card_select` line 921: literal return 600
-- `_score_card_select` line 929: literal return 800
-- `_score_card_select` line 931: literal return 700
-- `_score_card_select` line 936: literal return 800
-- `_score_card_select` line 938: literal return 700
-- `_score_card_select` line 946: literal return 600
-- `_score_card_select` line 955: literal return 600
-- `_score_card_select` line 973: literal return 750
-- `_score_card_select` line 977: literal return 500
-- `_score_card_select` line 981: literal return 500
-- `_score_card_select` line 964: literal return 900
-- `_score_card_select` line 966: literal return 900
-- `_score_card_select` line 972: literal return 800
-- `_score_card_select` line 976: literal return 750
-- `_score_card_select` line 980: literal return 750
-- `_score_card_select` line 895: literal return 450
-- `_score_card_select` line 971: literal return 950
-- `_score_field_target` line 1014: literal return 400
-- `_score_field_target` line 1011: literal return 500
-- `_score_field_target` line 1013: literal return 600
-- `_score_field_target` line 1008: literal return 300
-- `_score_energy_select` line 1087: literal return 400
-- `_score_energy_select` line 1080: literal return 500
-- `_score_energy_select` line 1067: literal return 700
-- `_score_energy_select` line 1070: literal return 900
-- `_score_energy_select` line 1073: literal return 800
-- `_score_energy_select` line 1075: literal return 50
-- `_score_energy_select` line 1077: literal return 300
-- `_score_energy_select` line 1079: literal return 300
-- `_score_energy_select` line 1066: literal return 50
-- `_score_number` line 1134: literal return 500
-- `_score_number` line 1127: literal return 950
-- `_score_number` line 1129: literal return 800
-- `_score_number` line 1131: literal return 850
-- `_score_number` line 1124: literal return 1000
-- `_eval_search_state` line 1519: literal return 0.0
+## Hardcoded numeric literals in scoring methods (structural constants included)
+- `_score_option` line 518: 500 [Return] `return 500`
+- `_score_option` line 523: 400 [Return] `return 400`
+- `_score_option` line 534: 700 [Return] `return min(base, 700)`
+- `_score_option` line 544: 0 [Assign] `cid = c.id if c else 0`
+- `_score_option` line 548: 0 [If] `if cd and cd.hp and cd.hp > 0: return base + self._strategy_bonus("play_pokemon", card_id=cid)`
+- `_score_option` line 562: 1100 [Return] `return min(base, 1100)`
+- `_score_option` line 565: 0 [Return] `return base + self._strategy_bonus("attach", card_id=target.id if target else 0)`
+- `_score_option` line 572: 800 [Return] `return 800`
+- `_score_option` line 583: 300 [Return] `return 300`
+- `_score_attack` line 590: 400 [Return] `return 400`
+- `_score_attack` line 592: 300 [Return] `return 300`
+- `_score_attack` line 595: 2000 [Return] `return 2000 + prize * 300`
+- `_score_attack` line 595: 300 [Return] `return 2000 + prize * 300`
+- `_score_attack` line 596: 4 [If] `if self.bt_total_energy >= 4: return 1200`
+- `_score_attack` line 597: 1200 [Return] `return 1200`
+- `_score_attack` line 598: 3 [If] `if self.bt_total_energy >= 3: return 1000`
+- `_score_attack` line 599: 1000 [Return] `return 1000`
+- `_score_attack` line 600: 800 [Return] `return 800`
+- `_score_attack` line 603: 0 [Assign] `my_energy = _count_energy(self.active) if self.active else 0`
+- `_score_attack` line 604: 0 [Assign] `opp_energy = _count_energy(self.opp_active) if self.opp_active else 0`
+- `_score_attack` line 606: 30 [Assign] `potential_damage = 30 + total_energy * 30`
+- `_score_attack` line 606: 30 [Assign] `potential_damage = 30 + total_energy * 30`
+- `_score_attack` line 609: 1800 [Return] `return 1800 + prize * 200`
+- `_score_attack` line 609: 200 [Return] `return 1800 + prize * 200`
+- `_score_attack` line 611: 3 [If] `if has_bolt_bench and self.bt_total_energy >= 3: return 400`
+- `_score_attack` line 612: 400 [Return] `return 400`
+- `_score_attack` line 613: 600 [Return] `return 600 + total_energy * 40`
+- `_score_attack` line 613: 40 [Return] `return 600 + total_energy * 40`
+- `_score_attack` line 621: 30 [Return] `return 30`
+- `_score_attack` line 625: 40 [Return] `return 40`
+- `_score_attack` line 626: 1 [If] `if len(self.hand_ids) <= 1: return 500`
+- `_score_attack` line 627: 500 [Return] `return 500`
+- `_score_attack` line 628: 45 [Return] `return 45`
+- `_score_attack` line 630: 500 [Return] `return 500`
+- `_score_ability` line 635: 0 [If] `if self.grass_in_hand > 0: if self.bolt_ready: return 1500 return 1300`
+- `_score_ability` line 637: 1500 [Return] `return 1500`
+- `_score_ability` line 638: 1300 [Return] `return 1300`
+- `_score_ability` line 639: 200 [Return] `return 200`
+- `_score_ability` line 640: 500 [Return] `return 500`
+- `_score_play` line 645: 300 [Return] `return 300`
+- `_score_play` line 652: 1250 [Return] `return 1250`
+- `_score_play` line 659: 1100 [Return] `return 1100`
+- `_score_play` line 663: 4 [If] `if self.energy_in_hand >= 4: return 500`
+- `_score_play` line 664: 500 [Return] `return 500`
+- `_score_play` line 665: 1 [If] `if self.field_ready and self.energy_in_discard >= 1: return 1500`
+- `_score_play` line 666: 1500 [Return] `return 1500`
+- `_score_play` line 667: 1 [If] `if not self.bolt_ready and self.energy_in_discard >= 1: if self.ogerpon_on_field and self.grass_in_hand > 0 and len(self.hand_ids) <= 3: # hand thin + Teal Dance available: draw via Ogerpon ability first, # attach energy next turn — observe`
+- `_score_play` line 668: 0 [If] `if self.ogerpon_on_field and self.grass_in_hand > 0 and len(self.hand_ids) <= 3: # hand thin + Teal Dance available: draw via Ogerpon ability first, # attach energy next turn — observed 4x in session_tuning_log.jsonl return 1000`
+- `_score_play` line 668: 3 [If] `if self.ogerpon_on_field and self.grass_in_hand > 0 and len(self.hand_ids) <= 3: # hand thin + Teal Dance available: draw via Ogerpon ability first, # attach energy next turn — observed 4x in session_tuning_log.jsonl return 1000`
+- `_score_play` line 671: 1000 [Return] `return 1000`
+- `_score_play` line 672: 1300 [Return] `return 1300`
+- `_score_play` line 673: 1 [If] `if self.energy_in_discard >= 1: return 1100`
+- `_score_play` line 674: 1100 [Return] `return 1100`
+- `_score_play` line 675: 600 [Return] `return 600`
+- `_score_play` line 682: 0 [Assign] `pending_plays = 0`
+- `_score_play` line 683: 0 [If] `if self.grass_in_hand > 0 and self.ogerpon_on_field: pending_plays += 1`
+- `_score_play` line 684: 1 [AugAssign] `pending_plays += 1`
+- `_score_play` line 686: 4 [Assign] `needs_l = self._field_bolt_missing(4) and C.BASIC_LIGHTNING_ENERGY in self.hand_ids`
+- `_score_play` line 687: 6 [Assign] `needs_f = self._field_bolt_missing(6) and C.BASIC_FIGHTING_ENERGY in self.hand_ids`
+- `_score_play` line 688: 0 [If] `if needs_l or needs_f or self.grass_in_hand > 0: pending_plays += 1`
+- `_score_play` line 689: 1 [AugAssign] `pending_plays += 1`
+- `_score_play` line 693: 1 [AugAssign] `pending_plays += 1`
+- `_score_play` line 695: 1 [AugAssign] `pending_plays += 1`
+- `_score_play` line 697: 1 [If] `if ((C.ENERGY_RETRIEVAL in self.hand_ids or C.NIGHT_STRETCHER in self.hand_ids) and self.energy_in_discard >= 1): pending_plays += 1`
+- `_score_play` line 698: 1 [AugAssign] `pending_plays += 1`
+- `_score_play` line 700: 1 [AugAssign] `pending_plays += 1`
+- `_score_play` line 701: 0 [If] `if pending_plays > 0 and self.p("rule_lillie_combo_defer", 1): return self.p("lillie_pending_defer_score", 550)`
+- `_score_play` line 704: 1000 [Return] `return 1000 if len(self.hand_ids) <= 3 else 700`
+- `_score_play` line 704: 700 [Return] `return 1000 if len(self.hand_ids) <= 3 else 700`
+- `_score_play` line 704: 3 [Return] `return 1000 if len(self.hand_ids) <= 3 else 700`
+- `_score_play` line 705: 1300 [Return] `return 1300 if len(self.hand_ids) <= 2 else 1200`
+- `_score_play` line 705: 1200 [Return] `return 1300 if len(self.hand_ids) <= 2 else 1200`
+- `_score_play` line 705: 2 [Return] `return 1300 if len(self.hand_ids) <= 2 else 1200`
+- `_score_play` line 708: 20 [If] `if self.active_hp_pct <= 20: return 200`
+- `_score_play` line 709: 200 [Return] `return 200`
+- `_score_play` line 712: 1600 [Return] `return 1600`
+- `_score_play` line 714: 400 [Return] `return 400`
+- `_score_play` line 715: 800 [Return] `return 800`
+- `_score_play` line 721: 1250 [Return] `return 1250`
+- `_score_play` line 722: 600 [Return] `return 600`
+- `_score_play` line 726: 1 [If] `if self.energy_in_discard >= 1 or bolt_in_discard: return 950 if not self.field_ready else 800`
+- `_score_play` line 727: 950 [Return] `return 950 if not self.field_ready else 800`
+- `_score_play` line 727: 800 [Return] `return 950 if not self.field_ready else 800`
+- `_score_play` line 728: 300 [Return] `return 300`
+- `_score_play` line 730: 4 [If] `if not self.bolt_ready and (self._field_bolt_missing(4) or self._field_bolt_missing(6)): return 900`
+- `_score_play` line 730: 6 [If] `if not self.bolt_ready and (self._field_bolt_missing(4) or self._field_bolt_missing(6)): return 900`
+- `_score_play` line 731: 900 [Return] `return 900`
+- `_score_play` line 732: 0 [If] `if self.grass_in_hand == 0 and self.ogerpon_on_field: return 650`
+- `_score_play` line 733: 650 [Return] `return 650`
+- `_score_play` line 734: 400 [Return] `return 400`
+- `_score_play` line 744: 1200 [Return] `return 1200`
+- `_score_play` line 745: 1 [If] `if self.energy_in_discard >= 1: return 1000`
+- `_score_play` line 746: 1000 [Return] `return 1000`
+- `_score_play` line 747: 400 [Return] `return 400`
+- `_score_play` line 749: 700 [Return] `return 700`
+- `_score_play` line 751: 650 [Return] `return 650`
+- `_score_play` line 756: 1 [Assign] `disposable = sum(1 for h in self.hand_ids if h in (C.POKEMON_CATCHER, C.POKEGEAR, C.SWITCH, C.UNFAIR_STAMP))`
+- `_score_play` line 758: 2 [If] `if len(self.ogerpon_on_field) < 2 and disposable >= 2: return 700`
+- `_score_play` line 758: 2 [If] `if len(self.ogerpon_on_field) < 2 and disposable >= 2: return 700`
+- `_score_play` line 759: 700 [Return] `return 700`
+- `_score_play` line 760: 350 [Return] `return 350`
+- `_score_play` line 762: 500 [Return] `return 500`
+- `_score_play` line 770: 1100 [Return] `return 1100`
+- `_score_play` line 771: 400 [Return] `return 400`
+- `_score_play` line 773: 1200 [Return] `return 1200`
+- `_score_play` line 775: 1150 [Return] `return 1150`
+- `_score_play` line 777: 1000 [Return] `return 1000`
+- `_score_play` line 780: 900 [Return] `return 900`
+- `_score_play` line 781: 500 [Return] `return 500`
+- `_score_play` line 792: 300 [Return] `return 300`
+- `_score_attach` line 808: 70 [If] `if (self.p("rule_attach_for_lethal", 1) and self.active_id == C.RAGING_BOLT_EX and self.bolt_ready and self.opp_active and not self.can_ko_with_bt and (self.bt_total_energy + 1) * 70 >= self.opp_active_hp): return self.p("attach_for_lethal_`
+- `_score_attach` line 808: 1 [If] `if (self.p("rule_attach_for_lethal", 1) and self.active_id == C.RAGING_BOLT_EX and self.bolt_ready and self.opp_active and not self.can_ko_with_bt and (self.bt_total_energy + 1) * 70 >= self.opp_active_hp): return self.p("attach_for_lethal_`
+- `_score_attach` line 812: 0 [Assign] `target_energy = _count_energy(target) if target else 0`
+- `_score_attach` line 815: 0 [Assign] `energy_id = energy_card.id if energy_card else 0`
+- `_score_attach` line 818: 4 [Assign] `has_lightning = any(e == 4 for e in target.energies) if target else False`
+- `_score_attach` line 819: 6 [Assign] `has_fighting = any(e == 6 for e in target.energies) if target else False`
+- `_score_attach` line 823: 1400 [Return] `return 1400`
+- `_score_attach` line 825: 100 [Return] `return 100`
+- `_score_attach` line 829: 500 [Return] `return 500 + target_energy * 30`
+- `_score_attach` line 829: 30 [Return] `return 500 + target_energy * 30`
+- `_score_attach` line 834: 600 [Return] `return 600`
+- `_score_attach` line 837: 100 [Return] `return 100`
+- `_score_retreat` line 845: 4 [Assign] `bench_bolt_ready = [p for p in (self.me.bench or []) if p and p.id == C.RAGING_BOLT_EX and any(e == 4 for e in p.energies) and any(e == 6 for e in p.energies)]`
+- `_score_retreat` line 846: 6 [Assign] `bench_bolt_ready = [p for p in (self.me.bench or []) if p and p.id == C.RAGING_BOLT_EX and any(e == 4 for e in p.energies) and any(e == 6 for e in p.energies)]`
+- `_score_retreat` line 848: 1500 [Return] `return 1500`
+- `_score_retreat` line 851: 2 [Assign] `bench_bolt_any = [p for p in (self.me.bench or []) if p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 2]`
+- `_score_retreat` line 853: 800 [Return] `return 800`
+- `_score_retreat` line 854: 15 [If] `if self.active_hp_pct <= 15: bench_any = [p for p in (self.me.bench or []) if p and _count_energy(p) >= 1] if bench_any: return 900`
+- `_score_retreat` line 855: 1 [Assign] `bench_any = [p for p in (self.me.bench or []) if p and _count_energy(p) >= 1]`
+- `_score_retreat` line 857: 900 [Return] `return 900`
+- `_score_retreat` line 860: 100 [Return] `return 100`
+- `_score_card_select` line 867: 300 [Return] `return 300`
+- `_score_card_select` line 874: 800 [Return] `return 800 if bolt_on_field is None else 400`
+- `_score_card_select` line 874: 400 [Return] `return 800 if bolt_on_field is None else 400`
+- `_score_card_select` line 879: 850 [Return] `return 850 if ogre_on_field is None else 500`
+- `_score_card_select` line 879: 500 [Return] `return 850 if ogre_on_field is None else 500`
+- `_score_card_select` line 881: 700 [Return] `return 700 if self.energy_in_hand < 3 else 400`
+- `_score_card_select` line 881: 400 [Return] `return 700 if self.energy_in_hand < 3 else 400`
+- `_score_card_select` line 881: 3 [Return] `return 700 if self.energy_in_hand < 3 else 400`
+- `_score_card_select` line 883: 650 [Return] `return 650 if len(self.hand_ids) <= 4 else 450`
+- `_score_card_select` line 883: 450 [Return] `return 650 if len(self.hand_ids) <= 4 else 450`
+- `_score_card_select` line 883: 4 [Return] `return 650 if len(self.hand_ids) <= 4 else 450`
+- `_score_card_select` line 885: 750 [Return] `return 750 if self._can_ko_active() else 500`
+- `_score_card_select` line 885: 500 [Return] `return 750 if self._can_ko_active() else 500`
+- `_score_card_select` line 887: 600 [Return] `return 600`
+- `_score_card_select` line 889: 580 [Return] `return 580`
+- `_score_card_select` line 891: 620 [Return] `return 620 if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2) else 450`
+- `_score_card_select` line 891: 450 [Return] `return 620 if self.energy_in_discard >= self.p("energy_retrieval_threshold", 2) else 450`
+- `_score_card_select` line 893: 500 [Return] `return 500`
+- `_score_card_select` line 895: 520 [Return] `return 520`
+- `_score_card_select` line 897: 480 [Return] `return 480`
+- `_score_card_select` line 899: 550 [Return] `return 550`
+- `_score_card_select` line 903: 50 [Return] `return self._score_energy_pick(c.id) + 50`
+- `_score_card_select` line 904: 400 [Return] `return 400`
+- `_score_card_select` line 910: 850 [Return] `return 850`
+- `_score_card_select` line 912: 800 [Return] `return 800`
+- `_score_card_select` line 914: 750 [Return] `return 750`
+- `_score_card_select` line 916: 600 [Return] `return 600`
+- `_score_card_select` line 918: 550 [Return] `return 550`
+- `_score_card_select` line 920: 100 [Return] `return 100`
+- `_score_card_select` line 922: 200 [Return] `return 200`
+- `_score_card_select` line 924: 300 [Return] `return 300`
+- `_score_card_select` line 926: 380 [Return] `return 380`
+- `_score_card_select` line 927: 500 [Return] `return 500`
+- `_score_card_select` line 939: 0 [Assign] `poke = player.active[0]`
+- `_score_card_select` line 951: 900 [Return] `return 900`
+- `_score_card_select` line 957: 4 [Assign] `etype = 4 if energy_id == C.BASIC_LIGHTNING_ENERGY else 6`
+- `_score_card_select` line 957: 6 [Assign] `etype = 4 if energy_id == C.BASIC_LIGHTNING_ENERGY else 6`
+- `_score_card_select` line 958: 1 [Assign] `same_count = sum(1 for e in (poke.energies or []) if e == etype) if poke else 1`
+- `_score_card_select` line 958: 1 [Assign] `same_count = sum(1 for e in (poke.energies or []) if e == etype) if poke else 1`
+- `_score_card_select` line 959: 2 [If] `if same_count >= 2: return 450`
+- `_score_card_select` line 960: 450 [Return] `return 450`
+- `_score_card_select` line 963: 50 [Return] `return 50`
+- `_score_card_select` line 966: 700 [Return] `return 700`
+- `_score_card_select` line 968: 800 [Return] `return 800`
+- `_score_card_select` line 970: 200 [Return] `return 200`
+- `_score_card_select` line 971: 400 [Return] `return 400`
+- `_score_card_select` line 975: 750 [Return] `return 750`
+- `_score_card_select` line 977: 700 [Return] `return 700`
+- `_score_card_select` line 982: 400 [Return] `return 400`
+- `_score_card_select` line 986: 600 [Return] `return 600`
+- `_score_card_select` line 987: 400 [Return] `return 400`
+- `_score_card_select` line 994: 800 [Return] `return 800`
+- `_score_card_select` line 996: 700 [Return] `return 700`
+- `_score_card_select` line 997: 300 [Return] `return 300`
+- `_score_card_select` line 1001: 800 [Return] `return 800`
+- `_score_card_select` line 1003: 700 [Return] `return 700`
+- `_score_card_select` line 1004: 300 [Return] `return 300`
+- `_score_card_select` line 1008: 0 [Assign] `bolt_energy = _count_energy(c) if hasattr(c, 'energies') else 0`
+- `_score_card_select` line 1009: 700 [Return] `return 700 + bolt_energy * 50`
+- `_score_card_select` line 1009: 50 [Return] `return 700 + bolt_energy * 50`
+- `_score_card_select` line 1011: 600 [Return] `return 600`
+- `_score_card_select` line 1012: 300 [Return] `return 300`
+- `_score_card_select` line 1017: 0 [Assign] `bolt_energy = _count_energy(c) if hasattr(c, 'energies') else 0`
+- `_score_card_select` line 1018: 700 [Return] `return 700 + bolt_energy * 50`
+- `_score_card_select` line 1018: 50 [Return] `return 700 + bolt_energy * 50`
+- `_score_card_select` line 1020: 600 [Return] `return 600`
+- `_score_card_select` line 1021: 300 [Return] `return 300`
+- `_score_card_select` line 1024: 400 [Return] `return 400`
+- `_score_card_select` line 1029: 900 [Return] `return 900`
+- `_score_card_select` line 1031: 900 [Return] `return 900`
+- `_score_card_select` line 1033: 0 [If] `if len(self.ogerpon_on_field) > 0: fighting_in_hand = C.BASIC_FIGHTING_ENERGY in self.hand_ids if not self.bolt_has_fighting and fighting_in_hand: return 950 return 800`
+- `_score_card_select` line 1036: 950 [Return] `return 950`
+- `_score_card_select` line 1037: 800 [Return] `return 800`
+- `_score_card_select` line 1038: 750 [Return] `return 750`
+- `_score_card_select` line 1040: 4 [If] `if self._field_bolt_missing(4): return 750`
+- `_score_card_select` line 1041: 750 [Return] `return 750`
+- `_score_card_select` line 1042: 500 [Return] `return 500`
+- `_score_card_select` line 1044: 6 [If] `if self._field_bolt_missing(6): return 750`
+- `_score_card_select` line 1045: 750 [Return] `return 750`
+- `_score_card_select` line 1046: 500 [Return] `return 500`
+- `_score_card_select` line 1047: 400 [Return] `return 400`
+- `_score_card_select` line 1058: 400 [Return] `return 400`
+- `_score_field_target` line 1070: 4 [Assign] `missing = (not any(e == 4 for e in (c.energies or [])) or not any(e == 6 for e in (c.energies or [])))`
+- `_score_field_target` line 1071: 6 [Assign] `missing = (not any(e == 4 for e in (c.energies or [])) or not any(e == 6 for e in (c.energies or [])))`
+- `_score_field_target` line 1072: 60 [If] `if area == AreaType.ACTIVE and getattr(c, 'hp', 999) <= 60: return 300`
+- `_score_field_target` line 1072: 999 [If] `if area == AreaType.ACTIVE and getattr(c, 'hp', 999) <= 60: return 300`
+- `_score_field_target` line 1073: 300 [Return] `return 300`
+- `_score_field_target` line 1075: 800 [Return] `return 800 if area == AreaType.BENCH else 700`
+- `_score_field_target` line 1075: 700 [Return] `return 800 if area == AreaType.BENCH else 700`
+- `_score_field_target` line 1076: 500 [Return] `return 500`
+- `_score_field_target` line 1078: 600 [Return] `return 600`
+- `_score_field_target` line 1079: 400 [Return] `return 400`
+- `_score_energy_pick` line 1085: 500 [Assign] `score = 500`
+- `_score_energy_pick` line 1087: 4 [If] `if cid == C.BASIC_LIGHTNING_ENERGY and self._field_bolt_missing(4): score += need_bonus`
+- `_score_energy_pick` line 1089: 6 [If] `if cid == C.BASIC_FIGHTING_ENERGY and self._field_bolt_missing(6): score += need_bonus`
+- `_score_energy_pick` line 1094: 0 [If] `if self.grass_in_hand == 0: score += self.p("energy_pick_grass_first", 50)`
+- `_score_energy_pick` line 1096: 2 [AugAssign] `score -= self.p("energy_pick_dup_penalty", 100) * min(self.hand_counts.get(cid, 0), 2)`
+- `_score_energy_pick` line 1096: 0 [AugAssign] `score -= self.p("energy_pick_dup_penalty", 100) * min(self.hand_counts.get(cid, 0), 2)`
+- `_score_energy_select` line 1103: -1 [If] `if ctx in (SelectContext.DISCARD_ENERGY_CARD, SelectContext.DISCARD_ENERGY, getattr(SelectContext, 'DISCARD', -1)): energy_type = self._get_energy_type_from_opt(opt) last_ko = self.my_prizes <= self._opp_prize_value() low_hp = self.active_h`
+- `_score_energy_select` line 1106: 50 [Assign] `low_hp = self.active_hp_pct <= 50`
+- `_score_energy_select` line 1116: 0 [Assign] `poke = player.active[0]`
+- `_score_energy_select` line 1131: 50 [Return] `return 50`
+- `_score_energy_select` line 1132: 700 [Return] `return 700`
+- `_score_energy_select` line 1135: 900 [Return] `return 900`
+- `_score_energy_select` line 1138: 800 [Return] `return 800`
+- `_score_energy_select` line 1140: 50 [Return] `return 50`
+- `_score_energy_select` line 1142: 300 [Return] `return 300`
+- `_score_energy_select` line 1144: 300 [Return] `return 300`
+- `_score_energy_select` line 1145: 500 [Return] `return 500`
+- `_score_energy_select` line 1152: 400 [Return] `return 400`
+- `_score_number` line 1179: 0 [Assign] `num = opt.number if hasattr(opt, 'number') else 0`
+- `_score_number` line 1182: 500 [Return] `return 500 + num * 50`
+- `_score_number` line 1182: 50 [Return] `return 500 + num * 50`
+- `_score_number` line 1185: 70 [Assign] `needed = (self.opp_active_hp + 69) // 70`
+- `_score_number` line 1185: 69 [Assign] `needed = (self.opp_active_hp + 69) // 70`
+- `_score_number` line 1189: 1000 [Return] `return 1000`
+- `_score_number` line 1190: 500 [Return] `return 500 + num * 70`
+- `_score_number` line 1190: 70 [Return] `return 500 + num * 70`
+- `_score_number` line 1192: 950 [Return] `return 950`
+- `_score_number` line 1194: 800 [Return] `return 800`
+- `_score_number` line 1195: 1 [If] `if num >= needed - 1: return 850`
+- `_score_number` line 1196: 850 [Return] `return 850`
+- `_score_number` line 1197: 500 [Return] `return 500 + num * 70`
+- `_score_number` line 1197: 70 [Return] `return 500 + num * 70`
+- `_score_number` line 1198: 500 [Return] `return 500 + num * 50`
+- `_score_number` line 1198: 50 [Return] `return 500 + num * 50`
+- `_score_number` line 1199: 500 [Return] `return 500`
+- `evaluate_state` line 1279: 0.0 [Assign] `score = 0.0`
+- `evaluate_state` line 1283: 6 [AugAssign] `score += (6 - my_prizes) * self.p("eval_prize_taken", 200)`
+- `evaluate_state` line 1284: 6 [AugAssign] `score -= (6 - opp_prizes) * self.p("eval_prize_given", 150)`
+- `evaluate_state` line 1295: 70 [If] `if self.bt_potential_damage + 70 >= self.opp_active_hp: score += self.p("eval_near_ko", 200)`
+- `evaluate_state` line 1306: 7 [AugAssign] `score += min(len(self.hand_ids), 7) * self.p("eval_hand_card", 30)`
+- `evaluate_state` line 1308: 2 [If] `if my_prizes <= 2: has_boss = C.BOSS_ORDERS in self.hand_ids best_target = self._best_boss_target() if has_boss and best_target: prize_val = prize_count(best_target) if my_prizes <= prize_val: score += self.p("eval_boss_win", 800)`
+- `evaluate_state` line 1320: 4 [Assign] `bench_bolt_ready = any( p and p.id == C.RAGING_BOLT_EX and any(e == 4 for e in p.energies) and any(e == 6 for e in p.energies) for p in (self.me.bench or []) )`
+- `evaluate_state` line 1321: 6 [Assign] `bench_bolt_ready = any( p and p.id == C.RAGING_BOLT_EX and any(e == 4 for e in p.energies) and any(e == 6 for e in p.energies) for p in (self.me.bench or []) )`
+- `evaluate_state` line 1333: 5 [If] `if self.me.deckCount and self.me.deckCount <= 5: score += self.p("eval_deck_out_risk", -200)`
+- `evaluate_state` line 1336: 1 [Assign] `bench_ex_count = sum(1 for p in (self.me.bench or []) if p and card_table.get(p.id) and card_table[p.id].ex)`
+- `evaluate_state` line 1338: 3 [If] `if bench_ex_count >= 3: score += self.p("eval_bench_liability", -100)`
+- `_eval_search_state` line 1585: 0.0 [Return] `return 0.0`
+- `_eval_search_state` line 1586: 0 [If] `if state.result >= 0: return 1_000_000.0 if state.result == my_index else -1_000_000.0`
+- `_eval_search_state` line 1587: 1000000.0 [Return] `return 1_000_000.0 if state.result == my_index else -1_000_000.0`
+- `_eval_search_state` line 1587: -1000000.0 [Return] `return 1_000_000.0 if state.result == my_index else -1_000_000.0`
+- `_estimate_action_impact` line 1910: 0 [Assign] `delta = 0`
+- `_estimate_action_impact` line 1916: 30 [AugAssign] `delta += self.bt_total_energy * 30`
+- `_estimate_action_impact` line 1921: 0 [Assign] `my_e = _count_energy(self.active) if self.active else 0`
+- `_estimate_action_impact` line 1922: 0 [Assign] `opp_e = _count_energy(self.opp_active) if self.opp_active else 0`
+- `_estimate_action_impact` line 1923: 30 [Assign] `dmg = 30 + (my_e + opp_e) * 30`
+- `_estimate_action_impact` line 1923: 30 [Assign] `dmg = 30 + (my_e + opp_e) * 30`
+- `_estimate_action_impact` line 1934: 0 [If] `if c and c.id == C.TEAL_MASK_OGERPON_EX and self.grass_in_hand > 0: delta += self.p("impact_teal_dance", 150) if self.bolt_ready: delta += self.p("impact_teal_dance_bolt_ready", 100)`
+- `_estimate_action_impact` line 1943: 3 [AugAssign] `delta += min(self.energy_in_discard, 3) * self.p("impact_crispin_per_energy", 100)`
+- `_estimate_action_impact` line 1947: 0 [AugAssign] `delta += max(0, 6 - len(self.hand_ids)) * self.p("impact_lillie_per_card", 40)`
+- `_estimate_action_impact` line 1947: 6 [AugAssign] `delta += max(0, 6 - len(self.hand_ids)) * self.p("impact_lillie_per_card", 40)`
+- `_estimate_action_impact` line 1959: 2 [AugAssign] `delta += min(self.energy_in_discard, 2) * self.p("impact_energy_retrieval_per", 80)`
+- `_estimate_action_impact` line 1967: 4 [Assign] `has_l = any(e == 4 for e in target.energies)`
+- `_estimate_action_impact` line 1968: 6 [Assign] `has_f = any(e == 6 for e in target.energies)`

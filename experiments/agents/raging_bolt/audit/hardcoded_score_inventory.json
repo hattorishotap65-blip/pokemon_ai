@@ -1,667 +1,2290 @@
 [
- {
-  "method": "_score_option",
-  "lineno": 518,
-  "value": 300
- },
- {
-  "method": "_score_option",
-  "lineno": 453,
-  "value": 500
- },
- {
-  "method": "_score_option",
-  "lineno": 458,
-  "value": 400
- },
- {
-  "method": "_score_option",
-  "lineno": 507,
-  "value": 800
- },
- {
-  "method": "_score_attack",
-  "lineno": 565,
-  "value": 500
- },
- {
-  "method": "_score_attack",
-  "lineno": 535,
-  "value": 800
- },
- {
-  "method": "_score_attack",
-  "lineno": 563,
-  "value": 45
- },
- {
-  "method": "_score_attack",
-  "lineno": 525,
-  "value": 400
- },
- {
-  "method": "_score_attack",
-  "lineno": 527,
-  "value": 300
- },
- {
-  "method": "_score_attack",
-  "lineno": 532,
-  "value": 1200
- },
- {
-  "method": "_score_attack",
-  "lineno": 534,
-  "value": 1000
- },
- {
-  "method": "_score_attack",
-  "lineno": 547,
-  "value": 400
- },
- {
-  "method": "_score_attack",
-  "lineno": 556,
-  "value": 30
- },
- {
-  "method": "_score_attack",
-  "lineno": 560,
-  "value": 40
- },
- {
-  "method": "_score_attack",
-  "lineno": 562,
-  "value": 500
- },
- {
-  "method": "_score_ability",
-  "lineno": 575,
-  "value": 500
- },
- {
-  "method": "_score_ability",
-  "lineno": 574,
-  "value": 200
- },
- {
-  "method": "_score_ability",
-  "lineno": 573,
-  "value": 1300
- },
- {
-  "method": "_score_ability",
-  "lineno": 572,
-  "value": 1500
- },
- {
-  "method": "_score_play",
-  "lineno": 727,
-  "value": 300
- },
- {
-  "method": "_score_play",
-  "lineno": 580,
-  "value": 300
- },
- {
-  "method": "_score_play",
-  "lineno": 610,
-  "value": 600
- },
- {
-  "method": "_score_play",
-  "lineno": 650,
-  "value": 800
- },
- {
-  "method": "_score_play",
-  "lineno": 657,
-  "value": 600
- },
- {
-  "method": "_score_play",
-  "lineno": 663,
-  "value": 300
- },
- {
-  "method": "_score_play",
-  "lineno": 669,
-  "value": 400
- },
- {
-  "method": "_score_play",
-  "lineno": 587,
-  "value": 1250
- },
- {
-  "method": "_score_play",
-  "lineno": 594,
-  "value": 1100
- },
- {
-  "method": "_score_play",
-  "lineno": 599,
-  "value": 500
- },
- {
-  "method": "_score_play",
-  "lineno": 601,
-  "value": 1500
- },
- {
-  "method": "_score_play",
-  "lineno": 607,
-  "value": 1300
- },
- {
-  "method": "_score_play",
-  "lineno": 609,
-  "value": 1100
- },
- {
-  "method": "_score_play",
-  "lineno": 644,
-  "value": 200
- },
- {
-  "method": "_score_play",
-  "lineno": 647,
-  "value": 1600
- },
- {
-  "method": "_score_play",
-  "lineno": 649,
-  "value": 400
- },
- {
-  "method": "_score_play",
-  "lineno": 656,
-  "value": 1250
- },
- {
-  "method": "_score_play",
-  "lineno": 666,
-  "value": 900
- },
- {
-  "method": "_score_play",
-  "lineno": 668,
-  "value": 650
- },
- {
-  "method": "_score_play",
-  "lineno": 682,
-  "value": 400
- },
- {
-  "method": "_score_play",
-  "lineno": 684,
-  "value": 700
- },
- {
-  "method": "_score_play",
-  "lineno": 686,
-  "value": 650
- },
- {
-  "method": "_score_play",
-  "lineno": 695,
-  "value": 350
- },
- {
-  "method": "_score_play",
-  "lineno": 697,
-  "value": 500
- },
- {
-  "method": "_score_play",
-  "lineno": 706,
-  "value": 400
- },
- {
-  "method": "_score_play",
-  "lineno": 708,
-  "value": 1200
- },
- {
-  "method": "_score_play",
-  "lineno": 710,
-  "value": 1150
- },
- {
-  "method": "_score_play",
-  "lineno": 712,
-  "value": 1000
- },
- {
-  "method": "_score_play",
-  "lineno": 716,
-  "value": 500
- },
- {
-  "method": "_score_play",
-  "lineno": 606,
-  "value": 1000
- },
- {
-  "method": "_score_play",
-  "lineno": 679,
-  "value": 1200
- },
- {
-  "method": "_score_play",
-  "lineno": 681,
-  "value": 1000
- },
- {
-  "method": "_score_play",
-  "lineno": 694,
-  "value": 700
- },
- {
-  "method": "_score_play",
-  "lineno": 705,
-  "value": 1100
- },
- {
-  "method": "_score_play",
-  "lineno": 715,
-  "value": 900
- },
- {
-  "method": "_score_attach",
-  "lineno": 772,
-  "value": 100
- },
- {
-  "method": "_score_attach",
-  "lineno": 758,
-  "value": 1400
- },
- {
-  "method": "_score_attach",
-  "lineno": 760,
-  "value": 100
- },
- {
-  "method": "_score_attach",
-  "lineno": 769,
-  "value": 600
- },
- {
-  "method": "_score_retreat",
-  "lineno": 795,
-  "value": 100
- },
- {
-  "method": "_score_retreat",
-  "lineno": 783,
-  "value": 1500
- },
- {
-  "method": "_score_retreat",
-  "lineno": 788,
-  "value": 800
- },
- {
-  "method": "_score_retreat",
-  "lineno": 792,
-  "value": 900
- },
- {
-  "method": "_score_card_select",
-  "lineno": 993,
-  "value": 400
- },
- {
-  "method": "_score_card_select",
-  "lineno": 802,
-  "value": 300
- },
- {
-  "method": "_score_card_select",
-  "lineno": 839,
-  "value": 400
- },
- {
-  "method": "_score_card_select",
-  "lineno": 862,
-  "value": 500
- },
- {
-  "method": "_score_card_select",
-  "lineno": 906,
-  "value": 400
- },
- {
-  "method": "_score_card_select",
-  "lineno": 917,
-  "value": 400
- },
- {
-  "method": "_score_card_select",
-  "lineno": 922,
-  "value": 400
- },
- {
-  "method": "_score_card_select",
-  "lineno": 932,
-  "value": 300
- },
- {
-  "method": "_score_card_select",
-  "lineno": 939,
-  "value": 300
- },
- {
-  "method": "_score_card_select",
-  "lineno": 947,
-  "value": 300
- },
- {
-  "method": "_score_card_select",
-  "lineno": 956,
-  "value": 300
- },
- {
-  "method": "_score_card_select",
-  "lineno": 959,
-  "value": 400
- },
- {
-  "method": "_score_card_select",
-  "lineno": 982,
-  "value": 400
- },
- {
-  "method": "_score_card_select",
-  "lineno": 822,
-  "value": 600
- },
- {
-  "method": "_score_card_select",
-  "lineno": 824,
-  "value": 580
- },
- {
-  "method": "_score_card_select",
-  "lineno": 828,
-  "value": 500
- },
- {
-  "method": "_score_card_select",
-  "lineno": 830,
-  "value": 520
- },
- {
-  "method": "_score_card_select",
-  "lineno": 832,
-  "value": 480
- },
- {
-  "method": "_score_card_select",
-  "lineno": 834,
-  "value": 550
- },
- {
-  "method": "_score_card_select",
-  "lineno": 845,
-  "value": 850
- },
- {
-  "method": "_score_card_select",
-  "lineno": 847,
-  "value": 800
- },
- {
-  "method": "_score_card_select",
-  "lineno": 849,
-  "value": 750
- },
- {
-  "method": "_score_card_select",
-  "lineno": 851,
-  "value": 600
- },
- {
-  "method": "_score_card_select",
-  "lineno": 853,
-  "value": 550
- },
- {
-  "method": "_score_card_select",
-  "lineno": 855,
-  "value": 100
- },
- {
-  "method": "_score_card_select",
-  "lineno": 857,
-  "value": 200
- },
- {
-  "method": "_score_card_select",
-  "lineno": 859,
-  "value": 300
- },
- {
-  "method": "_score_card_select",
-  "lineno": 861,
-  "value": 380
- },
- {
-  "method": "_score_card_select",
-  "lineno": 886,
-  "value": 900
- },
- {
-  "method": "_score_card_select",
-  "lineno": 898,
-  "value": 50
- },
- {
-  "method": "_score_card_select",
-  "lineno": 901,
-  "value": 700
- },
- {
-  "method": "_score_card_select",
-  "lineno": 903,
-  "value": 800
- },
- {
-  "method": "_score_card_select",
-  "lineno": 905,
-  "value": 200
- },
- {
-  "method": "_score_card_select",
-  "lineno": 910,
-  "value": 750
- },
- {
-  "method": "_score_card_select",
-  "lineno": 912,
-  "value": 700
- },
- {
-  "method": "_score_card_select",
-  "lineno": 921,
-  "value": 600
- },
- {
-  "method": "_score_card_select",
-  "lineno": 929,
-  "value": 800
- },
- {
-  "method": "_score_card_select",
-  "lineno": 931,
-  "value": 700
- },
- {
-  "method": "_score_card_select",
-  "lineno": 936,
-  "value": 800
- },
- {
-  "method": "_score_card_select",
-  "lineno": 938,
-  "value": 700
- },
- {
-  "method": "_score_card_select",
-  "lineno": 946,
-  "value": 600
- },
- {
-  "method": "_score_card_select",
-  "lineno": 955,
-  "value": 600
- },
- {
-  "method": "_score_card_select",
-  "lineno": 973,
-  "value": 750
- },
- {
-  "method": "_score_card_select",
-  "lineno": 977,
-  "value": 500
- },
- {
-  "method": "_score_card_select",
-  "lineno": 981,
-  "value": 500
- },
- {
-  "method": "_score_card_select",
-  "lineno": 964,
-  "value": 900
- },
- {
-  "method": "_score_card_select",
-  "lineno": 966,
-  "value": 900
- },
- {
-  "method": "_score_card_select",
-  "lineno": 972,
-  "value": 800
- },
- {
-  "method": "_score_card_select",
-  "lineno": 976,
-  "value": 750
- },
- {
-  "method": "_score_card_select",
-  "lineno": 980,
-  "value": 750
- },
- {
-  "method": "_score_card_select",
-  "lineno": 895,
-  "value": 450
- },
- {
-  "method": "_score_card_select",
-  "lineno": 971,
-  "value": 950
- },
- {
-  "method": "_score_field_target",
-  "lineno": 1014,
-  "value": 400
- },
- {
-  "method": "_score_field_target",
-  "lineno": 1011,
-  "value": 500
- },
- {
-  "method": "_score_field_target",
-  "lineno": 1013,
-  "value": 600
- },
- {
-  "method": "_score_field_target",
-  "lineno": 1008,
-  "value": 300
- },
- {
-  "method": "_score_energy_select",
-  "lineno": 1087,
-  "value": 400
- },
- {
-  "method": "_score_energy_select",
-  "lineno": 1080,
-  "value": 500
- },
- {
-  "method": "_score_energy_select",
-  "lineno": 1067,
-  "value": 700
- },
- {
-  "method": "_score_energy_select",
-  "lineno": 1070,
-  "value": 900
- },
- {
-  "method": "_score_energy_select",
-  "lineno": 1073,
-  "value": 800
- },
- {
-  "method": "_score_energy_select",
-  "lineno": 1075,
-  "value": 50
- },
- {
-  "method": "_score_energy_select",
-  "lineno": 1077,
-  "value": 300
- },
- {
-  "method": "_score_energy_select",
-  "lineno": 1079,
-  "value": 300
- },
- {
-  "method": "_score_energy_select",
-  "lineno": 1066,
-  "value": 50
- },
- {
-  "method": "_score_number",
-  "lineno": 1134,
-  "value": 500
- },
- {
-  "method": "_score_number",
-  "lineno": 1127,
-  "value": 950
- },
- {
-  "method": "_score_number",
-  "lineno": 1129,
-  "value": 800
- },
- {
-  "method": "_score_number",
-  "lineno": 1131,
-  "value": 850
- },
- {
-  "method": "_score_number",
-  "lineno": 1124,
-  "value": 1000
- },
- {
-  "method": "_eval_search_state",
-  "lineno": 1519,
-  "value": 0.0
- }
+  {
+    "method": "_score_option",
+    "lineno": 518,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_option",
+    "lineno": 523,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_option",
+    "lineno": 534,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return min(base, 700)"
+  },
+  {
+    "method": "_score_option",
+    "lineno": 544,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "cid = c.id if c else 0"
+  },
+  {
+    "method": "_score_option",
+    "lineno": 548,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if cd and cd.hp and cd.hp > 0: return base + self._strategy_bonus(\"play_pokemon\", card_id=cid)"
+  },
+  {
+    "method": "_score_option",
+    "lineno": 562,
+    "value": 1100,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return min(base, 1100)"
+  },
+  {
+    "method": "_score_option",
+    "lineno": 565,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return base + self._strategy_bonus(\"attach\", card_id=target.id if target else 0)"
+  },
+  {
+    "method": "_score_option",
+    "lineno": 572,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_option",
+    "lineno": 583,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 590,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 592,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 595,
+    "value": 2000,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 2000 + prize * 300"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 595,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 2000 + prize * 300"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 596,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.bt_total_energy >= 4: return 1200"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 597,
+    "value": 1200,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1200"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 598,
+    "value": 3,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.bt_total_energy >= 3: return 1000"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 599,
+    "value": 1000,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1000"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 600,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 603,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "my_energy = _count_energy(self.active) if self.active else 0"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 604,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "opp_energy = _count_energy(self.opp_active) if self.opp_active else 0"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 606,
+    "value": 30,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "potential_damage = 30 + total_energy * 30"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 606,
+    "value": 30,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "potential_damage = 30 + total_energy * 30"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 609,
+    "value": 1800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1800 + prize * 200"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 609,
+    "value": 200,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1800 + prize * 200"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 611,
+    "value": 3,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if has_bolt_bench and self.bt_total_energy >= 3: return 400"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 612,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 613,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600 + total_energy * 40"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 613,
+    "value": 40,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600 + total_energy * 40"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 621,
+    "value": 30,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 30"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 625,
+    "value": 40,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 40"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 626,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if len(self.hand_ids) <= 1: return 500"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 627,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 628,
+    "value": 45,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 45"
+  },
+  {
+    "method": "_score_attack",
+    "lineno": 630,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_ability",
+    "lineno": 635,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.grass_in_hand > 0: if self.bolt_ready: return 1500 return 1300"
+  },
+  {
+    "method": "_score_ability",
+    "lineno": 637,
+    "value": 1500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1500"
+  },
+  {
+    "method": "_score_ability",
+    "lineno": 638,
+    "value": 1300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1300"
+  },
+  {
+    "method": "_score_ability",
+    "lineno": 639,
+    "value": 200,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 200"
+  },
+  {
+    "method": "_score_ability",
+    "lineno": 640,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 645,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 652,
+    "value": 1250,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1250"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 659,
+    "value": 1100,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1100"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 663,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.energy_in_hand >= 4: return 500"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 664,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 665,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.field_ready and self.energy_in_discard >= 1: return 1500"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 666,
+    "value": 1500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1500"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 667,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if not self.bolt_ready and self.energy_in_discard >= 1: if self.ogerpon_on_field and self.grass_in_hand > 0 and len(self.hand_ids) <= 3: # hand thin + Teal Dance available: draw via Ogerpon ability first, # attach energy next turn — observe"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 668,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.ogerpon_on_field and self.grass_in_hand > 0 and len(self.hand_ids) <= 3: # hand thin + Teal Dance available: draw via Ogerpon ability first, # attach energy next turn — observed 4x in session_tuning_log.jsonl return 1000"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 668,
+    "value": 3,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.ogerpon_on_field and self.grass_in_hand > 0 and len(self.hand_ids) <= 3: # hand thin + Teal Dance available: draw via Ogerpon ability first, # attach energy next turn — observed 4x in session_tuning_log.jsonl return 1000"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 671,
+    "value": 1000,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1000"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 672,
+    "value": 1300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1300"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 673,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.energy_in_discard >= 1: return 1100"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 674,
+    "value": 1100,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1100"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 675,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 682,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "pending_plays = 0"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 683,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.grass_in_hand > 0 and self.ogerpon_on_field: pending_plays += 1"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 684,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "pending_plays += 1"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 686,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "needs_l = self._field_bolt_missing(4) and C.BASIC_LIGHTNING_ENERGY in self.hand_ids"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 687,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "needs_f = self._field_bolt_missing(6) and C.BASIC_FIGHTING_ENERGY in self.hand_ids"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 688,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if needs_l or needs_f or self.grass_in_hand > 0: pending_plays += 1"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 689,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "pending_plays += 1"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 693,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "pending_plays += 1"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 695,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "pending_plays += 1"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 697,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if ((C.ENERGY_RETRIEVAL in self.hand_ids or C.NIGHT_STRETCHER in self.hand_ids) and self.energy_in_discard >= 1): pending_plays += 1"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 698,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "pending_plays += 1"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 700,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "pending_plays += 1"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 701,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if pending_plays > 0 and self.p(\"rule_lillie_combo_defer\", 1): return self.p(\"lillie_pending_defer_score\", 550)"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 704,
+    "value": 1000,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1000 if len(self.hand_ids) <= 3 else 700"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 704,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1000 if len(self.hand_ids) <= 3 else 700"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 704,
+    "value": 3,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1000 if len(self.hand_ids) <= 3 else 700"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 705,
+    "value": 1300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1300 if len(self.hand_ids) <= 2 else 1200"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 705,
+    "value": 1200,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1300 if len(self.hand_ids) <= 2 else 1200"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 705,
+    "value": 2,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1300 if len(self.hand_ids) <= 2 else 1200"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 708,
+    "value": 20,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.active_hp_pct <= 20: return 200"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 709,
+    "value": 200,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 200"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 712,
+    "value": 1600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1600"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 714,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 715,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 721,
+    "value": 1250,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1250"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 722,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 726,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.energy_in_discard >= 1 or bolt_in_discard: return 950 if not self.field_ready else 800"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 727,
+    "value": 950,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 950 if not self.field_ready else 800"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 727,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 950 if not self.field_ready else 800"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 728,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 730,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if not self.bolt_ready and (self._field_bolt_missing(4) or self._field_bolt_missing(6)): return 900"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 730,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if not self.bolt_ready and (self._field_bolt_missing(4) or self._field_bolt_missing(6)): return 900"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 731,
+    "value": 900,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 900"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 732,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.grass_in_hand == 0 and self.ogerpon_on_field: return 650"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 733,
+    "value": 650,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 650"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 734,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 744,
+    "value": 1200,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1200"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 745,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.energy_in_discard >= 1: return 1000"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 746,
+    "value": 1000,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1000"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 747,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 749,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 751,
+    "value": 650,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 650"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 756,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "disposable = sum(1 for h in self.hand_ids if h in (C.POKEMON_CATCHER, C.POKEGEAR, C.SWITCH, C.UNFAIR_STAMP))"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 758,
+    "value": 2,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if len(self.ogerpon_on_field) < 2 and disposable >= 2: return 700"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 758,
+    "value": 2,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if len(self.ogerpon_on_field) < 2 and disposable >= 2: return 700"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 759,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 760,
+    "value": 350,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 350"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 762,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 770,
+    "value": 1100,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1100"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 771,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 773,
+    "value": 1200,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1200"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 775,
+    "value": 1150,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1150"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 777,
+    "value": 1000,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1000"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 780,
+    "value": 900,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 900"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 781,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_play",
+    "lineno": 792,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 808,
+    "value": 70,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if (self.p(\"rule_attach_for_lethal\", 1) and self.active_id == C.RAGING_BOLT_EX and self.bolt_ready and self.opp_active and not self.can_ko_with_bt and (self.bt_total_energy + 1) * 70 >= self.opp_active_hp): return self.p(\"attach_for_lethal_"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 808,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if (self.p(\"rule_attach_for_lethal\", 1) and self.active_id == C.RAGING_BOLT_EX and self.bolt_ready and self.opp_active and not self.can_ko_with_bt and (self.bt_total_energy + 1) * 70 >= self.opp_active_hp): return self.p(\"attach_for_lethal_"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 812,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "target_energy = _count_energy(target) if target else 0"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 815,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "energy_id = energy_card.id if energy_card else 0"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 818,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "has_lightning = any(e == 4 for e in target.energies) if target else False"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 819,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "has_fighting = any(e == 6 for e in target.energies) if target else False"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 823,
+    "value": 1400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1400"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 825,
+    "value": 100,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 100"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 829,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + target_energy * 30"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 829,
+    "value": 30,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + target_energy * 30"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 834,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600"
+  },
+  {
+    "method": "_score_attach",
+    "lineno": 837,
+    "value": 100,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 100"
+  },
+  {
+    "method": "_score_retreat",
+    "lineno": 845,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "bench_bolt_ready = [p for p in (self.me.bench or []) if p and p.id == C.RAGING_BOLT_EX and any(e == 4 for e in p.energies) and any(e == 6 for e in p.energies)]"
+  },
+  {
+    "method": "_score_retreat",
+    "lineno": 846,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "bench_bolt_ready = [p for p in (self.me.bench or []) if p and p.id == C.RAGING_BOLT_EX and any(e == 4 for e in p.energies) and any(e == 6 for e in p.energies)]"
+  },
+  {
+    "method": "_score_retreat",
+    "lineno": 848,
+    "value": 1500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1500"
+  },
+  {
+    "method": "_score_retreat",
+    "lineno": 851,
+    "value": 2,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "bench_bolt_any = [p for p in (self.me.bench or []) if p and p.id == C.RAGING_BOLT_EX and _count_energy(p) >= 2]"
+  },
+  {
+    "method": "_score_retreat",
+    "lineno": 853,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_retreat",
+    "lineno": 854,
+    "value": 15,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.active_hp_pct <= 15: bench_any = [p for p in (self.me.bench or []) if p and _count_energy(p) >= 1] if bench_any: return 900"
+  },
+  {
+    "method": "_score_retreat",
+    "lineno": 855,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "bench_any = [p for p in (self.me.bench or []) if p and _count_energy(p) >= 1]"
+  },
+  {
+    "method": "_score_retreat",
+    "lineno": 857,
+    "value": 900,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 900"
+  },
+  {
+    "method": "_score_retreat",
+    "lineno": 860,
+    "value": 100,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 100"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 867,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 874,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800 if bolt_on_field is None else 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 874,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800 if bolt_on_field is None else 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 879,
+    "value": 850,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 850 if ogre_on_field is None else 500"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 879,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 850 if ogre_on_field is None else 500"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 881,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700 if self.energy_in_hand < 3 else 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 881,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700 if self.energy_in_hand < 3 else 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 881,
+    "value": 3,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700 if self.energy_in_hand < 3 else 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 883,
+    "value": 650,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 650 if len(self.hand_ids) <= 4 else 450"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 883,
+    "value": 450,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 650 if len(self.hand_ids) <= 4 else 450"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 883,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 650 if len(self.hand_ids) <= 4 else 450"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 885,
+    "value": 750,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 750 if self._can_ko_active() else 500"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 885,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 750 if self._can_ko_active() else 500"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 887,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 889,
+    "value": 580,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 580"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 891,
+    "value": 620,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 620 if self.energy_in_discard >= self.p(\"energy_retrieval_threshold\", 2) else 450"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 891,
+    "value": 450,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 620 if self.energy_in_discard >= self.p(\"energy_retrieval_threshold\", 2) else 450"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 893,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 895,
+    "value": 520,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 520"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 897,
+    "value": 480,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 480"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 899,
+    "value": 550,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 550"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 903,
+    "value": 50,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return self._score_energy_pick(c.id) + 50"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 904,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 910,
+    "value": 850,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 850"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 912,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 914,
+    "value": 750,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 750"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 916,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 918,
+    "value": 550,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 550"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 920,
+    "value": 100,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 100"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 922,
+    "value": 200,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 200"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 924,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 926,
+    "value": 380,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 380"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 927,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 939,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "poke = player.active[0]"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 951,
+    "value": 900,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 900"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 957,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "etype = 4 if energy_id == C.BASIC_LIGHTNING_ENERGY else 6"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 957,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "etype = 4 if energy_id == C.BASIC_LIGHTNING_ENERGY else 6"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 958,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "same_count = sum(1 for e in (poke.energies or []) if e == etype) if poke else 1"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 958,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "same_count = sum(1 for e in (poke.energies or []) if e == etype) if poke else 1"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 959,
+    "value": 2,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if same_count >= 2: return 450"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 960,
+    "value": 450,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 450"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 963,
+    "value": 50,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 50"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 966,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 968,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 970,
+    "value": 200,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 200"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 971,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 975,
+    "value": 750,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 750"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 977,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 982,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 986,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 987,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 994,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 996,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 997,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1001,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1003,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1004,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1008,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "bolt_energy = _count_energy(c) if hasattr(c, 'energies') else 0"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1009,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700 + bolt_energy * 50"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1009,
+    "value": 50,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700 + bolt_energy * 50"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1011,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1012,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1017,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "bolt_energy = _count_energy(c) if hasattr(c, 'energies') else 0"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1018,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700 + bolt_energy * 50"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1018,
+    "value": 50,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700 + bolt_energy * 50"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1020,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1021,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1024,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1029,
+    "value": 900,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 900"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1031,
+    "value": 900,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 900"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1033,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if len(self.ogerpon_on_field) > 0: fighting_in_hand = C.BASIC_FIGHTING_ENERGY in self.hand_ids if not self.bolt_has_fighting and fighting_in_hand: return 950 return 800"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1036,
+    "value": 950,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 950"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1037,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1038,
+    "value": 750,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 750"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1040,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self._field_bolt_missing(4): return 750"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1041,
+    "value": 750,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 750"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1042,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1044,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self._field_bolt_missing(6): return 750"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1045,
+    "value": 750,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 750"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1046,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1047,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_card_select",
+    "lineno": 1058,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1070,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "missing = (not any(e == 4 for e in (c.energies or [])) or not any(e == 6 for e in (c.energies or [])))"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1071,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "missing = (not any(e == 4 for e in (c.energies or [])) or not any(e == 6 for e in (c.energies or [])))"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1072,
+    "value": 60,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if area == AreaType.ACTIVE and getattr(c, 'hp', 999) <= 60: return 300"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1072,
+    "value": 999,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if area == AreaType.ACTIVE and getattr(c, 'hp', 999) <= 60: return 300"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1073,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1075,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800 if area == AreaType.BENCH else 700"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1075,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800 if area == AreaType.BENCH else 700"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1076,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1078,
+    "value": 600,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 600"
+  },
+  {
+    "method": "_score_field_target",
+    "lineno": 1079,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_energy_pick",
+    "lineno": 1085,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "score = 500"
+  },
+  {
+    "method": "_score_energy_pick",
+    "lineno": 1087,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if cid == C.BASIC_LIGHTNING_ENERGY and self._field_bolt_missing(4): score += need_bonus"
+  },
+  {
+    "method": "_score_energy_pick",
+    "lineno": 1089,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if cid == C.BASIC_FIGHTING_ENERGY and self._field_bolt_missing(6): score += need_bonus"
+  },
+  {
+    "method": "_score_energy_pick",
+    "lineno": 1094,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.grass_in_hand == 0: score += self.p(\"energy_pick_grass_first\", 50)"
+  },
+  {
+    "method": "_score_energy_pick",
+    "lineno": 1096,
+    "value": 2,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "score -= self.p(\"energy_pick_dup_penalty\", 100) * min(self.hand_counts.get(cid, 0), 2)"
+  },
+  {
+    "method": "_score_energy_pick",
+    "lineno": 1096,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "score -= self.p(\"energy_pick_dup_penalty\", 100) * min(self.hand_counts.get(cid, 0), 2)"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1103,
+    "value": -1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if ctx in (SelectContext.DISCARD_ENERGY_CARD, SelectContext.DISCARD_ENERGY, getattr(SelectContext, 'DISCARD', -1)): energy_type = self._get_energy_type_from_opt(opt) last_ko = self.my_prizes <= self._opp_prize_value() low_hp = self.active_h"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1106,
+    "value": 50,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "low_hp = self.active_hp_pct <= 50"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1116,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "poke = player.active[0]"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1131,
+    "value": 50,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 50"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1132,
+    "value": 700,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 700"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1135,
+    "value": 900,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 900"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1138,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1140,
+    "value": 50,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 50"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1142,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1144,
+    "value": 300,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 300"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1145,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "_score_energy_select",
+    "lineno": 1152,
+    "value": 400,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 400"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1179,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "num = opt.number if hasattr(opt, 'number') else 0"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1182,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + num * 50"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1182,
+    "value": 50,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + num * 50"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1185,
+    "value": 70,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "needed = (self.opp_active_hp + 69) // 70"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1185,
+    "value": 69,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "needed = (self.opp_active_hp + 69) // 70"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1189,
+    "value": 1000,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1000"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1190,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + num * 70"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1190,
+    "value": 70,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + num * 70"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1192,
+    "value": 950,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 950"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1194,
+    "value": 800,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 800"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1195,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if num >= needed - 1: return 850"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1196,
+    "value": 850,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 850"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1197,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + num * 70"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1197,
+    "value": 70,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + num * 70"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1198,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + num * 50"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1198,
+    "value": 50,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500 + num * 50"
+  },
+  {
+    "method": "_score_number",
+    "lineno": 1199,
+    "value": 500,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 500"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1279,
+    "value": 0.0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "score = 0.0"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1283,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "score += (6 - my_prizes) * self.p(\"eval_prize_taken\", 200)"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1284,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "score -= (6 - opp_prizes) * self.p(\"eval_prize_given\", 150)"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1295,
+    "value": 70,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.bt_potential_damage + 70 >= self.opp_active_hp: score += self.p(\"eval_near_ko\", 200)"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1306,
+    "value": 7,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "score += min(len(self.hand_ids), 7) * self.p(\"eval_hand_card\", 30)"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1308,
+    "value": 2,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if my_prizes <= 2: has_boss = C.BOSS_ORDERS in self.hand_ids best_target = self._best_boss_target() if has_boss and best_target: prize_val = prize_count(best_target) if my_prizes <= prize_val: score += self.p(\"eval_boss_win\", 800)"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1320,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "bench_bolt_ready = any( p and p.id == C.RAGING_BOLT_EX and any(e == 4 for e in p.energies) and any(e == 6 for e in p.energies) for p in (self.me.bench or []) )"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1321,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "bench_bolt_ready = any( p and p.id == C.RAGING_BOLT_EX and any(e == 4 for e in p.energies) and any(e == 6 for e in p.energies) for p in (self.me.bench or []) )"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1333,
+    "value": 5,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if self.me.deckCount and self.me.deckCount <= 5: score += self.p(\"eval_deck_out_risk\", -200)"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1336,
+    "value": 1,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "bench_ex_count = sum(1 for p in (self.me.bench or []) if p and card_table.get(p.id) and card_table[p.id].ex)"
+  },
+  {
+    "method": "evaluate_state",
+    "lineno": 1338,
+    "value": 3,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if bench_ex_count >= 3: score += self.p(\"eval_bench_liability\", -100)"
+  },
+  {
+    "method": "_eval_search_state",
+    "lineno": 1585,
+    "value": 0.0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 0.0"
+  },
+  {
+    "method": "_eval_search_state",
+    "lineno": 1586,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if state.result >= 0: return 1_000_000.0 if state.result == my_index else -1_000_000.0"
+  },
+  {
+    "method": "_eval_search_state",
+    "lineno": 1587,
+    "value": 1000000.0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1_000_000.0 if state.result == my_index else -1_000_000.0"
+  },
+  {
+    "method": "_eval_search_state",
+    "lineno": 1587,
+    "value": -1000000.0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Return",
+    "expression": "return 1_000_000.0 if state.result == my_index else -1_000_000.0"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1910,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "delta = 0"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1916,
+    "value": 30,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "delta += self.bt_total_energy * 30"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1921,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "my_e = _count_energy(self.active) if self.active else 0"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1922,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "opp_e = _count_energy(self.opp_active) if self.opp_active else 0"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1923,
+    "value": 30,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "dmg = 30 + (my_e + opp_e) * 30"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1923,
+    "value": 30,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "dmg = 30 + (my_e + opp_e) * 30"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1934,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "If",
+    "expression": "if c and c.id == C.TEAL_MASK_OGERPON_EX and self.grass_in_hand > 0: delta += self.p(\"impact_teal_dance\", 150) if self.bolt_ready: delta += self.p(\"impact_teal_dance_bolt_ready\", 100)"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1943,
+    "value": 3,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "delta += min(self.energy_in_discard, 3) * self.p(\"impact_crispin_per_energy\", 100)"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1947,
+    "value": 0,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "delta += max(0, 6 - len(self.hand_ids)) * self.p(\"impact_lillie_per_card\", 40)"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1947,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "delta += max(0, 6 - len(self.hand_ids)) * self.p(\"impact_lillie_per_card\", 40)"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1959,
+    "value": 2,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "AugAssign",
+    "expression": "delta += min(self.energy_in_discard, 2) * self.p(\"impact_energy_retrieval_per\", 80)"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1967,
+    "value": 4,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "has_l = any(e == 4 for e in target.energies)"
+  },
+  {
+    "method": "_estimate_action_impact",
+    "lineno": 1968,
+    "value": 6,
+    "classification": "UNCLASSIFIED_NUMERIC_LITERAL",
+    "context_kind": "Assign",
+    "expression": "has_f = any(e == 6 for e in target.energies)"
+  }
 ]

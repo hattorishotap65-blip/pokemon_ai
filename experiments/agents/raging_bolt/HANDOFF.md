@@ -128,6 +128,28 @@ PR0-Aの監査は `self.p()` 参照があれば無条件で `ACTIVE` と分類�
 - 根本原因を特定: `cg.api.search_begin()` の `manual_coin: bool = False` パラメータ（デフォルトFalse、我々のコードは明示的に渡していない）。ドキュメント曰く「コインの表裏を選択可能にする」——つまりFalseのままだと、ロールフォワード中にコインフリップ効果（ポケモンTCGの状態異常判定など）が発生した場合、**エンジン自身の制御不能な内部乱数**で解決される。これは`libcg.so`側の仕様で、Python側からのシード注入は不可能（ctypesシグネチャに乱数ストリーム引数が存在しないことは既に確認済み）
 - **Decision Audit（PR1以降）への含意**: エンジン探索を伴う決定の単発A/B比較は本質的に信頼できない。ロードマップが元々要求している複数隠し状態×複数シードのプロトコル（Stage1: 4状態×1シード、Stage2: 8状態×2シード）の必要性が、この実測で裏付けられた
 
+### PR0-C: 評価経路マトリクス / Shadow比較（完了）
+
+**統合しない。方策変更なし**（main.pyは一切変更していない）。RagingBoltPolicyには互いに独立な評価経路が5つ+付随のオフライン分析ツール1つ存在することを棚卸しした（`experiments/agents/raging_bolt/audit/evaluator_path_matrix.json`）:
+
+| 評価経路 | 粒度 | 出力単位 | 現行設定での到達性 |
+|---|---|---|---|
+| `evaluate_state()` | 状態単位（1902行目で計算されるが破棄） | raw linear-eval | 計算されるが**常に破棄**（PR0-A.1で確認済み） |
+| `_eval_search_state()` | 候補単位（エンジンrollforward後） | raw linear-eval + terminal時±1,000,000 | ライブ設定で**支配的な経路**（use_engine_search=1） |
+| `_estimate_action_impact()` | 候補単位（エンジン呼び出しなし） | raw linear-eval delta | フォールバック分岐のみ（maxCount≠1 or 例外時） |
+| `_score_option`系 | 候補単位（全合法手） | raw linear-eval | **常に**到達（top_k事前フィルタ兼、非MAINでは唯一の判定材料） |
+| `value_model.predict_action_value` | 候補単位 | 勝率[0,1]（他と単位が根本的に異なる、`*1000`のアドホック変換あり） | `use_value_model=false`で**無効** |
+| `web/counterfactual_analyzer.py` | オフライン・複数ゲーム横断 | カテゴリラベル | ライブ決定経路には無関係（比較対象から除外） |
+
+`experiments/shadow_eval_compare.py`: PR0-Bのリプレイバンドルを読み込み、同一スナップショット・同一top-K候補に対して`_score_option`(基準)/`_estimate_action_impact`/`_eval_search_state`/value_modelを**並行評価**し、順位一致・スケール差をJSONLにログするだけの読み取り専用ツール（`choose()`/`choose_with_search()`は一切呼ばない＝実際の選択には影響しない）。
+
+実データ41決定中23件（MAIN・maxCount==1）で試験実行した結果:
+- `_estimate_action_impact` は `_score_option` の1位候補と **13/23件（57%）** しか一致しない
+- `_eval_search_state`（エンジンrollforward後）は **14/23件（61%）** しか一致しない（単一サンプルなのでCRN由来のノイズを含む、PR0-Bのmanual_coin所見を参照）
+- `value_model` の出力は0.02前後に張り付いており（勝率としては極端に低い）、較正が古い/崩れている可能性がある。**方策への統合判断はPR2の原因診断後まで保留**——この数値はまだ「直すべき症状」ではなく「観測された事実」として記録するのみ
+
+これらの不一致率そのものは良し悪しの結論ではなく、PR1以降のDecision Audit（Stage1/2）で「どの評価経路のどのタイプの不一致が実際の勝率損失と相関するか」を調べるための土台。
+
 ## 現在のブランチ / 主要コミット
 
 ブランチ: `fix/tuning-panel-value-revert`

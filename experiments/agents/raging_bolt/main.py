@@ -209,6 +209,25 @@ def get_card(obs, area, index, player_index):
     return None
 
 
+def _semantic_action_id(select_context, opt, my_index):
+    """Stable identity for one legal Option, independent of its position in
+    obs.select.option (raw array index is not a valid comparison key across
+    replays or engine/version changes -- see Decision Audit roadmap Part I).
+    Built entirely from fields that describe *what the option does*, not
+    where it happens to sit in the list this decision. `serial` (the
+    engine's per-card unique-in-match id) disambiguates otherwise-identical
+    options that target different physical card instances (e.g. two
+    identical basic energy in hand)."""
+    def f(name):
+        v = getattr(opt, name, None)
+        return int(v) if v is not None else -1
+    ctx = int(select_context) if select_context is not None else -1
+    return (f"ctx{ctx}|my{my_index}|t{f('type')}|a{f('area')}|i{f('index')}"
+            f"|pi{f('playerIndex')}|tool{f('toolIndex')}|en{f('energyIndex')}"
+            f"|cnt{f('count')}|ipa{f('inPlayArea')}|ipi{f('inPlayIndex')}"
+            f"|atk{f('attackId')}|card{f('cardId')}|ser{f('serial')}|sc{f('specialConditionType')}")
+
+
 def prize_count(pokemon):
     data = card_table.get(pokemon.id)
     if data is None:
@@ -248,8 +267,21 @@ def _find_pokemon_on_field(me, card_id):
 
 
 class RagingBoltPolicy:
-    def __init__(self, obs):
+    def __init__(self, obs, replay_hidden_samples=None):
         self.obs = obs
+        # PR0-B: Deterministic Replay support. replay_hidden_samples, when
+        # given, is a list of _predict_hidden() return-tuples (as produced by
+        # a prior capture run) that get consumed in order instead of freshly
+        # sampled -- this is the "partial CRN" this project can actually
+        # deliver (see audit/crn_capability_matrix.json: engine-internal RNG
+        # cannot be seeded, but our own hidden-state sampling can be captured
+        # and replayed exactly). None (the default) preserves today's
+        # behavior exactly -- PRODUCTION mode is completely unaffected.
+        self._replay_hidden_samples = list(replay_hidden_samples) if replay_hidden_samples is not None else None
+        self._replay_cursor = 0
+        self._captured_hidden_samples = (
+            [] if (self._replay_hidden_samples is None and EXEC_MODE != "PRODUCTION") else None
+        )
         self.state = obs.current
         self.select = obs.select
         self.context = self.select.context
@@ -1449,7 +1481,23 @@ class RagingBoltPolicy:
         turn boundary in the common case), but energy-card filler is sampled
         from a posterior over basic-energy types inferred from what the
         opponent has actually played/discarded, instead of a hardcoded type —
-        matters when endgame deepening simulates the opponent's turn."""
+        matters when endgame deepening simulates the opponent's turn.
+
+        PR0-B Deterministic Replay: if constructed with replay_hidden_samples,
+        pop the next pre-materialized tuple instead of sampling fresh -- exact
+        replay of the hidden-state guess used in the original decision. This
+        branch is only reachable when the caller explicitly opted in via the
+        constructor, so PRODUCTION behavior (replay_hidden_samples=None,
+        always) is byte-for-byte unchanged."""
+        if self._replay_hidden_samples is not None:
+            if self._replay_cursor < len(self._replay_hidden_samples):
+                preds = self._replay_hidden_samples[self._replay_cursor]
+                self._replay_cursor += 1
+                return preds
+            # Replay tape exhausted (e.g. replay driver requested more
+            # rollouts than the capture run made) -- fall through and sample
+            # fresh rather than raising, consistent with this file's
+            # never-crash-a-decision convention.
         unseen = self._my_unseen_cards()
         _rng.shuffle(unseen)
         n_prize = len(self.me.prize)
@@ -1469,7 +1517,10 @@ class RagingBoltPolicy:
         opp_active = []
         if opp.active and len(opp.active) > 0 and opp.active[0] is None:
             opp_active = [filler_pokemon]
-        return your_deck, your_prize, opp_deck, opp_prize, opp_hand, opp_active
+        preds = (your_deck, your_prize, opp_deck, opp_prize, opp_hand, opp_active)
+        if self._captured_hidden_samples is not None:
+            self._captured_hidden_samples.append(preds)
+        return preds
 
     # Default weights for the linear board evaluator. Names match params.json
     # keys (self.p() reads overrides from there). Signs already fold in the
@@ -1986,6 +2037,73 @@ class RagingBoltPolicy:
         return delta
 
 
+# ── PR0-B: Observation Snapshot / Replay Bundle (side-output only) ────────
+# Opt-in via env var, OFF by default -- adds zero behavior/overhead to a
+# normal game unless explicitly enabled for an audit/replay session. One
+# JSONL record per decision captures everything needed to reconstruct and
+# re-run that single decision later:
+#   - obs_dict: the exact raw observation the engine gave us this decision
+#     (already JSON-serializable -- it arrived as a dict).
+#   - legal_actions: every option this decision offered, addressed by
+#     Semantic Action ID (stable identity, not raw array index).
+#   - decision: the option(s) actually chosen, as both raw index and
+#     semantic id.
+#   - captured_hidden_samples: every _predict_hidden() draw made while
+#     reaching this decision, in order -- replaying them in the same order
+#     reproduces the identical rollout/ranking (see
+#     audit/crn_capability_matrix.json: "partial_crn").
+_REPLAY_BUNDLE_PATH = os.environ.get("POKEMON_AI_REPLAY_BUNDLE_PATH")
+REPLAY_BUNDLE_SCHEMA_VERSION = 1
+
+
+def build_replay_bundle(obs_dict, obs, policy, decision):
+    select = obs.select
+    ranked, scores = ([], [])
+    if select and select.option:
+        ranked, scores = policy.rank()
+    legal_actions = []
+    if select and select.option:
+        for i, opt in enumerate(select.option):
+            legal_actions.append({
+                "index": i,
+                "semantic_id": _semantic_action_id(select.context, opt, policy.my_index),
+                "heuristic_score": scores[i] if i < len(scores) else None,
+            })
+    decision = decision or []
+    decision_semantic_ids = [
+        _semantic_action_id(select.context, select.option[i], policy.my_index)
+        for i in decision
+        if select and select.option and 0 <= i < len(select.option)
+    ]
+    return {
+        "schema_version": REPLAY_BUNDLE_SCHEMA_VERSION,
+        "captured_at_exec_mode": EXEC_MODE,
+        "turn": obs.current.turn,
+        "my_index": policy.my_index,
+        "select_context": int(select.context) if select and select.context is not None else None,
+        "obs_dict": obs_dict,
+        "legal_actions": legal_actions,
+        "decision_indices": list(decision),
+        "decision_semantic_ids": decision_semantic_ids,
+        "captured_hidden_samples": policy._captured_hidden_samples or [],
+    }
+
+
+def _maybe_capture_replay_bundle(obs_dict, obs, policy, decision):
+    """No-op unless POKEMON_AI_REPLAY_BUNDLE_PATH is set -- opt-in only,
+    never active in a normal PRODUCTION game. Appends one JSONL record so a
+    replay driver (experiments/replay_decision.py) can later reconstruct and
+    re-run this exact decision."""
+    if not _REPLAY_BUNDLE_PATH or EXEC_MODE == "PRODUCTION":
+        return
+    try:
+        bundle = build_replay_bundle(obs_dict, obs, policy, decision)
+        with open(_REPLAY_BUNDLE_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(bundle, ensure_ascii=False) + "\n")
+    except Exception as _e:
+        _record_exception("replay_bundle_capture", _e)
+
+
 def agent(obs_dict):
     obs = to_observation_class(obs_dict)
     if obs.select is None:
@@ -2002,7 +2120,10 @@ def agent(obs_dict):
     try:
         policy = RagingBoltPolicy(obs)
         if obs.select.context == SelectContext.MAIN:
-            return policy.choose_with_search()
-        return policy.choose()
+            decision = policy.choose_with_search()
+        else:
+            decision = policy.choose()
+        _maybe_capture_replay_bundle(obs_dict, obs, policy, decision)
+        return decision
     finally:
         _TELEMETRY["decision_runtime_ms"].append((time.monotonic() - _t0) * 1000.0)

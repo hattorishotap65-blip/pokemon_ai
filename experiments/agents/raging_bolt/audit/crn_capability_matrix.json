@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "investigated_at": "PR0-B",
+  "investigation_method": "static inspection of reference/extracted/cg/{sim.py,api.py,game.py} ctypes argtypes and Python wrapper signatures",
+  "capabilities": {
+    "engine_internal_crn": {
+      "supported": false,
+      "evidence": [
+        "lib.BattleStart.argtypes = [ctypes.POINTER(ctypes.c_int)] -- card ID array only, no seed",
+        "lib.SearchBegin.argtypes -- agent_ptr, sbi buffer, deck/prize/hand/active int arrays, manual_coin int; no seed/rng-stream parameter",
+        "lib.SearchStep.argtypes = [agent_ptr, search_id, select array, count] -- no seed parameter",
+        "lib.Select.argtypes = [battle_ptr, select array, count] -- no seed parameter",
+        "cg.api.search_begin()/search_step() Python wrappers pass through only the above -- no seed/stream argument exists anywhere in the exposed API surface",
+        "EMPIRICAL CONFIRMATION (PR0-B replay test, 2026-07-28): replayed 10 captured MAIN/engine-search decisions (identical obs_dict + identical materialized _predict_hidden() samples, same candidate list, same call order) via experiments/replay_decision.py. 3/3 MAIN-context (engine-search) decisions in the sample showed a DIFFERENT final action across some of the 10 replays (mismatch_vs_self up to 3/10 per record); all 7/7 non-MAIN (pure heuristic, no engine call) decisions in the same sample were perfectly reproducible across all 10 replays.",
+        "ISOLATION TEST: calling search_begin/search_step/search_end for ONE fixed candidate + ONE fixed materialized hidden-sample tuple, in a loop with no other candidates interleaved, reproduced the identical eval value (425.0) across 10 calls -- so a single isolated engine call IS deterministic given fixed inputs. The non-determinism only appears when a full decision's sequence of interleaved search_begin/search_step/search_end calls (across multiple candidates + UCB1 rollout allocation) runs, meaning some engine-internal state is sensitive to call history/timing that our Python-level inputs do not control.",
+        "ROOT CAUSE IDENTIFIED: cg.api.search_begin()'s `manual_coin: bool = False` parameter -- per its own docstring (\"If True, the coin's heads or tails can be chosen\") -- and RESULT/COIN option types confirm this engine models real Pokemon TCG coin-flip effects (e.g. status-condition checks during a simulated turn) via its OWN internal RNG whenever manual_coin is left False (our code's search_begin(self.obs, *preds) call never passes it). Any rollout whose 2-4 turn rollforward horizon triggers a coin-flip-resolved effect gets a genuinely uncontrollable outcome from the engine's own RNG, independent of how precisely we materialize the hidden zones."
+      ],
+      "conclusion": "libcg.so's own internal randomness (deck shuffling in battle_start, and -- now confirmed -- coin-flip effect resolution during search when manual_coin=False) cannot be seeded, injected, or replayed from the Python side. A full byte-identical replay of engine-internal random draws is not achievable without modifying/wrapping libcg.so itself, or plumbing manual_coin=True through search_begin/search_step and deciding coin outcomes ourselves (a real future option, but out of scope for PR0-B -- it would change search behavior, not just add telemetry, so it needs separate explicit approval per the roadmap's own note: \"完全CRNのためにlibcg.so変更が必要なら、Decision Audit PRとは別の明示承認対象にする\"). PRACTICAL CONSEQUENCE FOR THE DECISION AUDIT (Part I/Phase 1): heuristic-only decisions (no engine search) can be replayed and compared byte-for-byte; MAIN/engine-search decisions cannot -- any single-sample comparison of an engine-search decision is subject to real, substantial (double-digit percent in the PR0-B sample) engine-internal noise, independent of and in addition to the hidden-zone sampling noise we already control. This is a strong, now-quantified argument for the roadmap's mandated multi-seed/multi-sample protocol (Stage 1: 4 hidden states x 1 seed, Stage 2: 8 hidden states x 2 seeds) over any single-decision A/B comparison."
+    },
+    "hidden_sample_crn": {
+      "supported": true,
+      "evidence": [
+        "RagingBoltPolicy._predict_hidden() builds our own guess at hidden zones (opponent's unseen deck/hand/prize contents) entirely in Python, shuffled via the module-global `_rng = random.Random(1234)`.",
+        "PR0-B implementation: _predict_hidden() now accepts an optional pre-materialized sample list (replay_hidden_samples) and pops from it instead of generating fresh, giving exact replay of the hidden-state guess used in the original decision."
+      ],
+      "conclusion": "Fully supported. We own this randomness end-to-end and can both capture (materialize) and replay it exactly."
+    },
+    "python_rollout_crn": {
+      "supported": true,
+      "evidence": [
+        "Rollout allocation (which candidate gets the next rollout, in what order) is pure Python control flow in _engine_search_choose/_ucb1_choose -- no engine-side randomness governs this, only our own UCB1/flat-sampling logic plus whichever hidden sample was fed to that rollout.",
+        "Given identical inputs (same obs, same materialized hidden samples in the same order), the allocation sequence is deterministic."
+      ],
+      "conclusion": "Supported, contingent on hidden_sample_crn (rollout order is deterministic once hidden samples are replayed identically)."
+    }
+  },
+  "overall_replay_terminology": {
+    "full_crn": "NOT achievable -- do not use this term for this project's replay claims.",
+    "partial_crn": "Achievable and implemented: our own hidden-state sampling and rollout allocation are exactly replayable given a frozen obs_dict; the underlying game's own dealt cards/shuffles (baked into the obs_dict at capture time) are not independently re-randomizable, which is actually what we want for single-decision replay (we replay the SAME frozen situation, not a fresh game)."
+  },
+  "consequence_for_pr0b": [
+    "Deterministic Replay in this project means: given a captured Observation Snapshot (the real obs_dict at one decision point) plus the materialized hidden-state samples used, re-invoking the policy reproduces the identical ranking/candidates/final action every time -- CONFIRMED for non-MAIN (heuristic-only, no engine search) decisions: 7/7 records x 10 replays = 70/70 byte-identical in the PR0-B validation sample.",
+    "For MAIN/engine-search decisions specifically, replay is only PARTIAL: the hidden-zone sampling is exactly reproduced, but the engine's own coin-flip resolution (manual_coin=False) is not, so 3/3 MAIN-context records in the same sample showed a different final action on at least one of 10 replays. experiments/replay_decision.py reports this as a per-context mismatch rate rather than asserting mismatch_rate=0 unconditionally -- treat any non-MAIN mismatch as a real bug to investigate, but treat a MAIN-context mismatch rate in the same ballpark as this baseline (not zero) as expected engine noise, not a regression.",
+    "This does NOT mean replaying an entire game from scratch and getting the opponent to draw the same cards again -- that would require engine_internal_crn, which is unsupported.",
+    "Full-game determinism A/A (two independent battle_start() calls with the same decks) is expected to show natural variance from the engine's own internal randomness -- this was empirically confirmed this session (two nominally-identical 100g batches vs dragapult differed by ~7 points), consistent with engine_internal_crn=unsupported, and now further explained at single-decision granularity by the manual_coin=False finding above."
+  ]
+}

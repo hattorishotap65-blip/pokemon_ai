@@ -20,6 +20,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      # experiments/agents/raging_bolt/value_model.py lazily imports
+      # scikit-learn to unpickle value_model.pkl; the agent's own
+      # load_value_model() already treats a missing/failed import as
+      # "no model available" (use_value_model=false in production means
+      # this path is never exercised live), but test_value_model.py expects
+      # the model to load when its file is present -- pinned to the version
+      # confirmed able to unpickle experiments/agents/raging_bolt/value_model.pkl.
+      - name: Install scikit-learn (for value_model tests)
+        run: pip install scikit-learn==1.9.0
+
       - name: Run Level 7 tools tests
         run: python experiments/test_level7_tools.py
 

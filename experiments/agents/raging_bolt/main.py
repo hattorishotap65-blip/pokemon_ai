@@ -25,6 +25,14 @@ EXEC_MODE = os.environ.get("POKEMON_AI_EXEC_MODE", "PRODUCTION").upper()
 if EXEC_MODE not in ("PRODUCTION", "BENCHMARK", "DEBUG"):
     EXEC_MODE = "PRODUCTION"
 
+# Single flag checked at every telemetry site. In PRODUCTION this must be
+# the ONLY telemetry-related cost paid per decision: one module-level bool
+# read. No time.monotonic() call, no counter increment, no list/dict
+# mutation, no exception string/traceback/hash work happens in PRODUCTION --
+# every site below is gated on this, not just _record_exception's own
+# internal check (which only covers exception detail, not the counters).
+_TELEMETRY_ENABLED = EXEC_MODE != "PRODUCTION"
+
 _TELEMETRY = {
     "search_attempt_count": 0,
     "search_success_count": 0,
@@ -35,7 +43,10 @@ _TELEMETRY = {
     "rollout_error_count": 0,
     "cache_hit_count": 0,
     "cache_miss_count": 0,
-    "decision_runtime_ms": [],
+    # Fixed-size runtime aggregate -- NOT an unbounded per-decision list.
+    "decision_runtime_count": 0,
+    "decision_runtime_total_ms": 0.0,
+    "decision_runtime_max_ms": 0.0,
     "errors": [],  # only populated in BENCHMARK/DEBUG (see _record_exception)
 }
 
@@ -52,12 +63,23 @@ def get_telemetry():
     return {k: (list(v) if isinstance(v, list) else v) for k, v in _TELEMETRY.items()}
 
 
+def _record_decision_runtime_ms(elapsed_ms):
+    """Fixed-size aggregate update -- count/total/max only, never a list.
+    Caller (agent()) is responsible for only calling this when
+    _TELEMETRY_ENABLED is true; this function does not re-check, since it
+    is never invoked from PRODUCTION's code path at all (see agent())."""
+    _TELEMETRY["decision_runtime_count"] += 1
+    _TELEMETRY["decision_runtime_total_ms"] += elapsed_ms
+    if elapsed_ms > _TELEMETRY["decision_runtime_max_ms"]:
+        _TELEMETRY["decision_runtime_max_ms"] = elapsed_ms
+
+
 def _record_exception(stage, exc):
     """Never changes control flow in PRODUCTION/BENCHMARK (caller's existing
     except-block body runs exactly as before this call returns). Only DEBUG
-    re-raises. Cheap in PRODUCTION: a single dict increment, no string/hash
-    work, so this cannot be the cause of a production behavior or latency
-    regression."""
+    re-raises. Zero-cost in PRODUCTION: returns immediately, before any
+    dict/string/hash work, so this cannot be the cause of a production
+    behavior or latency regression."""
     if EXEC_MODE == "PRODUCTION":
         return
     _TELEMETRY.setdefault("exception_count", 0)
@@ -72,6 +94,17 @@ def _record_exception(stage, exc):
     })
     if EXEC_MODE == "DEBUG":
         raise exc
+
+
+class ReplayTapeExhausted(Exception):
+    """Raised by _predict_hidden() when replaying a decision (see
+    RagingBoltPolicy.__init__'s replay_hidden_samples) requests more
+    materialized hidden-state samples than were captured. A replay driver
+    must treat this as an explicit replay failure -- check
+    RagingBoltPolicy._replay_tape_exhausted after the decision, never
+    silently accept a decision made partway through with fresh sampling as
+    a faithful replay."""
+
 
 from cg.api import (
     AreaType,
@@ -279,6 +312,12 @@ class RagingBoltPolicy:
         # behavior exactly -- PRODUCTION mode is completely unaffected.
         self._replay_hidden_samples = list(replay_hidden_samples) if replay_hidden_samples is not None else None
         self._replay_cursor = 0
+        # Set the first time _predict_hidden() is called in replay mode
+        # after the tape runs out. A replay driver (experiments/
+        # replay_decision.py) must check this and report an explicit
+        # replay failure -- never silently accept a decision that quietly
+        # fell back to fresh sampling partway through as a faithful replay.
+        self._replay_tape_exhausted = False
         self._captured_hidden_samples = (
             [] if (self._replay_hidden_samples is None and EXEC_MODE != "PRODUCTION") else None
         )
@@ -1494,10 +1533,21 @@ class RagingBoltPolicy:
                 preds = self._replay_hidden_samples[self._replay_cursor]
                 self._replay_cursor += 1
                 return preds
-            # Replay tape exhausted (e.g. replay driver requested more
-            # rollouts than the capture run made) -- fall through and sample
-            # fresh rather than raising, consistent with this file's
-            # never-crash-a-decision convention.
+            # Replay tape exhausted: this decision needs more
+            # _predict_hidden() calls than were captured. Silently sampling
+            # fresh here would make this call NOT a faithful replay while
+            # looking like one succeeded -- instead, set the flag (the
+            # authoritative signal experiments/replay_decision.py must
+            # check) and raise, so the failure surfaces through the normal
+            # exception path rather than being silently absorbed as an
+            # ordinary rollout error.
+            self._replay_tape_exhausted = True
+            raise ReplayTapeExhausted(
+                f"replay tape exhausted at cursor {self._replay_cursor} "
+                f"(tape length {len(self._replay_hidden_samples)}); this "
+                f"decision requested more _predict_hidden() calls than the "
+                f"capture run made -- this is not a faithful replay"
+            )
         unseen = self._my_unseen_cards()
         _rng.shuffle(unseen)
         n_prize = len(self.me.prize)
@@ -1749,17 +1799,20 @@ class RagingBoltPolicy:
         sim_opp = True if horizon > 2 else None
 
         def rollout_once(i):
-            _TELEMETRY["rollout_attempt_count"] += 1
+            if _TELEMETRY_ENABLED:
+                _TELEMETRY["rollout_attempt_count"] += 1
             preds = self._predict_hidden()  # fresh shuffle every rollout
             root = search_begin(self.obs, *preds)
             try:
                 ss = search_step(root.searchId, [i])
                 final_state = self._rollforward(ss, sim_opp=sim_opp, horizon=horizon)
                 value = self._eval_search_state(final_state, self.my_index)
-                _TELEMETRY["rollout_success_count"] += 1
+                if _TELEMETRY_ENABLED:
+                    _TELEMETRY["rollout_success_count"] += 1
                 return value
             except Exception:
-                _TELEMETRY["rollout_error_count"] += 1
+                if _TELEMETRY_ENABLED:
+                    _TELEMETRY["rollout_error_count"] += 1
                 raise
             finally:
                 try:
@@ -1873,24 +1926,29 @@ class RagingBoltPolicy:
             return self.choose()
 
         if self.p("use_engine_search", 1):
-            _TELEMETRY["search_attempt_count"] += 1
+            if _TELEMETRY_ENABLED:
+                _TELEMETRY["search_attempt_count"] += 1
             try:
                 ranked_e, scores_e = self.rank()
                 picked = self._engine_search_choose(ranked_e, scores_e)
                 if picked is not None:
-                    _TELEMETRY["search_success_count"] += 1
-                    if ranked_e and picked[0] != ranked_e[0]:
-                        # Search picked something other than the plain
-                        # heuristic's top-ranked option -- a cheap proxy for
-                        # "search result overrode the heuristic ranking"
-                        # (there is no confidence gate yet; see PR3+ Branch
-                        # "Search Override Confidence Gate" in the roadmap).
-                        _TELEMETRY["search_override_count"] += 1
+                    if _TELEMETRY_ENABLED:
+                        _TELEMETRY["search_success_count"] += 1
+                        if ranked_e and picked[0] != ranked_e[0]:
+                            # Search picked something other than the plain
+                            # heuristic's top-ranked option -- a cheap proxy
+                            # for "search result overrode the heuristic
+                            # ranking" (there is no confidence gate yet; see
+                            # PR3+ Branch "Search Override Confidence Gate"
+                            # in the roadmap).
+                            _TELEMETRY["search_override_count"] += 1
                     return picked
-                _TELEMETRY["search_fallback_count"] += 1
+                if _TELEMETRY_ENABLED:
+                    _TELEMETRY["search_fallback_count"] += 1
             except Exception as _e:
                 _record_exception("engine_search_choose_toplevel", _e)
-                _TELEMETRY["search_fallback_count"] += 1
+                if _TELEMETRY_ENABLED:
+                    _TELEMETRY["search_fallback_count"] += 1
                 # fall back to heuristic blend below
 
         ranked, scores = self.rank()
@@ -2116,7 +2174,10 @@ def agent(obs_dict):
         pre_turn = obs.current.turn
         ability_used_teal_dance = False
 
-    _t0 = time.monotonic()
+    # time.monotonic() is never called in PRODUCTION -- not even the call
+    # itself, per the Baseline Fingerprint Gate's "zero telemetry cost in
+    # PRODUCTION" requirement.
+    _t0 = time.monotonic() if _TELEMETRY_ENABLED else None
     try:
         policy = RagingBoltPolicy(obs)
         if obs.select.context == SelectContext.MAIN:
@@ -2126,4 +2187,5 @@ def agent(obs_dict):
         _maybe_capture_replay_bundle(obs_dict, obs, policy, decision)
         return decision
     finally:
-        _TELEMETRY["decision_runtime_ms"].append((time.monotonic() - _t0) * 1000.0)
+        if _TELEMETRY_ENABLED:
+            _record_decision_runtime_ms((time.monotonic() - _t0) * 1000.0)

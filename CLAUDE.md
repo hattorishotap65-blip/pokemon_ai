@@ -1,14 +1,18 @@
 # 開発ルール — Pokemon Card AI (cabt / Kaggle)
 
-## 提出ファイル自動更新ルール（必須）
+> 対象ツール: **Claude Code**。Codex向けの同等ルールは [`AGENTS.md`](AGENTS.md) を参照（現行構成・安全ルールはこのファイルと一致させている）。
 
-提出対象ファイル（`agent/`, `data/`, `main.py`, `deck.csv` など）を更新したら、**必ず毎回** 以下を実行して `submission.tar.gz` を再ビルドする。
+## 提出ファイル更新ルール（必須）
+
+提出対象は **リポジトリルート直下** の `main.py` / `deck.csv` / `params.json` と `cg/`（`reference/extracted/cg/` からコピー）のみ。これらを更新したら、**必ず毎回** 以下を実行して `submission.tar.gz` を再ビルドする。
 
 ```bash
 python build_submission.py
 ```
 
-ファイルを編集しただけでは tar.gz は自動更新されない。編集後に再ビルドしないと古い内容が提出される。
+`build_submission.py` はルート直下の3ファイルをそのまま使用するだけで、`experiments/agents/raging_bolt/` からの自動コピーは行わない（詳細は「提出フォーマット」参照）。ファイルを編集しただけでは tar.gz は自動更新されない。編集後に再ビルドしないと古い内容が提出される。
+
+旧構成の `agent/` パッケージ・`data/` 配下は現行ビルド対象外（`build_submission.py` は参照しない）。
 
 ---
 
@@ -23,8 +27,20 @@ Before starting any phase, read:
 Only work on the phase explicitly requested by the user.
 Do not proceed to the next phase without user approval.
 Do not change `deck.csv` unless explicitly instructed.
+Do not change policy, scores, parameters, or submission files (`main.py`/`deck.csv`/`params.json`) beyond what was explicitly requested.
+For investigation, audit, or design-only requests, do not change code.
 
+## Git安全ルール（必須）
 
+- `git add .` は使用しない。対象ファイルだけを個別に `git add <file>` でstageする。
+- 未コミットの変更を `stash` / `reset` / `checkout` で破棄しない。
+- commit・push・PR作成は、依頼された範囲だけを行う。マージは明示指示がない限り行わない。
+
+## 検証・報告ルール
+
+- ドキュメントと実装が矛盾する場合、勝手に判断せず報告する。
+- 実行していないテストを「成功」と報告しない。
+- 推測と確認済みの事実を明確に区別して報告する。
 
 ## 提出フォーマット（必須）
 
@@ -43,7 +59,9 @@ cg/utils.py
 cg/sim.py
 ```
 
-- `main.py` / `deck.csv` / `params.json` は `experiments/agents/raging_bolt/` の同名ファイルのコピー（`build_submission.py` 実行で自動反映）
+- `main.py` / `deck.csv` / `params.json` は **リポジトリルート直下** のファイルをそのまま使用する。`build_submission.py` は `experiments/agents/raging_bolt/` から自動コピーする処理を持たない（現状のスクリプトはルート3ファイル＋`cg/`をtarに詰めるだけ）
+- 開発は `experiments/agents/raging_bolt/` で行うが、変更をルートの提出用ファイルへ反映するには**手動でコピー**する必要がある。開発元を変更しただけではルート提出用ファイルへ自動反映されない
+- 提出用ファイルを更新する場合は、開発元（`experiments/agents/raging_bolt/`）とルート提出用ファイルの内容が一致していることを確認してから `python build_submission.py` を実行する
 - `cg/` フォルダは `reference/extracted/cg/` からコピーする（`libcg.so` を含む）
 - ビルドは `python build_submission.py` を実行するだけでよい（`tarfile` モジュールで自動生成）
 - 旧構成（`agent/` パッケージ、`data/` 以下のCSV/JSON、Iono's Kilowattrelデッキ、Lucario 1084デッキ）は履歴として `agent/` ディレクトリ等にファイルが残っているが、現行ビルドの対象外
@@ -70,7 +88,8 @@ cg/sim.py
 | エントリーポイント | `agent(obs_dict) -> list[int]`（config引数なし。実際に動作確認済みの形） |
 | デッキ返却 | `obs.select is None` のとき `my_deck`（60枚のcard IDリスト、`deck.csv` から読込）を返す |
 | 型変換 | `to_observation_class(obs_dict)` で typed dataclass に変換してから処理 |
-| パス解決 | `deck.csv`/`params.json` は `__file__` と同じディレクトリを最優先で探す（開発時レイアウト `experiments/decks/...` が見つからなければ自動フォールバック）。**コード変更なしでフラット配置に対応済み** |
+| `deck.csv` パス解決 | 1. 開発時レイアウト `experiments/decks/raging_bolt_ogerpon.csv` を探す → 2. 無ければ `main.py` と同じディレクトリの `deck.csv` → 3. それも無ければ `/kaggle_simulations/agent/deck.csv` |
+| `params.json` パス解決 | 1. 環境変数 `POKEMON_AI_PARAMS_PATH` が設定されていればそのパス（存在しなければ次へ） → 2. 未設定、または存在しなければ `main.py` と同じディレクトリの `params.json` |
 | 意思決定の中核 | `RagingBoltPolicy.choose_with_search()` — ヒューリスティックで上位候補を絞り、`cg.api.search_begin/search_step` で実際にエンジン探索してから選択（詳細は `experiments/agents/raging_bolt/HANDOFF.md` 参照） |
 
 このエージェントは単一ファイル + `params.json` のみで完結し、`agent/` パッケージや `data/` の外部CSVは使用しない。
@@ -82,6 +101,8 @@ cg/sim.py
 - 取得したカード効果全文・画像URL を `data/` や CSV に保存しない
 - GitHub 等に効果全文CSVを公開しない前提で構成する
 - `data/card_knowledge.csv` に記録するのは **role / score / tags** のみ
+- APIキー・トークン・認証情報をファイルへ保存しない。`.env` の内容を出力・commitしない
+- OpenAI API・Anthropic APIのAPIキー課金利用を前提にしない（ログイン済みのサブスクリプション枠を使用する）
 
 ---
 

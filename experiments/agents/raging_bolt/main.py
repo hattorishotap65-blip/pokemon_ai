@@ -1,12 +1,131 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
 import random
+import time
+import traceback
 from collections import Counter, defaultdict
 
 _rng = random.Random(1234)
+
+# ── PR0-A: Strict Benchmark Mode / Telemetry ──────────────────────────────
+# PRODUCTION: existing silent-fallback behavior, unchanged (default).
+# BENCHMARK:  same control flow as PRODUCTION (never re-raises), but records
+#             counters + per-exception detail so fallback/error rates are
+#             observable instead of invisible.
+# DEBUG:      records the same detail AND re-raises, so a failing decision
+#             stops instead of silently falling back.
+# Mode is read once at import time; this must never change which action a
+# decision returns in PRODUCTION or BENCHMARK mode (Baseline Fingerprint
+# Gate) -- only DEBUG intentionally alters behavior (stops on exception).
+EXEC_MODE = os.environ.get("POKEMON_AI_EXEC_MODE", "PRODUCTION").upper()
+if EXEC_MODE not in ("PRODUCTION", "BENCHMARK", "DEBUG"):
+    EXEC_MODE = "PRODUCTION"
+
+# Single flag checked at every telemetry site. In PRODUCTION this must be
+# the ONLY telemetry-related cost paid per decision: one module-level bool
+# read. No time.monotonic() call, no counter increment, no list/dict
+# mutation, no exception string/traceback/hash work happens in PRODUCTION --
+# every site below is gated on this, not just _record_exception's own
+# internal check (which only covers exception detail, not the counters).
+_TELEMETRY_ENABLED = EXEC_MODE != "PRODUCTION"
+
+_TELEMETRY = {
+    "search_attempt_count": 0,
+    "search_success_count": 0,
+    "search_fallback_count": 0,
+    "search_override_count": 0,
+    "rollout_attempt_count": 0,
+    "rollout_success_count": 0,
+    "rollout_error_count": 0,
+    "cache_hit_count": 0,
+    "cache_miss_count": 0,
+    # Fixed-size runtime aggregate -- NOT an unbounded per-decision list.
+    # Scoped to the actual decision (RagingBoltPolicy construction through
+    # choose()/choose_with_search() returning) only -- does NOT include
+    # _maybe_capture_replay_bundle's cost (JSON building, re-ranking for the
+    # bundle, file write), which is a separate opt-in diagnostic capture
+    # step, not part of the agent's decision latency. See capture_runtime_*.
+    "decision_runtime_count": 0,
+    "decision_runtime_total_ms": 0.0,
+    "decision_runtime_max_ms": 0.0,
+    # Fixed-size runtime aggregate for _maybe_capture_replay_bundle alone.
+    # Only ever non-zero when POKEMON_AI_REPLAY_BUNDLE_PATH is set (capture
+    # is otherwise a no-op) -- see agent().
+    "capture_runtime_count": 0,
+    "capture_runtime_total_ms": 0.0,
+    "capture_runtime_max_ms": 0.0,
+    "errors": [],  # only populated in BENCHMARK/DEBUG (see _record_exception)
+}
+
+
+def reset_telemetry():
+    """Zero all counters. Call once per game (or per benchmark run) from a
+    test harness; never called by the agent itself mid-decision."""
+    for k in _TELEMETRY:
+        _TELEMETRY[k] = [] if isinstance(_TELEMETRY[k], list) else 0
+
+
+def get_telemetry():
+    """Return a shallow copy snapshot for a test harness to read/serialize."""
+    return {k: (list(v) if isinstance(v, list) else v) for k, v in _TELEMETRY.items()}
+
+
+def _record_decision_runtime_ms(elapsed_ms):
+    """Fixed-size aggregate update -- count/total/max only, never a list.
+    Caller (agent()) is responsible for only calling this when
+    _TELEMETRY_ENABLED is true; this function does not re-check, since it
+    is never invoked from PRODUCTION's code path at all (see agent())."""
+    _TELEMETRY["decision_runtime_count"] += 1
+    _TELEMETRY["decision_runtime_total_ms"] += elapsed_ms
+    if elapsed_ms > _TELEMETRY["decision_runtime_max_ms"]:
+        _TELEMETRY["decision_runtime_max_ms"] = elapsed_ms
+
+
+def _record_capture_runtime_ms(elapsed_ms):
+    """Same fixed-size aggregate pattern as _record_decision_runtime_ms,
+    kept as a separate counter so replay-bundle-capture overhead is never
+    conflated with actual decision latency."""
+    _TELEMETRY["capture_runtime_count"] += 1
+    _TELEMETRY["capture_runtime_total_ms"] += elapsed_ms
+    if elapsed_ms > _TELEMETRY["capture_runtime_max_ms"]:
+        _TELEMETRY["capture_runtime_max_ms"] = elapsed_ms
+
+
+def _record_exception(stage, exc):
+    """Never changes control flow in PRODUCTION/BENCHMARK (caller's existing
+    except-block body runs exactly as before this call returns). Only DEBUG
+    re-raises. Zero-cost in PRODUCTION: returns immediately, before any
+    dict/string/hash work, so this cannot be the cause of a production
+    behavior or latency regression."""
+    if EXEC_MODE == "PRODUCTION":
+        return
+    _TELEMETRY.setdefault("exception_count", 0)
+    _TELEMETRY["exception_count"] += 1
+    msg = str(exc)
+    tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    _TELEMETRY["errors"].append({
+        "stage": stage,
+        "error_type": type(exc).__name__,
+        "error_message_hash": hashlib.sha256(msg.encode("utf-8", "replace")).hexdigest()[:16],
+        "traceback_hash": hashlib.sha256(tb.encode("utf-8", "replace")).hexdigest()[:16],
+    })
+    if EXEC_MODE == "DEBUG":
+        raise exc
+
+
+class ReplayTapeExhausted(Exception):
+    """Raised by _predict_hidden() when replaying a decision (see
+    RagingBoltPolicy.__init__'s replay_hidden_samples) requests more
+    materialized hidden-state samples than were captured. A replay driver
+    must treat this as an explicit replay failure -- check
+    RagingBoltPolicy._replay_tape_exhausted after the decision, never
+    silently accept a decision made partway through with fresh sampling as
+    a faithful replay."""
+
 
 from cg.api import (
     AreaType,
@@ -144,6 +263,25 @@ def get_card(obs, area, index, player_index):
     return None
 
 
+def _semantic_action_id(select_context, opt, my_index):
+    """Stable identity for one legal Option, independent of its position in
+    obs.select.option (raw array index is not a valid comparison key across
+    replays or engine/version changes -- see Decision Audit roadmap Part I).
+    Built entirely from fields that describe *what the option does*, not
+    where it happens to sit in the list this decision. `serial` (the
+    engine's per-card unique-in-match id) disambiguates otherwise-identical
+    options that target different physical card instances (e.g. two
+    identical basic energy in hand)."""
+    def f(name):
+        v = getattr(opt, name, None)
+        return int(v) if v is not None else -1
+    ctx = int(select_context) if select_context is not None else -1
+    return (f"ctx{ctx}|my{my_index}|t{f('type')}|a{f('area')}|i{f('index')}"
+            f"|pi{f('playerIndex')}|tool{f('toolIndex')}|en{f('energyIndex')}"
+            f"|cnt{f('count')}|ipa{f('inPlayArea')}|ipi{f('inPlayIndex')}"
+            f"|atk{f('attackId')}|card{f('cardId')}|ser{f('serial')}|sc{f('specialConditionType')}")
+
+
 def prize_count(pokemon):
     data = card_table.get(pokemon.id)
     if data is None:
@@ -183,8 +321,27 @@ def _find_pokemon_on_field(me, card_id):
 
 
 class RagingBoltPolicy:
-    def __init__(self, obs):
+    def __init__(self, obs, replay_hidden_samples=None):
         self.obs = obs
+        # PR0-B: Deterministic Replay support. replay_hidden_samples, when
+        # given, is a list of _predict_hidden() return-tuples (as produced by
+        # a prior capture run) that get consumed in order instead of freshly
+        # sampled -- this is the "partial CRN" this project can actually
+        # deliver (see audit/crn_capability_matrix.json: engine-internal RNG
+        # cannot be seeded, but our own hidden-state sampling can be captured
+        # and replayed exactly). None (the default) preserves today's
+        # behavior exactly -- PRODUCTION mode is completely unaffected.
+        self._replay_hidden_samples = list(replay_hidden_samples) if replay_hidden_samples is not None else None
+        self._replay_cursor = 0
+        # Set the first time _predict_hidden() is called in replay mode
+        # after the tape runs out. A replay driver (experiments/
+        # replay_decision.py) must check this and report an explicit
+        # replay failure -- never silently accept a decision that quietly
+        # fell back to fresh sampling partway through as a faithful replay.
+        self._replay_tape_exhausted = False
+        self._captured_hidden_samples = (
+            [] if (self._replay_hidden_samples is None and EXEC_MODE != "PRODUCTION") else None
+        )
         self.state = obs.current
         self.select = obs.select
         self.context = self.select.context
@@ -878,8 +1035,8 @@ class RagingBoltPolicy:
                         poke = player.bench[opt.index]
                     if poke and poke.id == C.RAGING_BOLT_EX:
                         is_on_bolt = True
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("discard_energy_bolt_lookup", _e)
             opp_dmg = self._estimate_opp_damage()
             bolt_will_die = is_active_bolt and self.active and self.active.hp <= opp_dmg
             if bolt_will_die:
@@ -893,8 +1050,8 @@ class RagingBoltPolicy:
                     same_count = sum(1 for e in (poke.energies or []) if e == etype) if poke else 1
                     if same_count >= 2:
                         return 450
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("discard_energy_dup_count", _e)
                 return 50
             last_ko = self.my_prizes <= self._opp_prize_value()
             if last_ko:
@@ -1053,8 +1210,8 @@ class RagingBoltPolicy:
                             is_active_bolt = True
                     elif area == AreaType.BENCH and player.bench and opt.index < len(player.bench):
                         poke = player.bench[opt.index]
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("energy_select_bolt_lookup", _e)
                 if poke and poke.id == C.RAGING_BOLT_EX:
                     is_on_bolt = True
 
@@ -1106,8 +1263,8 @@ class RagingBoltPolicy:
                         etype = poke.energies[ei]
                         ETYPE_TO_CARD = {1: C.BASIC_GRASS_ENERGY, 4: C.BASIC_LIGHTNING_ENERGY, 6: C.BASIC_FIGHTING_ENERGY}
                         return ETYPE_TO_CARD.get(etype, 0)
-            except Exception:
-                pass
+            except Exception as _e:
+                _record_exception("get_energy_type_from_opt", _e)
         return 0
 
     def _score_number(self, opt):
@@ -1144,7 +1301,8 @@ class RagingBoltPolicy:
         try:
             from cg.api import all_attack
             AT_local = {a.attackId: a for a in all_attack()}
-        except Exception:
+        except Exception as _e:
+            _record_exception("estimate_opp_damage_attack_table", _e)
             return 200
         max_dmg = 0
         for aid in (opp_data.attacks or []):
@@ -1383,7 +1541,34 @@ class RagingBoltPolicy:
         turn boundary in the common case), but energy-card filler is sampled
         from a posterior over basic-energy types inferred from what the
         opponent has actually played/discarded, instead of a hardcoded type —
-        matters when endgame deepening simulates the opponent's turn."""
+        matters when endgame deepening simulates the opponent's turn.
+
+        PR0-B Deterministic Replay: if constructed with replay_hidden_samples,
+        pop the next pre-materialized tuple instead of sampling fresh -- exact
+        replay of the hidden-state guess used in the original decision. This
+        branch is only reachable when the caller explicitly opted in via the
+        constructor, so PRODUCTION behavior (replay_hidden_samples=None,
+        always) is byte-for-byte unchanged."""
+        if self._replay_hidden_samples is not None:
+            if self._replay_cursor < len(self._replay_hidden_samples):
+                preds = self._replay_hidden_samples[self._replay_cursor]
+                self._replay_cursor += 1
+                return preds
+            # Replay tape exhausted: this decision needs more
+            # _predict_hidden() calls than were captured. Silently sampling
+            # fresh here would make this call NOT a faithful replay while
+            # looking like one succeeded -- instead, set the flag (the
+            # authoritative signal experiments/replay_decision.py must
+            # check) and raise, so the failure surfaces through the normal
+            # exception path rather than being silently absorbed as an
+            # ordinary rollout error.
+            self._replay_tape_exhausted = True
+            raise ReplayTapeExhausted(
+                f"replay tape exhausted at cursor {self._replay_cursor} "
+                f"(tape length {len(self._replay_hidden_samples)}); this "
+                f"decision requested more _predict_hidden() calls than the "
+                f"capture run made -- this is not a faithful replay"
+            )
         unseen = self._my_unseen_cards()
         _rng.shuffle(unseen)
         n_prize = len(self.me.prize)
@@ -1403,7 +1588,10 @@ class RagingBoltPolicy:
         opp_active = []
         if opp.active and len(opp.active) > 0 and opp.active[0] is None:
             opp_active = [filler_pokemon]
-        return your_deck, your_prize, opp_deck, opp_prize, opp_hand, opp_active
+        preds = (your_deck, your_prize, opp_deck, opp_prize, opp_hand, opp_active)
+        if self._captured_hidden_samples is not None:
+            self._captured_hidden_samples.append(preds)
+        return preds
 
     # Default weights for the linear board evaluator. Names match params.json
     # keys (self.p() reads overrides from there). Signs already fold in the
@@ -1577,14 +1765,16 @@ class RagingBoltPolicy:
                 try:
                     sub = RagingBoltPolicy(obs)
                     picks = sub.choose()
-                except Exception:
+                except Exception as _e:
+                    _record_exception("rollforward_my_turn_choose", _e)
                     picks = list(range(min(max(sel.minCount, 1), len(sel.option))))
             else:
                 if not sim_opp:
                     break
                 try:
                     picks = self._opp_sim_picks(sel)
-                except Exception:
+                except Exception as _e:
+                    _record_exception("rollforward_opp_sim_picks", _e)
                     break
             n = len(sel.option)
             picks = [i for i in picks if 0 <= i < n][:sel.maxCount]
@@ -1630,17 +1820,26 @@ class RagingBoltPolicy:
         sim_opp = True if horizon > 2 else None
 
         def rollout_once(i):
+            if _TELEMETRY_ENABLED:
+                _TELEMETRY["rollout_attempt_count"] += 1
             preds = self._predict_hidden()  # fresh shuffle every rollout
             root = search_begin(self.obs, *preds)
             try:
                 ss = search_step(root.searchId, [i])
                 final_state = self._rollforward(ss, sim_opp=sim_opp, horizon=horizon)
-                return self._eval_search_state(final_state, self.my_index)
+                value = self._eval_search_state(final_state, self.my_index)
+                if _TELEMETRY_ENABLED:
+                    _TELEMETRY["rollout_success_count"] += 1
+                return value
+            except Exception:
+                if _TELEMETRY_ENABLED:
+                    _TELEMETRY["rollout_error_count"] += 1
+                raise
             finally:
                 try:
                     search_end()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("engine_search_end_cleanup", _e)
 
         # Default OFF: 100g confirmation was statistically inconclusive
         # (vs Lucario 16.0% vs 20.0% baseline, z~0.74; mirror 53-47, also not
@@ -1748,13 +1947,30 @@ class RagingBoltPolicy:
             return self.choose()
 
         if self.p("use_engine_search", 1):
+            if _TELEMETRY_ENABLED:
+                _TELEMETRY["search_attempt_count"] += 1
             try:
                 ranked_e, scores_e = self.rank()
                 picked = self._engine_search_choose(ranked_e, scores_e)
                 if picked is not None:
+                    if _TELEMETRY_ENABLED:
+                        _TELEMETRY["search_success_count"] += 1
+                        if ranked_e and picked[0] != ranked_e[0]:
+                            # Search picked something other than the plain
+                            # heuristic's top-ranked option -- a cheap proxy
+                            # for "search result overrode the heuristic
+                            # ranking" (there is no confidence gate yet; see
+                            # PR3+ Branch "Search Override Confidence Gate"
+                            # in the roadmap).
+                            _TELEMETRY["search_override_count"] += 1
                     return picked
-            except Exception:
-                pass  # fall back to heuristic blend below
+                if _TELEMETRY_ENABLED:
+                    _TELEMETRY["search_fallback_count"] += 1
+            except Exception as _e:
+                _record_exception("engine_search_choose_toplevel", _e)
+                if _TELEMETRY_ENABLED:
+                    _TELEMETRY["search_fallback_count"] += 1
+                # fall back to heuristic blend below
 
         ranked, scores = self.rank()
         n = len(self.select.option)
@@ -1799,8 +2015,8 @@ class RagingBoltPolicy:
                     if v is not None:
                         w_val = self.p("value_model_weight", 0.2)
                         final += v * w_val * 1000
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _record_exception("value_model_predict", _e)
 
             candidates.append((final, i, immediate, future_delta, risk_adj))
 
@@ -1900,6 +2116,73 @@ class RagingBoltPolicy:
         return delta
 
 
+# ── PR0-B: Observation Snapshot / Replay Bundle (side-output only) ────────
+# Opt-in via env var, OFF by default -- adds zero behavior/overhead to a
+# normal game unless explicitly enabled for an audit/replay session. One
+# JSONL record per decision captures everything needed to reconstruct and
+# re-run that single decision later:
+#   - obs_dict: the exact raw observation the engine gave us this decision
+#     (already JSON-serializable -- it arrived as a dict).
+#   - legal_actions: every option this decision offered, addressed by
+#     Semantic Action ID (stable identity, not raw array index).
+#   - decision: the option(s) actually chosen, as both raw index and
+#     semantic id.
+#   - captured_hidden_samples: every _predict_hidden() draw made while
+#     reaching this decision, in order -- replaying them in the same order
+#     reproduces the identical rollout/ranking (see
+#     audit/crn_capability_matrix.json: "partial_crn").
+_REPLAY_BUNDLE_PATH = os.environ.get("POKEMON_AI_REPLAY_BUNDLE_PATH")
+REPLAY_BUNDLE_SCHEMA_VERSION = 1
+
+
+def build_replay_bundle(obs_dict, obs, policy, decision):
+    select = obs.select
+    ranked, scores = ([], [])
+    if select and select.option:
+        ranked, scores = policy.rank()
+    legal_actions = []
+    if select and select.option:
+        for i, opt in enumerate(select.option):
+            legal_actions.append({
+                "index": i,
+                "semantic_id": _semantic_action_id(select.context, opt, policy.my_index),
+                "heuristic_score": scores[i] if i < len(scores) else None,
+            })
+    decision = decision or []
+    decision_semantic_ids = [
+        _semantic_action_id(select.context, select.option[i], policy.my_index)
+        for i in decision
+        if select and select.option and 0 <= i < len(select.option)
+    ]
+    return {
+        "schema_version": REPLAY_BUNDLE_SCHEMA_VERSION,
+        "captured_at_exec_mode": EXEC_MODE,
+        "turn": obs.current.turn,
+        "my_index": policy.my_index,
+        "select_context": int(select.context) if select and select.context is not None else None,
+        "obs_dict": obs_dict,
+        "legal_actions": legal_actions,
+        "decision_indices": list(decision),
+        "decision_semantic_ids": decision_semantic_ids,
+        "captured_hidden_samples": policy._captured_hidden_samples or [],
+    }
+
+
+def _maybe_capture_replay_bundle(obs_dict, obs, policy, decision):
+    """No-op unless POKEMON_AI_REPLAY_BUNDLE_PATH is set -- opt-in only,
+    never active in a normal PRODUCTION game. Appends one JSONL record so a
+    replay driver (experiments/replay_decision.py) can later reconstruct and
+    re-run this exact decision."""
+    if not _REPLAY_BUNDLE_PATH or EXEC_MODE == "PRODUCTION":
+        return
+    try:
+        bundle = build_replay_bundle(obs_dict, obs, policy, decision)
+        with open(_REPLAY_BUNDLE_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(bundle, ensure_ascii=False) + "\n")
+    except Exception as _e:
+        _record_exception("replay_bundle_capture", _e)
+
+
 def agent(obs_dict):
     obs = to_observation_class(obs_dict)
     if obs.select is None:
@@ -1912,7 +2195,30 @@ def agent(obs_dict):
         pre_turn = obs.current.turn
         ability_used_teal_dance = False
 
+    # time.monotonic() is never called in PRODUCTION -- not even the call
+    # itself, per the Baseline Fingerprint Gate's "zero telemetry cost in
+    # PRODUCTION" requirement.
+    #
+    # decision_runtime_* measures ONLY policy construction + choose()/
+    # choose_with_search() -- it stops before _maybe_capture_replay_bundle
+    # runs, so JSON building, re-ranking for the bundle, and the file write
+    # are never folded into "decision latency". That capture step is timed
+    # separately as capture_runtime_* below, when it actually runs anything
+    # (it's a no-op unless POKEMON_AI_REPLAY_BUNDLE_PATH is set).
+    _t0 = time.monotonic() if _TELEMETRY_ENABLED else None
     policy = RagingBoltPolicy(obs)
     if obs.select.context == SelectContext.MAIN:
-        return policy.choose_with_search()
-    return policy.choose()
+        decision = policy.choose_with_search()
+    else:
+        decision = policy.choose()
+    if _TELEMETRY_ENABLED:
+        _record_decision_runtime_ms((time.monotonic() - _t0) * 1000.0)
+
+    if _TELEMETRY_ENABLED and _REPLAY_BUNDLE_PATH:
+        _t0_capture = time.monotonic()
+        _maybe_capture_replay_bundle(obs_dict, obs, policy, decision)
+        _record_capture_runtime_ms((time.monotonic() - _t0_capture) * 1000.0)
+    else:
+        _maybe_capture_replay_bundle(obs_dict, obs, policy, decision)
+
+    return decision

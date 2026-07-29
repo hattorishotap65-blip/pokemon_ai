@@ -11,10 +11,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Parameter Contract artifacts are pinned to an exact source
+          # commit and the test verifies that commit's raw file hashes.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      # experiments/agents/raging_bolt/value_model.py lazily imports
+      # scikit-learn to unpickle value_model.pkl; the agent's own
+      # load_value_model() already treats a missing/failed import as
+      # "no model available" (use_value_model=false in production means
+      # this path is never exercised live), but test_value_model.py expects
+      # the model to load when its file is present -- pinned to the version
+      # confirmed able to unpickle experiments/agents/raging_bolt/value_model.pkl.
+      - name: Install scikit-learn (for value_model tests)
+        run: pip install scikit-learn==1.9.0
 
       - name: Run Level 7 tools tests
         run: python experiments/test_level7_tools.py
@@ -144,6 +158,15 @@ jobs:
 
       - name: Run raging bolt agent tests
         run: python experiments/test_raging_bolt_agent.py
+
+      - name: Run parameter contract audit tests
+        run: python experiments/test_audit_parameter_contract.py
+
+      - name: Run raging bolt review-fix regression tests (fast)
+        run: python -m unittest experiments.test_raging_bolt_review_fixes -v
+
+      - name: Run raging bolt review-fix regression tests (integration)
+        run: python -m unittest experiments.test_raging_bolt_review_fixes_integration -v
 
       - name: Run human trace tests
         run: python experiments/test_human_trace.py

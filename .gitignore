@@ -31,3 +31,24 @@ reference/*.pdf
 reference/*.csv
 
 artifacts/
+
+# Web sandbox: regenerated via experiments/web/setup_agents.py (clones an
+# external repo) -- not hand-authored, not worth tracking.
+experiments/web/agents/
+
+# Value-model training data: generated via experiments/web/value_dataset_builder.py
+experiments/web/value_dataset_combined.csv
+experiments/web/value_dataset_combined_v2.csv
+experiments/web/value_dataset_human.csv
+experiments/web/value_dataset_human_v2.csv
+
+# Raging Bolt agent: backup/scratch snapshots and a stray misplaced dataset
+# copy, not part of the tracked agent.
+experiments/agents/raging_bolt/params.json.bak
+experiments/agents/raging_bolt/params_optimal.json
+experiments/agents/raging_bolt/experiments/
+
+# Old top_lucario_1084 submission, kept locally only as a benchmark
+# opponent for head_to_head.py.
+experiments/agents/top_lucario_1084_main.py
+experiments/decks/top_lucario_1084.csv

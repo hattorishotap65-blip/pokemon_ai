@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "purpose": "PR0-C: inventory of every evaluation path in RagingBoltPolicy (+ the standalone value model), so their inputs/outputs/units/terminal-value handling/callers can be compared on the SAME snapshot (shadow comparison) without unifying them or changing any decision. No policy change is implied by this document.",
+  "evaluators": {
+    "evaluate_state": {
+      "location": "experiments/agents/raging_bolt/main.py:1308 (RagingBoltPolicy.evaluate_state)",
+      "signature": "self.evaluate_state() -> float",
+      "granularity": "per-STATE (the current board only) -- not per-action, not per-candidate",
+      "inputs": [
+        "self.me / self.opponent (current board: prizes, active/bench Pokemon + energies, hand)",
+        "self.bolt_ready / bolt_has_lightning / bolt_has_fighting (derived in __init__)",
+        "self._can_ko_active(), self.bt_potential_damage, self.opp_active_hp",
+        "self.ogerpon_on_field, self.total_field_energy, self.grass_in_hand, self.hand_ids",
+        "self._best_boss_target(), self._estimate_opp_damage(), self.me.deckCount"
+      ],
+      "param_keys": [
+        "eval_prize_taken", "eval_prize_given", "eval_bt_ready", "eval_bt_partial",
+        "eval_can_ko", "eval_can_ko_prize_mult", "eval_near_ko", "eval_ogerpon_value",
+        "eval_field_energy", "eval_grass_in_hand", "eval_supporter_in_hand", "eval_hand_card",
+        "eval_boss_win", "eval_bolt_on_field", "eval_bench_bolt_ready", "eval_active_ko_risk",
+        "eval_no_backup_risk", "eval_deck_out_risk", "eval_bench_liability"
+      ],
+      "output_unit": "raw linear-eval score, unscaled (weights are hundreds, so typical magnitude is low hundreds to low thousands)",
+      "terminal_value_handling": "none -- no special-casing for a game-ending state; not designed to be called on a terminal SearchState at all (it reads self.me/self.opponent, which come from the live Observation, not a simulated end state)",
+      "callers": [
+        {"caller": "choose_with_search", "lineno": 1902, "assigned_to": "current_eval", "consumption": "assigned_but_never_read"}
+      ],
+      "decision_effect": "NO_OBSERVED_DECISION_EFFECT",
+      "decision_effect_source": "PR0-A.1 (verified independently: `current_eval` appears exactly once in main.py, at its own assignment)",
+      "reachability": "computed every time the heuristic-blend fallback in choose_with_search() runs (use_engine_search=0, OR select.maxCount != 1 so _engine_search_choose() early-returns None, OR an exception fell through to the fallback) -- the computation happens, the result is discarded",
+      "notes": "Reads like it was intended as a baseline/reference score to compare future_delta against, but no such comparison exists in the current code. All 19 eval_* params are dead weight under every current-config path."
+    },
+    "_eval_search_state": {
+      "location": "experiments/agents/raging_bolt/main.py:1631 (RagingBoltPolicy._eval_search_state)",
+      "signature": "self._eval_search_state(state, my_index) -> float",
+      "granularity": "per-CANDIDATE -- called once per rollout, on the SearchState produced by rolling one specific candidate action forward (via _rollforward) to the search horizon",
+      "inputs": [
+        "state: a cg.api SearchState (engine's simulated post-rollforward board), NOT the live Observation",
+        "my_index",
+        "_extract_eval_features(state, my_index): se_prize_taken, se_prize_given, se_closing, se_opp_closing, se_field_energy, se_bolt_ready, se_can_ko, se_bench_bolt_ready, se_active_dies_prize, se_active_dies_energy, se_no_backup, se_disabled, se_dot, se_opp_damage, se_my_damage, se_bench_damage*, se_bench_ko_risk* (see main.py:1546-1630 for the full feature block; not all se_* keys are listed in the PR0-A audit's static _EVAL_FEATURE_WEIGHTS dump, since some are added conditionally)"
+      ],
+      "param_keys": "self.p(k, self._EVAL_FEATURE_WEIGHTS[k]) for every key k in the extracted feature dict -- see _EVAL_FEATURE_WEIGHTS class attribute for the code-default weight of each se_* key",
+      "output_unit": "raw linear-eval score in the SAME nominal units as evaluate_state() (feature * weight, weights are tens-to-hundreds) EXCEPT for the terminal special case below -- the two are NOT on a verified-comparable scale (see shadow comparison caveat)",
+      "terminal_value_handling": "EXPLICIT and LARGE: state is None -> 0.0; state.result >= 0 (game decided) -> +1,000,000.0 if I won, -1,000,000.0 if I lost. This is ~1000x the typical non-terminal feature-score magnitude -- by design, a terminal outcome must dominate any non-terminal comparison in the same rollout batch.",
+      "callers": [
+        {"caller": "_engine_search_choose.rollout_once (used by both the legacy flat-allocation path and _ucb1_choose)", "lineno": 1707, "consumption": "consumed -- feeds directly into the UCB1 value estimate / legacy averaged total for the candidate"}
+      ],
+      "decision_effect": "STATICALLY_DECISION_RELEVANT and (unlike evaluate_state) actually reachable under the live config (use_engine_search=1, rule_ucb1_search=1)",
+      "reachability": "every rollout of every MAIN-context, select.maxCount==1 decision -- the dominant decision path in the live agent",
+      "notes": "Subject to the PR0-B empirical finding: NOT deterministic given identical materialized hidden samples, because state comes from search_begin/search_step with manual_coin=False (engine's own internal RNG for any coin-flip effect hit during rollforward). See audit/crn_capability_matrix.json."
+    },
+    "_estimate_action_impact": {
+      "location": "experiments/agents/raging_bolt/main.py:1958 (RagingBoltPolicy._estimate_action_impact)",
+      "signature": "self._estimate_action_impact(opt) -> float (delta)",
+      "granularity": "per-CANDIDATE -- a cheap, pure-Python heuristic delta for one specific option, no engine call, no rollforward",
+      "inputs": ["opt (the Option being scored)", "self state (active/bench energies, hand, bolt_ready, bt_total_energy, opp_active_hp, etc.)"],
+      "param_keys": [
+        "impact_bt_ko_prize_mult", "impact_bt_energy_value", "impact_bt_energy_loss",
+        "impact_mls_ko_prize_mult", "impact_mls_damage_mult", "impact_burst_roar_value",
+        "impact_burst_roar_penalty", "impact_teal_dance", "impact_teal_dance_bolt_ready",
+        "impact_crispin_per_energy", "impact_crispin_bolt_bonus", "impact_lillie_per_card",
+        "impact_boss_prize_mult", "impact_play_bolt", "impact_play_ogerpon",
+        "impact_search_item", "impact_energy_retrieval_per", "impact_attach_bt_req",
+        "impact_attach_other", "impact_attach_ogerpon", "impact_retreat_safety",
+        "impact_retreat_penalty", "impact_end_penalty"
+      ],
+      "output_unit": "raw linear-eval delta, same rough order of magnitude as evaluate_state()/_score_option (tens to low thousands) -- no explicit unit reconciliation with either",
+      "terminal_value_handling": "none -- estimates a state CHANGE, not an absolute state or terminal outcome",
+      "callers": [
+        {"caller": "choose_with_search (heuristic-blend fallback)", "lineno": 1917, "assigned_to": "future_delta", "consumption": "consumed -- blended into `final = immediate*w_imm + future_delta*w_fut + risk_adj*w_risk`, which DOES determine the returned ranking in this fallback branch"}
+      ],
+      "decision_effect": "STATICALLY_DECISION_RELEVANT, but ONLY inside the same fallback branch as evaluate_state() (use_engine_search=0, OR select.maxCount != 1, OR an engine-search exception) -- unlike evaluate_state, this one's result IS actually consumed when that branch runs",
+      "reachability": "fallback branch only -- rare in the common single-action MAIN decision (maxCount==1) case where engine search succeeds, more relevant for any select.maxCount != 1 MAIN decision (e.g. multi-select contexts) which always skip engine search entirely (_engine_search_choose returns None immediately for maxCount != 1)",
+      "notes": "Never directly shadow-comparable against _eval_search_state's rollforward-based value without running the SAME engine rollforward for a same-footing comparison; comparable in principle against _score_option's immediate score (same candidate, same fallback branch, both consumed together in `final`)."
+    },
+    "_score_option (+ per-type _score_play / _score_attack / _score_attach / _score_retreat / _score_ability / _score_card_select / _score_energy_select / _score_field_target / _score_number)": {
+      "location": "experiments/agents/raging_bolt/main.py:541 onward (dispatches by opt.type)",
+      "signature": "self._score_option(i, opt) -> float (called for every option in self.select.option via self.rank())",
+      "granularity": "per-CANDIDATE, purely heuristic, no engine call",
+      "inputs": ["opt (every legal option for the current select, not just top-k)", "self state"],
+      "param_keys": "score_* keys (97 ACTIVE + several UNUSED, per PR0-A audit/parameter_contract.json) plus 133 hardcoded numeric literals bypassing self.p() entirely (see audit/hardcoded_score_inventory.json)",
+      "output_unit": "raw linear-eval score, same nominal family as the others but never cross-calibrated against them",
+      "terminal_value_handling": "none",
+      "callers": [
+        {"caller": "rank()", "lineno": 484, "consumption": "consumed -- this IS the ranking used everywhere: as the heuristic pre-filter for engine-search candidates (top_k), as the sole ranking in choose() for all non-MAIN contexts, and as `immediate` inside the fallback blend"}
+      ],
+      "decision_effect": "STATICALLY_DECISION_RELEVANT and reachable on EVERY decision (MAIN and non-MAIN alike) -- this is the one evaluator that is unconditionally on the critical path",
+      "reachability": "always",
+      "notes": "Because this is always computed and always at least partially consumed (as the top_k candidate PRE-FILTER for engine search, even when the engine search's own _eval_search_state ultimately picks the final action), any shadow comparison should treat _score_option's ranking as the reference ranking that the other evaluators are compared against, not as a peer on equal footing."
+    },
+    "value_model.predict_action_value / predict_state_value": {
+      "location": "experiments/agents/raging_bolt/value_model.py:35 and :86 (standalone module, imported lazily)",
+      "signature": "predict_action_value(obs, my_index, opt) -> float | None (win probability, sklearn predict_proba); predict_state_value(obs, my_index) -> float | None",
+      "granularity": "per-CANDIDATE (predict_action_value) or per-STATE (predict_state_value, currently unused by main.py's decision path)",
+      "inputs": ["obs (live Observation, NOT a rolled-forward SearchState)", "my_index", "opt", "feature_extractor.extract_features() -- a DIFFERENT feature set than _extract_eval_features (se_*) or evaluate_state's inline features"],
+      "param_keys": ["use_value_model (gate)", "value_model_weight (blend weight)"],
+      "output_unit": "WIN PROBABILITY in [0, 1] -- fundamentally different unit from every other evaluator in this matrix (they are all unscaled linear-eval score units). choose_with_search blends it in as `v * value_model_weight * 1000`, an ad hoc unit conversion with no calibration evidence on record.",
+      "terminal_value_handling": "implicit only, via whatever the trained classifier learned from labeled game outcomes -- no explicit override",
+      "callers": [
+        {"caller": "choose_with_search (heuristic-blend fallback, inside the value_model branch)", "lineno": 1932-1940, "consumption": "consumed when use_value_model is truthy AND the fallback branch runs AND the model files load successfully"}
+      ],
+      "decision_effect": "STATICALLY_DECISION_RELEVANT in principle, but DISABLED_BY_CURRENT_CONFIG (use_value_model=false in the live params.json, per PR0-A.1)",
+      "reachability": "none under current config",
+      "notes": "value_model.pkl / value_model_meta.json exist on disk in experiments/agents/raging_bolt/ but are not loaded in production because the gate is off. Its win-probability unit and the ad hoc *1000 conversion are the single largest scale-mismatch risk in this matrix if it is ever re-enabled without a calibration pass."
+    },
+    "web/counterfactual_analyzer.py:analyze_counterfactual": {
+      "location": "experiments/web/counterfactual_analyzer.py",
+      "signature": "analyze_counterfactual(entries) -> dict (offline report)",
+      "granularity": "OFFLINE, across many saved human-vs-AI disagreement traces (session_tuning_log.jsonl) -- not invoked during any live decision",
+      "inputs": ["saved Live Tuning Panel trace files (JSONL), not a live Observation or SearchState"],
+      "param_keys": [],
+      "output_unit": "categorical judgment (recommend/consider/skip-family labels) + aggregate counters, not a numeric board-state score",
+      "terminal_value_handling": "n/a",
+      "callers": [{"caller": "CLI / Live Tuning Panel review workflow only", "consumption": "n/a -- not part of the agent's decision path at all"}],
+      "decision_effect": "NO_CODE_REFERENCE from main.py's perspective -- this module is never imported by the agent",
+      "reachability": "n/a",
+      "notes": "Included in this matrix for completeness (it was named in the roadmap's PR0-C candidate list) but EXCLUDED from shadow comparison: it does not evaluate a Snapshot, it post-hoc analyzes recorded disagreements between the agent's ranking and a human's choice across whole games."
+    }
+  },
+  "shadow_comparison_scope": {
+    "included": [
+      "_score_option (reference ranking)",
+      "_estimate_action_impact (cheap, always computable, no engine call)",
+      "_eval_search_state (requires one engine rollout per candidate per hidden-sample; explicitly single-sample unless run with multiple hidden states, in which case CRN caveats from PR0-B apply)",
+      "value_model.predict_action_value (cheap if model files are present, independent of use_value_model gate for shadow-only purposes)"
+    ],
+    "excluded": [
+      "evaluate_state (per-state, not per-candidate -- has no candidate ranking to compare; its dead-code status is already fully characterized by PR0-A.1)",
+      "web/counterfactual_analyzer.py (offline, cross-game, not a per-decision evaluator)"
+    ],
+    "explicitly_not_implemented_by_PR0C": [
+      "no common feature schema",
+      "no change to any evaluator's formula",
+      "no evaluator unification",
+      "no change to any selected action in PRODUCTION or BENCHMARK mode"
+    ]
+  }
+}

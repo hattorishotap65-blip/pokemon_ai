@@ -41,7 +41,14 @@
 
 ## 独立提案
 
-Independent Architect と Alternative Architect は、**互いの案を見る前に**独立して設計案を作成する。
+独立提案の提出者は、最低限以下とする。
+
+- Primary/Main Architect（Sonnet）
+- Independent Architect（Codex Terra）
+
+Alternative Architect は、重大な対立・追加案が必要な場合・またはユーザーが指定した場合にのみ追加する。
+
+各設計者は、**他の設計者の案を見る前に**独立して設計案を作成する。
 
 各案には以下を含める。
 
@@ -94,6 +101,8 @@ Design Judge へ渡す際は、可能な範囲でモデル名を除外し、「�
 
 ## 統合設計
 
+統合設計は、**Design Judge / Integrator（Opus）が匿名評価の結果を基に作成する。**
+
 統合設計には以下を含める。
 
 - 採用する案
@@ -106,6 +115,8 @@ Design Judge へ渡す際は、可能な範囲でモデル名を除外し、「�
 - リスク
 - 未確認事項
 - ユーザー承認が必要な事項
+
+**Implementation Owner（Sonnet）は統合設計を変更しない。** 実装中に不明点や実装不能な事項が判明した場合は、実装前に作業を停止し、ユーザーへ報告する。
 
 ## 実装権限
 

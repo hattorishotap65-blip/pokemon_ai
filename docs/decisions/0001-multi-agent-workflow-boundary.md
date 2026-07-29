@@ -16,13 +16,16 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 
 ## Decision
 
-- Claude Code をオーケストレーター兼実装主体とする
-- Codex を独立設計、Red Team、最終監査に利用する
-- 実装は原則 Sonnet（Implementation Owner）だけが行う
+- Claude Code（Sonnet）を Main Architect 兼 Implementation Owner とする
+- Codex Terra を独立設計者（Independent Architect）とする
+- Claude Opus を Design Judge / Integrator とする
+- Codex をその他、独立設計（Alternative Architect、必要時のみ）、Red Team、最終監査に利用する
+- 統合設計は Design Judge / Integrator（Opus）が匿名評価結果を基に作成する
+- 統合設計後にユーザー承認を必須とする
+- 実装は承認済みの統合設計に基づき、原則 Sonnet（Implementation Owner）だけが行う
 - 他のエージェントは read-only
 - 設計討論は最大2ラウンド
 - 匿名評価を使用する
-- 実装前にユーザー承認を必須とする
 - merge はユーザーが判断する
 - 現在のアプリケーションコードへ影響させない形で段階導入する
 
@@ -30,7 +33,10 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 
 論理ロールと現在の希望割り当ては [`../agent-workflow/README.md`](../agent-workflow/README.md) を正とする。要点:
 
-- 論理ロール（Orchestrator/Implementation Owner、Requirements Auditor、Simplifier、Independent Architect、Alternative Architect、Red Team Reviewer、Design Judge/Integrator、Final Auditor）はモデル名と分離して定義する
+- 論理ロール（Orchestrator/Main Architect/Implementation Owner、Requirements Auditor、Simplifier、Independent Architect、Alternative Architect、Red Team Reviewer、Design Judge/Integrator、Final Auditor）はモデル名と分離して定義する
+- Sonnet は Main Architect（独立した主設計案の作成）兼 Implementation Owner。統合設計の作成は担当しない
+- Codex Terra は Independent Architect として、Sonnet の案を見る前に独立した実務的設計案を作成する
+- Opus は Design Judge / Integrator として、匿名評価・採用不採用判定・統合設計の作成・未解決事項とユーザー承認事項の整理を担当する
 - 編集権限を持つのは Implementation Owner のみ。他は read-only（詳細手順は [`../agent-workflow/review-protocol.md`](../agent-workflow/review-protocol.md) の「実装権限」を参照）
 - 希望割り当ては運用上のラベルであり、MCP/CLIで確認された実モデルIDではない
 

@@ -37,14 +37,16 @@ Claude CodeとCodexを併用してこのリポジトリを開発するための�
 
 | 論理ロール | 役割の内容 |
 |---|---|
-| Orchestrator / Implementation Owner | タスク全体の進行管理と、承認された統合設計の実装 |
+| Orchestrator / Main Architect / Implementation Owner | タスク全体の進行管理、独立した主設計案の作成（他の設計案を見る前）、承認された統合設計の実装 |
 | Requirements Auditor | タスク入力の過不足・曖昧さの監査（read-only） |
 | Simplifier | 過剰な複雑さ・不要な変更範囲の指摘（read-only） |
-| Independent Architect | 独立した設計案Aの作成（read-only） |
-| Alternative Architect | 独立した設計案Bの作成、必要な場合のみ（read-only） |
+| Independent Architect | 独立した実務的設計案の作成、Main Architectの案を見る前（read-only） |
+| Alternative Architect | 重大な対立・追加案が必要な場合・またはユーザー指定時のみ、追加の独立設計案を作成（read-only） |
 | Red Team Reviewer | 各設計案の弱点・リスクの指摘（read-only） |
-| Design Judge / Integrator | 匿名化された設計案の評価と統合設計の作成（read-only） |
+| Design Judge / Integrator | 匿名評価、採用・不採用理由の判定、複数案の統合設計作成、未解決事項とユーザー承認事項の整理（read-only） |
 | Final Auditor | 実装後の統合設計との一致・副作用の監査（read-only、コード修正はしない） |
+
+通常時は、Main Architect（Sonnet）の主設計案と Independent Architect（Codex Terra）の独立設計案の**最低2案**を比較する。Alternative Architect は重大な対立・追加案が必要な場合・またはユーザーが指定した場合にのみ追加する（使用しない場合も2案比較は実施する）。
 
 ## 現在の希望割り当て
 
@@ -52,13 +54,15 @@ Claude CodeとCodexを併用してこのリポジトリを開発するための�
 
 | 希望ラベル | 割り当てる論理ロール | 権限 |
 |---|---|---|
-| Claude Sonnet 5 | Orchestrator / Implementation Owner、統合設計の作成、実装担当 | 編集可 |
+| Claude Sonnet 5 | Orchestrator / Main Architect / Implementation Owner | 編集可 |
 | Claude Haiku 4.5 | Requirements Auditor、Simplifier | read-only |
-| Claude Opus 5 | Design Judge、Integration Judge | read-only |
+| Claude Opus 5 | Design Judge / Integrator | read-only |
 | Codex Terra High | Independent Architect | read-only |
-| Codex GPT-5.5 High | Alternative Architect（必要な場合だけ使用） | read-only |
+| Codex GPT-5.5 High | Alternative Architect（重大な対立・追加案が必要な場合・またはユーザー指定時のみ使用） | read-only |
 | Codex GPT-5.4 High | Red Team Reviewer | read-only |
 | Codex Sol Extra High | Final Auditor | read-only |
+
+Sonnet は「統合設計の作成」担当ではない。統合設計は Design Judge / Integrator（Opus）が匿名評価結果を基に作成し、ユーザーが承認したものを Sonnet が実装する。
 
 ## 基本フロー
 

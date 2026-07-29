@@ -39,6 +39,7 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 - Opus は Design Judge / Integrator として、匿名評価・採用不採用判定・統合設計の作成・未解決事項とユーザー承認事項の整理を担当する
 - 編集権限を持つのは Implementation Owner のみ。他は read-only（詳細手順は [`../agent-workflow/review-protocol.md`](../agent-workflow/review-protocol.md) の「実装権限」を参照）
 - 希望割り当ては運用上のラベルであり、MCP/CLIで確認された実モデルIDではない
+- Step 5で `.claude/agents/` 配下に追加した4つのClaude project subagents（`requirements-auditor`: model alias `haiku`、`simplifier`: model alias `haiku`、`claude-architect`: model alias `sonnet`、`design-judge`: model alias `opus`）は、いずれもfull model IDを固定しておらずmodel aliasのみを使用する。全エージェントread-onlyで、`tools` は `Read`/`Glob`/`Grep` のみ。オーケストレーションは親のClaude Codeセッションが行い、subagent同士が直接連鎖する設計にはしていない（詳細は [`../agent-workflow/subagents.md`](../agent-workflow/subagents.md)）
 
 ## Authentication and billing boundary
 
@@ -80,7 +81,7 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 8. Small implementation trial
 9. Reusable template extraction
 
-**Step 4は完了。Step 5以降はまだ未実施。** プロジェクトスコープの `.mcp.json`（サーバー名 `codex-reviewer`、起動コマンド `codex mcp-server`）を追加し、`codex` / `codex-reply` ツールの読み取り専用呼び出しが実機で成功することを確認した（詳細は [`../agent-workflow/mcp-connection.md`](../agent-workflow/mcp-connection.md)）。`.claude/agents/` / `.claude/skills/` はまだ作成されていない。
+**Step 4・Step 5は完了。Step 6以降はまだ未実施。** プロジェクトスコープの `.mcp.json`（サーバー名 `codex-reviewer`、起動コマンド `codex mcp-server`）を追加し、`codex` / `codex-reply` ツールの読み取り専用呼び出しが実機で成功することを確認した（詳細は [`../agent-workflow/mcp-connection.md`](../agent-workflow/mcp-connection.md)）。続けて `.claude/agents/` 配下へ4つのClaude project subagents（`requirements-auditor`/`simplifier`/`claude-architect`/`design-judge`）を追加し、Agentツールによる明示的な直接起動で、全エージェントがread-onlyで動作しファイル変更を行わないことを実機確認した（詳細は [`../agent-workflow/subagents.md`](../agent-workflow/subagents.md)）。手動確認で見つかった軽微な3点（破壊的ロールバック操作の提案、出力見出しの省略、「承認不要」区分の記載）はStep 5Bで各エージェント定義へ反映済み。品質優先トークンポリシー（[`../agent-workflow/quality-first-token-policy.md`](../agent-workflow/quality-first-token-policy.md)）も追加した。`.claude/skills/` はまだ作成されていない。
 
 ## Consequences
 
@@ -100,7 +101,7 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 ## Follow-up steps
 
 - Step 4: 完了。Codex MCP接続（`.mcp.json`、`codex-reviewer`）を追加し、`codex` / `codex-reply` の読み取り専用呼び出しを実機で確認した。model override は指定しておらず、確認済みの具体的なモデルIDを設定へ記録することはしていない（Codex CLIの現在のデフォルトモデルを使用）
-- Step 5: Claude subagentsの定義
+- Step 5: 完了。`.claude/agents/` へ4つのClaude project subagentsを定義し、Agentツールによる明示的な直接起動で実機確認した。full model IDは固定せずmodel aliasのみを使用している
 - Step 6: multi-agent-design Skillの追加
 - Step 7以降: 設計のみの試行 → 小規模実装の試行 → 再利用可能なテンプレート抽出
 

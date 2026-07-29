@@ -2,7 +2,7 @@
 
 ## 目的
 
-Claude Codeから、ログイン済みのCodex CLIをMCPサーバーとして呼び出せるようにする。[`README.md`](README.md) / [`review-protocol.md`](review-protocol.md) で定義した Independent Architect（Codex Terra）・Alternative Architect・Red Team Reviewer・Final Auditor の各論理ロールを、実際にCodex CLI経由で呼び出すための接続設定（Step 4A）。この文書はStep 4Aの接続設定のみを扱い、Step 5以降（Claude subagents、multi-agent-design Skill）は対象外。
+Claude Codeから、ログイン済みのCodex CLIをMCPサーバーとして呼び出せるようにする。[`README.md`](README.md) / [`review-protocol.md`](review-protocol.md) で定義した Independent Architect（Codex Terra）・Alternative Architect・Red Team Reviewer・Final Auditor の各論理ロールを、実際にCodex CLI経由で呼び出すための接続設定（Step 4）。この文書はStep 4のCodex MCP接続設定と実機検証結果を扱う。Step 5以降は対象外とする。
 
 ## 接続設定
 
@@ -39,11 +39,15 @@ Claude Codeから、ログイン済みのCodex CLIをMCPサーバーとして呼
 
 ## 手動確認手順
 
+セッション外から実行する `claude mcp list` / `claude mcp get` の表示と、実際に動作しているClaude Codeセッション内部の接続状態が食い違う場合がある（今回の確認でも発生した）。そのため、確認の主手段はセッション内の `/mcp` とし、`claude mcp list` / `get` は補助的な診断としてのみ使う。
+
 1. Claude Code を再起動する（`.mcp.json` の変更を反映させるため）
 2. プロジェクトスコープのMCPサーバー承認プロンプトが表示された場合、内容を確認した上でユーザーが承認する
-3. `claude mcp list` で `codex-reviewer` が `Connected` 相当の状態になっていることを確認する
-4. `claude mcp get codex-reviewer` で接続詳細を確認する
-5. 実際に `codex` / `codex-reply` ツールを呼び出し、応答が得られることを確認する
+3. リポジトリルートからClaude Codeを起動する
+4. 同じClaude Codeセッション内で `/mcp` を開く
+5. `codex-reviewer` が `connected`・2 tools であることを確認する
+6. 同じセッションのまま `codex` / `codex-reply` を呼び出す
+7. `claude mcp list` / `get` は補助的な診断に使用する
 
 ## 検証結果
 
@@ -65,4 +69,4 @@ Claude Codeから、ログイン済みのCodex CLIをMCPサーバーとして呼
 
 ## 今後の範囲外（Step 5以降）
 
-Claude subagents の定義、multi-agent-design Skill の追加は、本Step 4Aの範囲外であり未実施。
+Claude subagents の定義、multi-agent-design Skill の追加は、本Step 4の範囲外であり未実施。

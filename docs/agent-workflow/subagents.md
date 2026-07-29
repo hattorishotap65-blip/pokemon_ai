@@ -2,7 +2,7 @@
 
 ## Step 5の目的
 
-Step 5Aは、[`README.md`](README.md) / [`review-protocol.md`](review-protocol.md) / [`../decisions/0001-multi-agent-workflow-boundary.md`](../decisions/0001-multi-agent-workflow-boundary.md) で定義済みの論理ロールのうち、Claude Code側の4ロールを、プロジェクトスコープのClaude Code subagentsとして実際に定義することである。Codex側の論理ロール（Independent Architect等）は引き続き `.mcp.json` 経由の `codex-reviewer` MCPサーバー（Step 4、[`mcp-connection.md`](mcp-connection.md)）を通じて呼び出す。
+Step 5は、[`README.md`](README.md) / [`review-protocol.md`](review-protocol.md) / [`../decisions/0001-multi-agent-workflow-boundary.md`](../decisions/0001-multi-agent-workflow-boundary.md) で定義済みの論理ロールのうち、Claude Code側の4ロールを、プロジェクトスコープのClaude Code subagentsとして実際に定義し（Step 5A）、Agentツールによる明示的な直接起動で実機検証すること（Step 5B）である。Codex側の論理ロール（Independent Architect等）は引き続き `.mcp.json` 経由の `codex-reviewer` MCPサーバー（Step 4、[`mcp-connection.md`](mcp-connection.md)）を通じて呼び出す。
 
 ## プロジェクトスコープ: .claude/agents/
 
@@ -14,7 +14,7 @@ Step 5Aは、[`README.md`](README.md) / [`review-protocol.md`](review-protocol.m
 |---|---|---|
 | [`requirements-auditor.md`](../../.claude/agents/requirements-auditor.md) | Requirements Auditor | haiku |
 | [`simplifier.md`](../../.claude/agents/simplifier.md) | Simplifier | haiku |
-| [`claude-architect.md`](../../.claude/agents/claude-architect.md) | Orchestrator / Main Architect（設計提案部分） | sonnet |
+| [`claude-architect.md`](../../.claude/agents/claude-architect.md) | Primary / Main Architect（独立設計提案） | sonnet |
 | [`design-judge.md`](../../.claude/agents/design-judge.md) | Design Judge / Integrator | opus |
 
 full model IDはどのファイルにもハードコードしていない。使用しているのはmodel aliasのみである。
@@ -61,7 +61,7 @@ Terminal版Claude Codeから、上記手順で4つのproject subagentsをそれ�
 - **claude-architect**: Codex側や他の設計案を見ない独立設計案を作成した。Proposal ID・根拠・対象ファイル・変更案・リスク・テスト計画・ロールバック計画・Unknown・Out of scopeを返し、統合設計の作成や最終採用判定は行わなかった。ファイル変更なし。
 - **design-judge**: 匿名化した案A・案Bを100点基準で採点し（案A 88点、案B 20点）、採用・不採用理由をリポジトリの証拠と結び付けた。統合設計・テスト計画・ロールバック計画・User approval itemsを返し、提供元やモデル名を推測しなかった。ファイル変更なし。
 
-4エージェントとも、実際のproject subagent名で応答し、read-only（Read/Glob/Grepのみ）で動作し、ファイル変更は一切行わなかった。使用したmodel aliasはfrontmatter記載の通り（haiku/haiku/sonnet/opus）であり、実際に解決されたfull model IDは確認していないため、本文書には推測で記載しない。呼び出し時に返った一時的な実行識別子（Agent ID）は保存していない。
+4エージェントとも、実際のproject subagent名で応答し、read-only（Read/Glob/Grepのみ）で動作し、ファイル変更は一切行わなかった。各frontmatterで指定しているmodel aliasは haiku/haiku/sonnet/opus であるが、これはfrontmatter上の指定にすぎず、実行時にこの指定が優先されるか、実際に解決されたfull model IDが何であるかは確認していない。確認できていない実行時解決の詳細を、本文書には推測で記載しない。呼び出し時に返った一時的な実行識別子（Agent ID）は保存していない。
 
 この手動確認で見つかった軽微な3点を、Step 5Bで各エージェント定義へ反映した。
 

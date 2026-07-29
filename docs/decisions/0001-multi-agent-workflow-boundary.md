@@ -82,7 +82,9 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 8. Small implementation trial
 9. Reusable template extraction
 
-**Step 4・Step 5・Step 6は完了。Step 7以降はまだ未実施。** プロジェクトスコープの `.mcp.json`（サーバー名 `codex-reviewer`、起動コマンド `codex mcp-server`）を追加し、`codex` / `codex-reply` ツールの読み取り専用呼び出しが実機で成功することを確認した（詳細は [`../agent-workflow/mcp-connection.md`](../agent-workflow/mcp-connection.md)）。続けて `.claude/agents/` 配下へ4つのClaude project subagents（`requirements-auditor`/`simplifier`/`claude-architect`/`design-judge`）を追加し、Agentツールによる明示的な直接起動で、全エージェントがread-onlyで動作しファイル変更を行わないことを実機確認した（詳細は [`../agent-workflow/subagents.md`](../agent-workflow/subagents.md)）。手動確認で見つかった軽微な3点（破壊的ロールバック操作の提案、出力見出しの省略、「承認不要」区分の記載）はStep 5Bで各エージェント定義へ反映済み。さらに `.claude/skills/multi-agent-design/SKILL.md` を追加し、`/multi-agent-design` の明示起動によって8フェーズ（Phase 0〜Phase 7）が規定通り実行され、requirements-auditorの停止ゲート・2案の独立性・Codex thread再利用・最大2ラウンドのrebuttal・Alternative Architectの条件付き起動・匿名化・design-judgeの匿名採点と統合設計・ユーザー承認前の停止・ファイル非変更が実機で成功することを確認した（詳細は [`../agent-workflow/multi-agent-design-skill.md`](../agent-workflow/multi-agent-design-skill.md)）。この実機確認でRed Team Reviewerがリポジトリ一次証拠を再確認できない事例（Evidence limitation）が見つかり、Evidence limitationの記録・design-judgeによる重要事実の再確認・重大な場合のBLOCKED化というルールをStep 6Bで `SKILL.md` へ反映した。品質優先トークンポリシー（[`../agent-workflow/quality-first-token-policy.md`](../agent-workflow/quality-first-token-policy.md)）はStep 5・Step 6のいずれも継承している。
+**Step 4・Step 5・Step 6・Step 7は完了。Step 8以降はまだ未実施。** プロジェクトスコープの `.mcp.json`（サーバー名 `codex-reviewer`、起動コマンド `codex mcp-server`）を追加し、`codex` / `codex-reply` ツールの読み取り専用呼び出しが実機で成功することを確認した（詳細は [`../agent-workflow/mcp-connection.md`](../agent-workflow/mcp-connection.md)）。続けて `.claude/agents/` 配下へ4つのClaude project subagents（`requirements-auditor`/`simplifier`/`claude-architect`/`design-judge`）を追加し、Agentツールによる明示的な直接起動で、全エージェントがread-onlyで動作しファイル変更を行わないことを実機確認した（詳細は [`../agent-workflow/subagents.md`](../agent-workflow/subagents.md)）。手動確認で見つかった軽微な3点（破壊的ロールバック操作の提案、出力見出しの省略、「承認不要」区分の記載）はStep 5Bで各エージェント定義へ反映済み。さらに `.claude/skills/multi-agent-design/SKILL.md` を追加し、`/multi-agent-design` の明示起動によって8フェーズ（Phase 0〜Phase 7）が規定通り実行され、requirements-auditorの停止ゲート・2案の独立性・Codex thread再利用・最大2ラウンドのrebuttal・Alternative Architectの条件付き起動・匿名化・design-judgeの匿名採点と統合設計・ユーザー承認前の停止・ファイル非変更が実機で成功することを確認した（詳細は [`../agent-workflow/multi-agent-design-skill.md`](../agent-workflow/multi-agent-design-skill.md)）。この実機確認でRed Team Reviewerがリポジトリ一次証拠を再確認できない事例（Evidence limitation）が見つかり、Evidence limitationの記録・design-judgeによる重要事実の再確認・重大な場合のBLOCKED化というルールをStep 6Bで `SKILL.md` へ反映した。品質優先トークンポリシー（[`../agent-workflow/quality-first-token-policy.md`](../agent-workflow/quality-first-token-policy.md)）はStep 5・Step 6のいずれも継承している。
+
+Step 7では、実案件（開発元ファイルとルート提出用ファイルの同期・差分検証ワークフローの設計）を用いて `/multi-agent-design` を実行した。`requirements-auditor` がREADYと判定し、`claude-architect` とCodex Independent Architectが互いを見ずに独立2案を作成、`simplifier` とCodex Red Team Reviewerがレビューし、rebuttalを1ラウンド実施した（Alternative Architectは条件不成立のため未実施）。匿名採点は案A 81・案B 69で、Verdictは `READY_FOR_APPROVAL`。`READY_FOR_APPROVAL` は実装許可として扱わず、ユーザー承認前に停止した。統合設計（read-only check-only v1の候補）は提示されたが**未承認・未実装**であり、リポジトリファイルの変更は一切発生していない（詳細は [`../agent-workflow/design-only-trial.md`](../agent-workflow/design-only-trial.md)）。
 
 ## Consequences
 
@@ -90,6 +92,11 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 - レビュー・匿名評価・最終監査の分だけ、単純なタスクに対しては工数が増える（そのため「適用範囲」で対象を限定している）
 - 役割をモデル名でなく論理ロールで定義したことで、将来モデルの入れ替えが発生しても文書を書き直す必要が最小限になる
 - 希望割り当てが実モデルIDと未確認のままの間は、Step 3の文書はワークフローの設計図であり、実行可能な設定ではない
+- Step 7の実案件トライアルで得た学び:
+  - 両初期案にリポジトリ事実の見落としがあり、Design Judgeによる一次証拠の再確認（Read/Glob/Grep）が実際に有効だった
+  - 匿名評価は単純な多数決ではなく、再確認した証拠に基づいて両案を修正・縮小できた
+  - 安全性の観点から、write/apply機能を含む設計はread-only v1へ縮小された
+  - Skill実行中に発生した一時的なツールエラー（Invalid tool parameters）やセッションレベルの再開挙動（`/loop wakeup`）は、実行結果（Execution Trace・READY_FOR_APPROVAL等）と分けて記録する必要がある
 
 ## Alternatives considered
 
@@ -104,6 +111,7 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 - Step 4: 完了。Codex MCP接続（`.mcp.json`、`codex-reviewer`）を追加し、`codex` / `codex-reply` の読み取り専用呼び出しを実機で確認した。model override は指定しておらず、確認済みの具体的なモデルIDを設定へ記録することはしていない（Codex CLIの現在のデフォルトモデルを使用）
 - Step 5: 完了。`.claude/agents/` へ4つのClaude project subagentsを定義し、Agentツールによる明示的な直接起動で実機確認した。full model IDは固定せずmodel aliasのみを使用している
 - Step 6: 完了。`.claude/skills/multi-agent-design/SKILL.md` を追加し、ユーザーの明示起動のみで動作する8フェーズの設計専用・read-only Skillを、実機実行で確認した。Agent ID・threadIdは記録していない
-- Step 7以降: 設計のみの試行 → 小規模実装の試行 → 再利用可能なテンプレート抽出
+- Step 7: 完了。実案件（開発元と提出用ファイルの同期・差分検証ワークフロー設計）で `/multi-agent-design` を実機実行し、8フェーズが規定通り動作し、ユーザー承認前に停止することを確認した。統合設計（read-only check-only v1候補）は未承認・未実装。Agent ID・threadIdは記録していない
+- Step 8以降: 小規模実装の試行 → 再利用可能なテンプレート抽出
 
 各Stepはユーザーが明示的に指示した範囲でのみ着手する（[`../../CLAUDE.md`](../../CLAUDE.md) / [`../../AGENTS.md`](../../AGENTS.md) のフェーズ制御ルールを継承）。

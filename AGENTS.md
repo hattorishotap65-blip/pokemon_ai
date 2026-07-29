@@ -1,14 +1,22 @@
 # 開発ルール — Pokemon Card AI (cabt / Kaggle)
 
-## 提出ファイル自動更新ルール（必須）
+> 対象ツール: **Codex**。Claude Code向けの同等ルールは [`CLAUDE.md`](CLAUDE.md) を参照（現行構成・安全ルールはこのファイルと一致させている）。
 
-提出対象ファイル（`agent/`, `data/`, `main.py`, `deck.csv` など）を更新したら、**必ず毎回** 以下を実行して `submission.tar.gz` を再ビルドする。
+## 現在の正本
+
+現在の正本は **Raging Bolt ex + Teal Mask Ogerpon ex** 構成（`experiments/agents/raging_bolt/` で開発）。旧 Iono's Kilowattrel構成（`agent/` パッケージ + `data/` 配下）は履歴として残っているが、現行の提出物・現行の開発ルールの対象ではない。旧構成に関する記述は本ファイル内の「旧構成（Iono's Kilowattrel、現行対象外）」セクションを参照。
+
+## 提出ファイル更新ルール（必須）
+
+提出対象は **リポジトリルート直下** の `main.py` / `deck.csv` / `params.json` と `cg/`（`reference/extracted/cg/` からコピー）のみ。これらを更新したら、**必ず毎回** 以下を実行して `submission.tar.gz` を再ビルドする。
 
 ```bash
 python build_submission.py
 ```
 
-ファイルを編集しただけでは tar.gz は自動更新されない。編集後に再ビルドしないと古い内容が提出される。
+`build_submission.py` はルート直下の3ファイルをそのまま使用するだけで、`experiments/agents/raging_bolt/` からの自動コピーは行わない。ファイルを編集しただけでは tar.gz は自動更新されない。編集後に再ビルドしないと古い内容が提出される。
+
+旧構成の `agent/` パッケージ・`data/` 配下は現行ビルド対象外（`build_submission.py` は参照しない）。
 
 ---
 
@@ -23,36 +31,30 @@ Before starting any phase, read:
 Only work on the phase explicitly requested by the user.
 Do not proceed to the next phase without user approval.
 Do not change `deck.csv` unless explicitly instructed.
+Do not change policy, scores, parameters, or submission files (`main.py`/`deck.csv`/`params.json`) beyond what was explicitly requested.
+For investigation, audit, or design-only requests, do not change code.
 
+## Git安全ルール（必須）
 
+- `git add .` は使用しない。対象ファイルだけを個別に `git add <file>` でstageする。
+- 未コミットの変更を `stash` / `reset` / `checkout` で破棄しない。
+- commit・push・PR作成は、依頼された範囲だけを行う。マージは明示指示がない限り行わない。
+
+## 検証・報告ルール
+
+- ドキュメントと実装が矛盾する場合、勝手に判断せず報告する。
+- 実行していないテストを「成功」と報告しない。
+- 推測と確認済みの事実を明確に区別して報告する。
 
 ## 提出フォーマット（必須）
 
 - ファイル名: **`submission.tar.gz`**（zip 不可）
-- 以下の構造でアーカイブを作成する（パスは tar のルートからの相対パス）
+- 現行エージェント（raging_bolt、2026-07〜）は自己完結型の単一ファイル構成。以下の構造でアーカイブを作成する（パスは tar のルートからの相対パス）
 
 ```
 main.py
 deck.csv
-agent/__init__.py
-agent/advantage.py
-agent/card_knowledge.py
-agent/concept_weights.py
-agent/ionos_rules.py
-agent/evaluator.py
-agent/fallback.py
-agent/logger.py
-agent/opponent_model.py
-agent/planner.py
-agent/policy.py
-agent/rollout.py
-agent/turn_plan.py
-agent/win_condition.py
-agent/effect_engine.py
-agent/turn_rule_engine.py
-data/card_knowledge.csv
-data/deck_profile.json
-data/card_effects_iono_lightning_recommended_en_ja.json
+params.json
 cg/__init__.py
 cg/api.py
 cg/game.py
@@ -61,16 +63,12 @@ cg/utils.py
 cg/sim.py
 ```
 
+- `main.py` / `deck.csv` / `params.json` は **リポジトリルート直下** のファイルをそのまま使用する。`build_submission.py` は `experiments/agents/raging_bolt/` から自動コピーする処理を持たない（現状のスクリプトはルート3ファイル＋`cg/`をtarに詰めるだけ）
+- 開発は `experiments/agents/raging_bolt/` で行うが、変更をルートの提出用ファイルへ反映するには**手動でコピー**する必要がある。開発元を変更しただけではルート提出用ファイルへ自動反映されない
+- 提出用ファイルを更新する場合は、開発元（`experiments/agents/raging_bolt/`）とルート提出用ファイルの内容が一致していることを確認してから `python build_submission.py` を実行する
 - `cg/` フォルダは `reference/extracted/cg/` からコピーする（`libcg.so` を含む）
-- アーカイブ再ビルドは `python` の `tarfile` モジュールで行う
-
-```python
-import tarfile
-with tarfile.open("submission.tar.gz", "w:gz") as tar:
-    tar.add("main.py", arcname="main.py")
-    tar.add("reference/extracted/cg", arcname="cg")
-    # ... 他ファイルも同様
-```
+- ビルドは `python build_submission.py` を実行するだけでよい（`tarfile` モジュールで自動生成）
+- 旧構成（`agent/` パッケージ、`data/` 以下のCSV/JSON、Iono's Kilowattrelデッキ、Lucario 1084デッキ）は履歴として `agent/` ディレクトリ等にファイルが残っているが、現行ビルドの対象外
 
 ---
 
@@ -80,14 +78,50 @@ with tarfile.open("submission.tar.gz", "w:gz") as tar:
 |--------|------|
 | 枚数 | ちょうど **60枚** |
 | ACE SPEC | **最大1枚**（cabt が `CardData.aceSpec` フラグで強制チェック） |
-| 同名カード | 最大4枚（cabt が `CardData.regulation` で確認） |
+| 同名カード | 最大4枚（cabt が `CardData.regulation` で確認、基本エネルギーは対象外） |
 
 - ACE SPEC 違反 → `"Player N's deck error."` でゲームが即中断される
-- 現在のデッキ: Iono's Kilowattrel（`deck.csv`）— ACE SPEC: なし
+- 現在のデッキ: Raging Bolt ex + Teal Mask Ogerpon ex（`deck.csv`）— ACE SPEC: Unfair Stamp 1枚
 
 ---
 
-## `main.py` のルール
+## `main.py` のルール（raging_bolt エージェント）
+
+| 項目 | 内容 |
+|------|------|
+| エントリーポイント | `agent(obs_dict) -> list[int]`（config引数なし。実際に動作確認済みの形） |
+| デッキ返却 | `obs.select is None` のとき `my_deck`（60枚のcard IDリスト、`deck.csv` から読込）を返す |
+| 型変換 | `to_observation_class(obs_dict)` で typed dataclass に変換してから処理 |
+| パス解決 | `deck.csv`/`params.json` は `__file__` と同じディレクトリを最優先で探す（開発時レイアウト `experiments/decks/...` が見つからなければ自動フォールバック）。**コード変更なしでフラット配置に対応済み** |
+| 意思決定の中核 | `RagingBoltPolicy.choose_with_search()` — ヒューリスティックで上位候補を絞り、`cg.api.search_begin/search_step` で実際にエンジン探索してから選択（詳細は `experiments/agents/raging_bolt/HANDOFF.md` 参照） |
+
+このエージェントは単一ファイル + `params.json` のみで完結し、`agent/` パッケージや `data/` の外部CSVは使用しない。
+
+---
+
+## エネルギー貼り先ルール（デッキ調整時に必ず確認）— raging_bolt
+
+デッキのエネルギー枚数や構成を変更するときは、`experiments/agents/raging_bolt/main.py` の以下の関数が正しく機能するか確認すること。
+
+- `_score_energy_pick(cid)` — 場のタケルライコ（Raging Bolt ex）で不足しているエネルギータイプを優先し、手札に既にある型は重複ペナルティ
+- `_field_bolt_missing(energy_type)` — ベンチも含めた全タケルライコの装填状況をチェック
+- `_score_attach()` — エネルギー付与先の選択（コスト未完成のベンチ > アクティブ > 瀕死アクティブ）
+
+**重要**: Bellowing Thunder の打点 = 場の全エネルギー数 × 70。1体に集中させず、ベンチのタケルライコにも分散することでKOサイクル後の再装填が速くなる。
+
+### デッキ調整時のチェックリスト
+
+1. カードを追加した場合 → `class C` へのID追加、および該当スコアリング分岐の要否を確認
+2. エネルギー構成を変えた場合 → `BASIC_ENERGY_IDS` / `ALL_BASIC_ENERGY_IDS` との整合を確認
+3. 詳細な設計判断・過去に失敗した施策の一覧は `experiments/agents/raging_bolt/HANDOFF.md` を必ず参照（再試行を防ぐため）
+
+---
+
+## 旧構成（Iono's Kilowattrel、現行対象外）
+
+以下は旧エージェント（`agent/` パッケージ + `data/` 配下、Iono's Kilowattrelデッキ）に関する記述。**現行の提出物・現行の開発ルールの対象ではない**。`agent/` パッケージや `data/` の外部CSVは現行の raging_bolt エージェントでは使用しない。参照が必要な場合のみ以下を参照すること。
+
+### 旧`main.py` のルール（Iono's Kilowattrel、参考情報）
 
 | 項目 | 内容 |
 |------|------|
@@ -97,11 +131,9 @@ with tarfile.open("submission.tar.gz", "w:gz") as tar:
 | オプション変換 | `_opt_to_dict(o)` で Option dataclass → dict に変換して policy へ渡す |
 | state の `hand` | `me_hand_ids = [str(c.id) for c in (me.hand or [])]` を含める（PLAY/CARD scoring 用） |
 
----
+### 旧`agent/policy.py` のルール（参考情報）
 
-## `agent/policy.py` のルール
-
-### `_cid_from_hand()` — 必須ヘルパー
+#### `_cid_from_hand()` — 必須ヘルパー
 
 PLAY / CARD / ATTACH / EVOLVE オプションは `cardId` を持たない。
 `area == AreaType.HAND (2)` のとき `state['hand'][action['index']]` でカードIDを引く。
@@ -122,21 +154,21 @@ def _cid_from_hand(self, action: dict, state: dict) -> str:
     return ""
 ```
 
-### `_load_attack_data()` — `cg.api` を最初に試す
+#### `_load_attack_data()` — `cg.api` を最初に試す
 
 ```python
 from cg.api import all_attack
 return {a.attackId: a.damage for a in all_attack()}
 ```
 
-### スコアリングメソッドで `role` を使うとき
+#### スコアリングメソッドで `role` を使うとき
 
 `role` はメソッド内で必ず `self.knowledge.get_role(cid)` で取得する。
 未定義のまま `.get(role, ...)` を呼ぶとランタイムエラー。
 
 ---
 
-## `agent/card_knowledge.py` のルール
+### 旧`agent/card_knowledge.py` のルール（参考情報）
 
 - CSVパス: `../data/card_knowledge.csv`（`__file__` 相対）
 - フォールバック: `/kaggle_simulations/agent/data/card_knowledge.csv`
@@ -150,6 +182,8 @@ return {a.attackId: a.damage for a in all_attack()}
 - 取得したカード効果全文・画像URL を `data/` や CSV に保存しない
 - GitHub 等に効果全文CSVを公開しない前提で構成する
 - `data/card_knowledge.csv` に記録するのは **role / score / tags** のみ
+- APIキー・トークン・認証情報をファイルへ保存しない。`.env` の内容を出力・commitしない
+- OpenAI API・Anthropic APIのAPIキー課金利用を前提にしない（ログイン済みのサブスクリプション枠を使用する）
 
 ---
 
@@ -174,15 +208,23 @@ from cg.api import all_card_data, all_attack, to_observation_class, OptionType, 
 | エラーメッセージ | 原因 |
 |-----------------|------|
 | `Player N's deck error.` | ACE SPEC 複数枚 or 60枚でない or 無効カードID |
+| 提出がアップロードエラー | zip 形式で提出している（tar.gz が必要） |
+| `ModuleNotFoundError: No module named 'cg'` | `cg/` を tar.gz に含め忘れ。`reference/extracted/cg/` から追加する |
+| `FileNotFoundError: deck.csv` / `params.json` | パッケージに `deck.csv`/`params.json` を含め忘れ、または展開先で `main.py` と同階層になっていない |
+
+### 旧構成（`agent/` パッケージ、参考情報）でのエラー
+
+| エラーメッセージ | 原因 |
+|-----------------|------|
 | 攻撃ダメージが常に 0 | `_load_attack_data()` が `cg.api` を使っていない |
 | PLAY/CARD スコアが全て同じ | `cardId` が None のまま `_cid_from_hand()` を通していない |
 | `NameError: role` | `_score_play_pokemon()` 等で `role` を代入前に参照している |
-| 提出がアップロードエラー | zip 形式で提出している（tar.gz が必要） |
-| `ModuleNotFoundError: No module named 'cg'` | `cg/` を tar.gz に含め忘れ。`reference/extracted/cg/` から `-C reference/extracted cg` で追加する |
 
 ---
 
-## エネルギー貼り先ルール（デッキ調整時に必ず確認）
+## 旧エネルギー貼り先ルール（Iono's Kilowattrel、現行対象外・参考情報）
+
+現行の raging_bolt エージェントについては上記「エネルギー貼り先ルール（デッキ調整時に必ず確認）— raging_bolt」を参照。以下は旧デッキ（Iono's Kilowattrel）向けの参考情報。
 
 デッキのエネルギー枚数や構成を変更するときは、`agent/ionos_rules.py` の `score_energy_attachment()` が正しく機能するか確認すること。
 
@@ -226,4 +268,5 @@ from cg.api import all_card_data, all_attack, to_observation_class, OptionType, 
 
 | バージョン | サイズ | 確認内容 |
 |-----------|--------|---------|
-| v3 | 504 KB | アップロード成功（フォーマット確認済み） |
+| v3（Iono's Kilowattrel、旧構成） | 504 KB | アップロード成功（フォーマット確認済み） |
+| v4（raging_bolt、2026-07〜、現行） | 513 KB | 隔離環境での展開・単独動作を確認済み（`main.py`+`deck.csv`+`params.json`+`cg/`のみでフルゲーム完走）。vs top_lucario_1084 20.0%、vs dragapult 25.3%、vs megastarmie 55.0% |

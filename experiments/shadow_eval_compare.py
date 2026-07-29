@@ -218,7 +218,10 @@ def main():
     parser.add_argument("--limit", type=int, default=0, help="Only process the first N records (0 = all)")
     args = parser.parse_args()
 
-    os.environ.setdefault("POKEMON_AI_EXEC_MODE", "BENCHMARK")
+    # Direct assignment, not setdefault -- this script's exec mode must not
+    # be silently overridden by whatever POKEMON_AI_EXEC_MODE happened to
+    # already be set in the environment.
+    os.environ["POKEMON_AI_EXEC_MODE"] = "BENCHMARK"
     mod = _load_agent_module()
 
     with open(args.bundle_path, encoding="utf-8") as f:

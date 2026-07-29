@@ -78,6 +78,14 @@ echo "=== Parameter contract audit ==="
 python experiments/test_audit_parameter_contract.py
 
 echo ""
+echo "=== Raging bolt review-fix regression tests (fast) ==="
+python -m unittest experiments.test_raging_bolt_review_fixes -v
+
+echo ""
+echo "=== Raging bolt review-fix regression tests (integration) ==="
+python -m unittest experiments.test_raging_bolt_review_fixes_integration -v
+
+echo ""
 echo "=== Core param search ==="
 python experiments/test_core_param_search.py
 

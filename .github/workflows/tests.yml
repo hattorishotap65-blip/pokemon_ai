@@ -162,6 +162,12 @@ jobs:
       - name: Run parameter contract audit tests
         run: python experiments/test_audit_parameter_contract.py
 
+      - name: Run raging bolt review-fix regression tests (fast)
+        run: python -m unittest experiments.test_raging_bolt_review_fixes -v
+
+      - name: Run raging bolt review-fix regression tests (integration)
+        run: python -m unittest experiments.test_raging_bolt_review_fixes_integration -v
+
       - name: Run human trace tests
         run: python experiments/test_human_trace.py
 

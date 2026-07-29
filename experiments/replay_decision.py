@@ -131,7 +131,11 @@ def main():
     )
     args = parser.parse_args()
 
-    os.environ.setdefault("POKEMON_AI_EXEC_MODE", "DEBUG" if args.strict_debug else "BENCHMARK")
+    # Direct assignment, not setdefault -- --strict-debug must always win
+    # over any POKEMON_AI_EXEC_MODE already present in the environment
+    # (e.g. inherited from a parent process/CI context), never be silently
+    # ignored because a pre-existing value happened to already be set.
+    os.environ["POKEMON_AI_EXEC_MODE"] = "DEBUG" if args.strict_debug else "BENCHMARK"
 
     mod = _load_agent_module()
     from cg.api import SelectContext

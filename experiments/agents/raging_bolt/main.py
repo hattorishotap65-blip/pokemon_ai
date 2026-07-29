@@ -44,9 +44,20 @@ _TELEMETRY = {
     "cache_hit_count": 0,
     "cache_miss_count": 0,
     # Fixed-size runtime aggregate -- NOT an unbounded per-decision list.
+    # Scoped to the actual decision (RagingBoltPolicy construction through
+    # choose()/choose_with_search() returning) only -- does NOT include
+    # _maybe_capture_replay_bundle's cost (JSON building, re-ranking for the
+    # bundle, file write), which is a separate opt-in diagnostic capture
+    # step, not part of the agent's decision latency. See capture_runtime_*.
     "decision_runtime_count": 0,
     "decision_runtime_total_ms": 0.0,
     "decision_runtime_max_ms": 0.0,
+    # Fixed-size runtime aggregate for _maybe_capture_replay_bundle alone.
+    # Only ever non-zero when POKEMON_AI_REPLAY_BUNDLE_PATH is set (capture
+    # is otherwise a no-op) -- see agent().
+    "capture_runtime_count": 0,
+    "capture_runtime_total_ms": 0.0,
+    "capture_runtime_max_ms": 0.0,
     "errors": [],  # only populated in BENCHMARK/DEBUG (see _record_exception)
 }
 
@@ -72,6 +83,16 @@ def _record_decision_runtime_ms(elapsed_ms):
     _TELEMETRY["decision_runtime_total_ms"] += elapsed_ms
     if elapsed_ms > _TELEMETRY["decision_runtime_max_ms"]:
         _TELEMETRY["decision_runtime_max_ms"] = elapsed_ms
+
+
+def _record_capture_runtime_ms(elapsed_ms):
+    """Same fixed-size aggregate pattern as _record_decision_runtime_ms,
+    kept as a separate counter so replay-bundle-capture overhead is never
+    conflated with actual decision latency."""
+    _TELEMETRY["capture_runtime_count"] += 1
+    _TELEMETRY["capture_runtime_total_ms"] += elapsed_ms
+    if elapsed_ms > _TELEMETRY["capture_runtime_max_ms"]:
+        _TELEMETRY["capture_runtime_max_ms"] = elapsed_ms
 
 
 def _record_exception(stage, exc):
@@ -2177,15 +2198,27 @@ def agent(obs_dict):
     # time.monotonic() is never called in PRODUCTION -- not even the call
     # itself, per the Baseline Fingerprint Gate's "zero telemetry cost in
     # PRODUCTION" requirement.
+    #
+    # decision_runtime_* measures ONLY policy construction + choose()/
+    # choose_with_search() -- it stops before _maybe_capture_replay_bundle
+    # runs, so JSON building, re-ranking for the bundle, and the file write
+    # are never folded into "decision latency". That capture step is timed
+    # separately as capture_runtime_* below, when it actually runs anything
+    # (it's a no-op unless POKEMON_AI_REPLAY_BUNDLE_PATH is set).
     _t0 = time.monotonic() if _TELEMETRY_ENABLED else None
-    try:
-        policy = RagingBoltPolicy(obs)
-        if obs.select.context == SelectContext.MAIN:
-            decision = policy.choose_with_search()
-        else:
-            decision = policy.choose()
+    policy = RagingBoltPolicy(obs)
+    if obs.select.context == SelectContext.MAIN:
+        decision = policy.choose_with_search()
+    else:
+        decision = policy.choose()
+    if _TELEMETRY_ENABLED:
+        _record_decision_runtime_ms((time.monotonic() - _t0) * 1000.0)
+
+    if _TELEMETRY_ENABLED and _REPLAY_BUNDLE_PATH:
+        _t0_capture = time.monotonic()
         _maybe_capture_replay_bundle(obs_dict, obs, policy, decision)
-        return decision
-    finally:
-        if _TELEMETRY_ENABLED:
-            _record_decision_runtime_ms((time.monotonic() - _t0) * 1000.0)
+        _record_capture_runtime_ms((time.monotonic() - _t0_capture) * 1000.0)
+    else:
+        _maybe_capture_replay_bundle(obs_dict, obs, policy, decision)
+
+    return decision

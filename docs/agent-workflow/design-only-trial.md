@@ -10,7 +10,7 @@ Step 7は、Step 1〜6で整備したマルチエージェントワークフロ�
 
 ## 実行環境
 
-- worktree: `C:\Users\shclo\projects\pokemon_ai_step7`
+- worktree: sibling worktree `pokemon_ai_step7`
 - branch: `agent/step7-design-only-trial`（`origin/main`、PR #207マージ後の状態から作成）
 - Terminal版Claude Code
 
@@ -96,7 +96,7 @@ design-judgeによる一次証拠の再確認で、以下が確認済み事実�
 
 - `main.py` の開発元（`experiments/agents/raging_bolt/`）とルート版には大きな差分があり、telemetry関連の差分をpromoteすべきかstripすべきかは未決定
 - `deck.csv` の正本候補は単純な2ファイルではない: ルートの `deck.csv`、`experiments/decks/raging_bolt_ogerpon.csv`、`tools/deck_builder.py` が生成するルート `deck.csv`、`data/deck.csv` という古い別形式のファイル、の4系統が存在する
-- `params.json` と `deck.csv` は現時点で一致していると報告されたが、将来の不一致時にどちらを正本とするかは未決定
+- 今回の設計結果では、`params.json` の開発元版とルート版、および `experiments/decks/raging_bolt_ogerpon.csv` とルート `deck.csv` は、確認時点ではそれぞれ一致していると報告された。ただし将来これらの間で不一致が生じた場合にどちらを正本とするかは未決定であり、特に `deck.csv` には（前項の通り）複数の正本候補が存在する
 - `reference/extracted/cg/api.py` 上の `CardData` には `regulation` フィールドが存在せず、`CLAUDE.md` の記述と実装に不一致がある
 - Windows環境では `libcg.so` のみが存在し `cg.dll` が存在しないため、`cg.api` を前提にした検証設計はWindows開発環境では利用できない可能性がある
 - `build_submission.py` は必須ファイルが欠落してもエラー終了せず、不完全なtarを作成し得る可能性が設計中に指摘された

@@ -88,7 +88,8 @@ cg/sim.py
 | エントリーポイント | `agent(obs_dict) -> list[int]`（config引数なし。実際に動作確認済みの形） |
 | デッキ返却 | `obs.select is None` のとき `my_deck`（60枚のcard IDリスト、`deck.csv` から読込）を返す |
 | 型変換 | `to_observation_class(obs_dict)` で typed dataclass に変換してから処理 |
-| パス解決 | `deck.csv`/`params.json` は `__file__` と同じディレクトリを最優先で探す（開発時レイアウト `experiments/decks/...` が見つからなければ自動フォールバック）。**コード変更なしでフラット配置に対応済み** |
+| `deck.csv` パス解決 | 1. 開発時レイアウト `experiments/decks/raging_bolt_ogerpon.csv` を探す → 2. 無ければ `main.py` と同じディレクトリの `deck.csv` → 3. それも無ければ `/kaggle_simulations/agent/deck.csv` |
+| `params.json` パス解決 | 1. 環境変数 `POKEMON_AI_PARAMS_PATH` が設定されていればそのパス（存在しなければ次へ） → 2. 未設定、または存在しなければ `main.py` と同じディレクトリの `params.json` |
 | 意思決定の中核 | `RagingBoltPolicy.choose_with_search()` — ヒューリスティックで上位候補を絞り、`cg.api.search_begin/search_step` で実際にエンジン探索してから選択（詳細は `experiments/agents/raging_bolt/HANDOFF.md` 参照） |
 
 このエージェントは単一ファイル + `params.json` のみで完結し、`agent/` パッケージや `data/` の外部CSVは使用しない。

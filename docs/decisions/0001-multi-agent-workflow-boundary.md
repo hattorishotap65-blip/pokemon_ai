@@ -66,6 +66,7 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 - `.env` の内容を出力・commitしない
 - カード効果全文・画像URLを `data/` やCSVへ保存しない（`CLAUDE.md`/`AGENTS.md` のセキュリティ制約を継承）
 - `.mcp.json` を追加する場合（Step 4以降）、秘密情報・APIキー・トークン・個人固有パスを含めない
+- Step 4で追加した `.mcp.json`（サーバー名 `codex-reviewer`、起動コマンド `codex mcp-server`）は、この方針に沿って作成・確認済み。APIキー・トークン・個人固有パスは含まれておらず、モデルIDもハードコードしていない
 
 ## Phased rollout
 
@@ -79,7 +80,7 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 8. Small implementation trial
 9. Reusable template extraction
 
-**Step 4以降はまだ未実施。** 本ADRの時点で存在するのはStep 1〜3の成果物のみであり、`.mcp.json` / `.claude/agents/` / `.claude/skills/` はまだ作成されていない。
+**Step 4は完了。Step 5以降はまだ未実施。** プロジェクトスコープの `.mcp.json`（サーバー名 `codex-reviewer`、起動コマンド `codex mcp-server`）を追加し、`codex` / `codex-reply` ツールの読み取り専用呼び出しが実機で成功することを確認した（詳細は [`../agent-workflow/mcp-connection.md`](../agent-workflow/mcp-connection.md)）。`.claude/agents/` / `.claude/skills/` はまだ作成されていない。
 
 ## Consequences
 
@@ -98,7 +99,7 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 
 ## Follow-up steps
 
-- Step 4: Codex MCP接続の実モデルID・接続名をローカル環境で確認する
+- Step 4: 完了。Codex MCP接続（`.mcp.json`、`codex-reviewer`）を追加し、`codex` / `codex-reply` の読み取り専用呼び出しを実機で確認した。model override は指定しておらず、確認済みの具体的なモデルIDを設定へ記録することはしていない（Codex CLIの現在のデフォルトモデルを使用）
 - Step 5: Claude subagentsの定義
 - Step 6: multi-agent-design Skillの追加
 - Step 7以降: 設計のみの試行 → 小規模実装の試行 → 再利用可能なテンプレート抽出

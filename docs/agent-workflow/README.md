@@ -83,8 +83,13 @@ Sonnet は「統合設計の作成」担当ではない。統合設計は Design
 
 具体的な手順・入力フォーマット・証拠区分・停止条件は [`review-protocol.md`](review-protocol.md) を参照。この方式を採用した背景・境界線の決定記録は [`../decisions/0001-multi-agent-workflow-boundary.md`](../decisions/0001-multi-agent-workflow-boundary.md) を参照。
 
+## 導入状況
+
+Step 4のCodex MCP接続（プロジェクトスコープの `.mcp.json`、サーバー名 `codex-reviewer`）を追加し、`codex`・`codex-reply` ツールの実機での読み取り専用呼び出しを確認済み。詳細は [`mcp-connection.md`](mcp-connection.md) を参照。Step 5以降（Claude subagents、multi-agent-design Skill）は未実施。
+
 ## 関連文書
 
+- [mcp-connection.md](mcp-connection.md) — Codex MCP接続設定と接続確認結果（Step 4）
 - [review-protocol.md](review-protocol.md) — 設計討論・レビューの具体的手順
 - [../decisions/0001-multi-agent-workflow-boundary.md](../decisions/0001-multi-agent-workflow-boundary.md) — この方式の意思決定記録（ADR）
 - [step1_repository_audit.md](step1_repository_audit.md) — 導入前のリポジトリ現状監査（Step 1）

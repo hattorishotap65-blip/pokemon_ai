@@ -85,13 +85,14 @@ Sonnet は「統合設計の作成」担当ではない。統合設計は Design
 
 ## 導入状況
 
-Step 4のCodex MCP接続（プロジェクトスコープの `.mcp.json`、サーバー名 `codex-reviewer`）を追加し、`codex`・`codex-reply` ツールの実機での読み取り専用呼び出しを確認済み。詳細は [`mcp-connection.md`](mcp-connection.md) を参照。Step 5のClaude project subagents（`requirements-auditor` / `simplifier` / `claude-architect` / `design-judge`）も追加済みで、Agentツールによる明示的な直接起動での実機確認を完了している。詳細は [`subagents.md`](subagents.md) を参照。Step 6のmulti-agent-design Skill（`.claude/skills/multi-agent-design/SKILL.md`）も追加済みで、ユーザーの明示起動による8フェーズ実行の実機確認を完了している。詳細は [`multi-agent-design-skill.md`](multi-agent-design-skill.md) を参照。Step 7以降は未実施。
+Step 4のCodex MCP接続（プロジェクトスコープの `.mcp.json`、サーバー名 `codex-reviewer`）を追加し、`codex`・`codex-reply` ツールの実機での読み取り専用呼び出しを確認済み。詳細は [`mcp-connection.md`](mcp-connection.md) を参照。Step 5のClaude project subagents（`requirements-auditor` / `simplifier` / `claude-architect` / `design-judge`）も追加済みで、Agentツールによる明示的な直接起動での実機確認を完了している。詳細は [`subagents.md`](subagents.md) を参照。Step 6のmulti-agent-design Skill（`.claude/skills/multi-agent-design/SKILL.md`）も追加済みで、ユーザーの明示起動による8フェーズ実行の実機確認を完了している。詳細は [`multi-agent-design-skill.md`](multi-agent-design-skill.md) を参照。Step 7では実案件（開発元と提出用ファイルの同期・差分検証ワークフローの設計）を用いた設計専用・read-onlyトライアルを実施し、統合設計は提示されたが未承認・未実装である。詳細は [`design-only-trial.md`](design-only-trial.md) を参照。Step 8以降は未実施。
 
 ## 関連文書
 
 - [mcp-connection.md](mcp-connection.md) — Codex MCP接続設定と接続確認結果（Step 4）
 - [subagents.md](subagents.md) — Claude Code project subagentsの定義と実機確認結果（Step 5）
 - [multi-agent-design-skill.md](multi-agent-design-skill.md) — read-only multi-agent design Skillの定義と実機確認結果（Step 6）
+- [design-only-trial.md](design-only-trial.md) — 実案件を用いた設計専用・read-only試行と結果（Step 7）
 - [quality-first-token-policy.md](quality-first-token-policy.md) — 判断品質を維持しながら重複コンテキストを削減する共通方針
 - [review-protocol.md](review-protocol.md) — 設計討論・レビューの具体的手順
 - [../decisions/0001-multi-agent-workflow-boundary.md](../decisions/0001-multi-agent-workflow-boundary.md) — この方式の意思決定記録（ADR）

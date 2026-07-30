@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 EXPERIMENTS_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = Path(os.path.abspath(os.path.join(EXPERIMENTS_DIR, "..")))
@@ -169,6 +170,45 @@ class StructuralValidationTests(unittest.TestCase):
         self.assertIsNotNone(reason)
         self.assertIn("empty line", reason)
 
+    def test_deck_csv_unclosed_quote_is_malformed(self):
+        lines = list(VALID_DECK_LINES)
+        lines[0] = '"63'  # opening quote never closed on this physical line
+        text = "\n".join(lines) + "\n"
+        reason = sync.validate_structure("deck.csv", text.encode("utf-8"))
+        self.assertIsNotNone(reason)
+        self.assertIn("row 1", reason)
+        self.assertIn("csv parsing failed", reason)
+
+    def test_deck_csv_quoted_field_spanning_multiple_physical_lines_is_malformed(self):
+        # Regression case for the old whole-file csv.reader(text.splitlines())
+        # approach: 61 physical lines, where an unterminated quote on
+        # physical line 60 silently swallows physical line 61 into the same
+        # logical field ("1" + "2" -> "12", still a valid positive int).
+        # That collapses 61 physical lines into exactly 60 logical rows, all
+        # individually valid -- so the old code's "exactly 60 rows" check
+        # would have wrongly PASSED this file, hiding an extra physical
+        # line. Per-physical-line strict parsing must reject it instead,
+        # since physical line 60 ('"1') is parsed in isolation and has no
+        # continuation line available to close its quote.
+        lines = ["1"] * 59 + ['"1', '2"']
+        self.assertEqual(len(lines), 61)
+        text = "\n".join(lines) + "\n"
+        reason = sync.validate_structure("deck.csv", text.encode("utf-8"))
+        self.assertIsNotNone(reason)
+        self.assertIn("row 60", reason)
+        self.assertIn("csv parsing failed", reason)
+
+    def test_deck_csv_positive_int_reason_does_not_echo_the_value(self):
+        lines = list(VALID_DECK_LINES)
+        secret_looking_value = "sk-SUPER-SECRET-TOKEN-1234567890"
+        lines[0] = secret_looking_value
+        text = "\n".join(lines) + "\n"
+        reason = sync.validate_structure("deck.csv", text.encode("utf-8"))
+        self.assertIsNotNone(reason)
+        self.assertIn("row 1", reason)
+        self.assertIn("positive decimal integer", reason)
+        self.assertNotIn(secret_looking_value, reason)
+
     def test_deck_csv_oversized_field_reports_malformed_not_crash(self):
         # A field beyond csv.field_size_limit() makes Python's csv module
         # raise csv.Error; this must surface as a MALFORMED reason, not an
@@ -212,6 +252,92 @@ class ContainmentTests(unittest.TestCase):
             resolved, status = sync.resolve_and_check(tmp, "experiments/agents/raging_bolt/main.py")
             self.assertEqual(status, "CONTAINMENT_ERROR")
             self.assertIsNone(resolved)
+
+    def test_symlink_redirecting_to_a_different_file_inside_repo_is_rejected(self):
+        # A symlink at the expected rel_path position that points to a
+        # *different* file that also happens to be inside the repo must
+        # still be rejected: mere "is the real path under repo root" is not
+        # enough, the real path must land at the exact expected position.
+        with tempfile.TemporaryDirectory() as tmp_str:
+            tmp = Path(tmp_str)
+            _write(tmp / "other" / "main.py", _valid_main_py_text())
+
+            link_path = tmp / "main.py"
+            try:
+                os.symlink(str(tmp / "other" / "main.py"), str(link_path))
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation not permitted in this environment")
+
+            resolved, status = sync.resolve_and_check(tmp, "main.py")
+            self.assertEqual(status, "CONTAINMENT_ERROR")
+            self.assertIsNone(resolved)
+
+    def test_containment_rejects_internal_redirect_via_mocked_realpath(self):
+        """Deterministic, non-skipping counterpart to the symlink-based
+        tests above: simulates os.path.realpath() resolving a candidate
+        (main.py) to a *different* location that is still inside repo_root
+        -- as a symlink/junction/reparse point would -- without requiring
+        real symlink-creation privileges in the test environment."""
+        with tempfile.TemporaryDirectory() as tmp_str:
+            tmp = Path(tmp_str)
+            root_abs = os.path.abspath(str(tmp))
+            root_real = os.path.realpath(root_abs)
+            candidate_abs = os.path.abspath(os.path.join(root_abs, "main.py"))
+            redirected_real = os.path.join(root_real, "other", "alt_main.py")
+
+            original_realpath = os.path.realpath
+
+            def fake_realpath(path, *args, **kwargs):
+                if os.path.normcase(os.path.normpath(str(path))) == os.path.normcase(
+                    os.path.normpath(candidate_abs)
+                ):
+                    return redirected_real
+                return original_realpath(path, *args, **kwargs)
+
+            with mock.patch("os.path.realpath", side_effect=fake_realpath):
+                resolved, status = sync.resolve_and_check(tmp, "main.py")
+
+            self.assertEqual(status, "CONTAINMENT_ERROR")
+            self.assertIsNone(resolved)
+
+    def test_containment_rejects_intermediate_directory_redirect_via_mocked_realpath(self):
+        """Same mechanism as above, but simulating a redirect introduced by
+        an intermediate directory in the fixed rel_path chain (e.g. the
+        'experiments' segment of experiments/agents/raging_bolt/main.py)
+        rather than the final path component itself."""
+        with tempfile.TemporaryDirectory() as tmp_str:
+            tmp = Path(tmp_str)
+            root_abs = os.path.abspath(str(tmp))
+            root_real = os.path.realpath(root_abs)
+            rel_path = "experiments/agents/raging_bolt/main.py"
+            candidate_abs = os.path.abspath(os.path.join(root_abs, rel_path))
+            redirected_real = os.path.join(root_real, "experiments2", "agents", "raging_bolt", "main.py")
+
+            original_realpath = os.path.realpath
+
+            def fake_realpath(path, *args, **kwargs):
+                if os.path.normcase(os.path.normpath(str(path))) == os.path.normcase(
+                    os.path.normpath(candidate_abs)
+                ):
+                    return redirected_real
+                return original_realpath(path, *args, **kwargs)
+
+            with mock.patch("os.path.realpath", side_effect=fake_realpath):
+                resolved, status = sync.resolve_and_check(tmp, rel_path)
+
+            self.assertEqual(status, "CONTAINMENT_ERROR")
+            self.assertIsNone(resolved)
+
+    def test_containment_accepts_exact_expected_real_position(self):
+        # Control case for the mocked tests above: when realpath resolves
+        # to exactly the expected position (no redirect), the candidate is
+        # still accepted.
+        with tempfile.TemporaryDirectory() as tmp_str:
+            tmp = Path(tmp_str)
+            _write(tmp / "main.py", _valid_main_py_text())
+            resolved, status = sync.resolve_and_check(tmp, "main.py")
+            self.assertEqual(status, "OK")
+            self.assertIsNotNone(resolved)
 
 
 class CheckPairTests(unittest.TestCase):
@@ -419,6 +545,27 @@ class MainCliTests(unittest.TestCase):
             code = sync.main(["check", "--file", "deck.csv"], repo_root=tmp)
             self.assertEqual(code, sync.EXIT_MALFORMED)
 
+    def test_deck_csv_unclosed_quote_exits_four(self):
+        with tempfile.TemporaryDirectory() as tmp_str:
+            tmp = Path(tmp_str)
+            dev_rel, root_rel = sync.FIXED_MAPPING["deck.csv"]
+            lines = list(VALID_DECK_LINES)
+            lines[0] = '"63'
+            _write(tmp / dev_rel, "\n".join(lines) + "\n")
+            _write(tmp / root_rel, _valid_deck_text())
+            code = sync.main(["check", "--file", "deck.csv"], repo_root=tmp)
+            self.assertEqual(code, sync.EXIT_MALFORMED)
+
+    def test_deck_csv_quoted_multiline_field_exits_four(self):
+        with tempfile.TemporaryDirectory() as tmp_str:
+            tmp = Path(tmp_str)
+            dev_rel, root_rel = sync.FIXED_MAPPING["deck.csv"]
+            lines = ["1"] * 59 + ['"1', '2"']
+            _write(tmp / dev_rel, "\n".join(lines) + "\n")
+            _write(tmp / root_rel, _valid_deck_text())
+            code = sync.main(["check", "--file", "deck.csv"], repo_root=tmp)
+            self.assertEqual(code, sync.EXIT_MALFORMED)
+
     def test_deck_csv_non_integer_or_non_positive_exits_four(self):
         with tempfile.TemporaryDirectory() as tmp_str:
             tmp = Path(tmp_str)
@@ -557,6 +704,21 @@ class OutputContentTests(unittest.TestCase):
             code, out = self._run_captured(["check", "--file", "params.json"], tmp)
             self.assertEqual(code, sync.EXIT_MISSING)
             self.assertIn("development MISSING", out)
+
+    def test_deck_csv_malformed_value_output_does_not_leak_the_value(self):
+        with tempfile.TemporaryDirectory() as tmp_str:
+            tmp = Path(tmp_str)
+            dev_rel, root_rel = sync.FIXED_MAPPING["deck.csv"]
+            secret_looking_value = "sk-SUPER-SECRET-TOKEN-1234567890"
+            lines = list(VALID_DECK_LINES)
+            lines[0] = secret_looking_value
+            _write(tmp / dev_rel, "\n".join(lines) + "\n")
+            _write(tmp / root_rel, _valid_deck_text())
+            code, out = self._run_captured(["check", "--file", "deck.csv"], tmp)
+            self.assertEqual(code, sync.EXIT_MALFORMED)
+            self.assertIn("MALFORMED", out)
+            self.assertIn("row 1", out)
+            self.assertNotIn(secret_looking_value, out)
 
     def test_permission_style_error_output_does_not_leak_absolute_path(self):
         with tempfile.TemporaryDirectory() as tmp_str:

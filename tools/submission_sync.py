@@ -81,7 +81,17 @@ def resolve_and_check(repo_root: Path, rel_path: str) -> tuple[Optional[Path], s
     """Resolve rel_path under repo_root and confirm it cannot escape via a
     symlink/junction/reparse point. Returns (path, "OK") or
     (None, "CONTAINMENT_ERROR"). Does not check existence -- a missing file
-    that still resolves inside repo_root is not a containment error."""
+    that still resolves inside repo_root is not a containment error.
+
+    Containment alone ("real path lands somewhere under repo_root") is not
+    enough: a symlink/junction/reparse point could redirect a fixed
+    rel_path (e.g. main.py) to a *different* file that also happens to be
+    inside the repository (e.g. experiments/agents/raging_bolt/alt/main.py),
+    which a mere "is it under root_real" check would silently accept. So
+    the real path must land at the exact expected position -- root_real
+    joined with the unresolved rel_path -- not merely somewhere under
+    root_real. root_real (not root_abs) is used as the join base so this
+    still works correctly when repo_root itself is a symlink."""
     root_abs = os.path.abspath(str(repo_root))
     root_real = os.path.realpath(root_abs)
 
@@ -91,6 +101,11 @@ def resolve_and_check(repo_root: Path, rel_path: str) -> tuple[Optional[Path], s
 
     candidate_real = os.path.realpath(candidate_abs)
     if not _is_within(candidate_real, root_real):
+        return None, "CONTAINMENT_ERROR"
+
+    expected_real = os.path.normcase(os.path.normpath(os.path.join(root_real, rel_path)))
+    actual_real = os.path.normcase(os.path.normpath(candidate_real))
+    if actual_real != expected_real:
         return None, "CONTAINMENT_ERROR"
 
     return Path(candidate_abs), "OK"
@@ -192,19 +207,37 @@ _POSITIVE_INT_RE = re.compile(r"^[0-9]+$")
 
 
 def _validate_deck_csv(text: str) -> Optional[str]:
-    try:
-        rows = list(csv.reader(text.splitlines()))
-    except csv.Error as exc:
-        return f"csv parsing failed: {exc}"
+    physical_lines = text.splitlines()
     non_empty = 0
-    for line_no, row in enumerate(rows, start=1):
+    for line_no, line in enumerate(physical_lines, start=1):
+        try:
+            # Parse only this one physical line, in isolation. Feeding the
+            # whole file to a single csv.reader() call (as this function
+            # used to) lets an unterminated quote on one physical line
+            # silently swallow the following physical line(s) into the same
+            # logical field, collapsing what should be N physical rows into
+            # fewer logical rows -- which defeats the "exactly 60 rows"
+            # check below by hiding physical lines inside a merged field.
+            # strict=True additionally rejects a quote left open at the end
+            # of this single line, since no continuation line is available
+            # to this reader instance.
+            rows = list(csv.reader([line], strict=True))
+        except csv.Error as exc:
+            return f"row {line_no}: csv parsing failed: {exc}"
+        if len(rows) != 1:
+            return f"row {line_no} did not parse to exactly one CSV row"
+        row = rows[0]
         if len(row) == 0:
             return f"empty line at row {line_no} (blank lines are not allowed)"
         if len(row) != 1:
             return f"row {line_no} has {len(row)} columns, expected exactly 1"
         value = row[0]
         if not _POSITIVE_INT_RE.match(value) or int(value) <= 0:
-            return f"row {line_no} is not a positive decimal integer: {value!r}"
+            # The value itself is never included here -- see
+            # _validate_deck_csv's caller / test coverage: a malformed
+            # deck.csv could plausibly contain sensitive-looking content,
+            # and reasons flow into stdout and PairReport.
+            return f"row {line_no} is not a positive decimal integer"
         non_empty += 1
     if non_empty != 60:
         return f"expected exactly 60 non-empty rows, found {non_empty}"

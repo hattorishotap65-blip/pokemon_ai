@@ -201,7 +201,44 @@ Step 7から引き継がれ、Step 8では意思決定を追加していない�
 
 ## commit/push/PR前の状態
 
-Step 8A完了時点では、`tools/submission_sync.py` と `experiments/test_submission_sync.py` は未追跡のままcommitされていなかった。Step 8Bでこれらと本文書を含む5ファイルをstageし、静的確認・再テスト後にcommit・push・PR作成を行った。PRはユーザーの明示指示によりmergeしていない。
+Step 8A完了時点では、`tools/submission_sync.py` と `experiments/test_submission_sync.py` は未追跡のままcommitされていなかった。Step 8Bでこれらと本文書を含む5ファイルをstageし、静的確認・再テスト後にcommit・push・PR作成を行った（PR #209）。
+
+## マージ前hardening（PR #209マージ前修正）
+
+PR #209のマージ前に、次の3件の追加修正を行った。変更可能ファイルは `tools/submission_sync.py`・`experiments/test_submission_sync.py`・本文書のみで、README・ADR・CI・アプリコード（`main.py`/`deck.csv`/`params.json`/`build_submission.py`）は変更していない。
+
+### 内部symlink redirect拒否
+
+修正前の `resolve_and_check()` は、symlink/junction/reparse point解決後のreal pathが「repo root配下のどこか」であれば受理していた。これは不十分で、固定rel_path（例: `main.py`、または `experiments/agents/raging_bolt/main.py` の中間ディレクトリ）を指すsymlinkが、**リポジトリ内の別の場所にある別ファイル**（例: `experiments/agents/raging_bolt/alt/main.py`）へ静かにリダイレクトしていても、単純な「root配下か」チェックだけでは検出できなかった。
+
+修正後は、real path解決後に「root real pathへ未解決のrel_pathを結合した期待位置」を計算し、実際のreal pathがその期待位置と**完全一致**することまで確認する。一致しない場合は `CONTAINMENT_ERROR`（exit 8）として拒否する。repo root自体がsymlinkの場合を考慮し、期待位置はroot real path基準で計算する。`os.path.normcase`/`os.path.normpath` によりWindows/Linuxの差を吸収する。
+
+### deck.csvのstrict CSV解析
+
+修正前は、ファイル全体の物理行リストを1回の `csv.reader()` へ渡していた。この方式には実際の欠陥があり、ある物理行で引用符が閉じられていない場合、Pythonのcsv標準ライブラリは次以降の物理行を同一の論理フィールドへ静かに継続してしまう。結果として、本来の物理行数と異なる行数のファイルが「ちょうど60行」チェックを通過してしまう可能性があった（61物理行のファイルが60論理行として誤って合格する具体例で再現・検証済み）。
+
+修正後は、各物理行を個別に厳格解析する（`csv.reader([line], strict=True)` を1行ずつ）。これにより、単一物理行内で閉じられていない引用符・複数行にまたがる引用フィールド・複数列・空行・正の10進整数以外の値を、いずれもMALFORMED（exit 4）として検出する。通常の引用済み整数（例: `"63"`）は、CSV解析後に引用符が外れた値が正の10進整数であれば引き続き許可する。
+
+### 不正値の非表示
+
+修正前は、不正なdeck.csv値のreasonへ元の値そのもの（`{value!r}`）を含めていた。不正な内容は利用者・攻撃者が自由に書き込める内容であり、そのまま標準出力へ反映するのは望ましくない。修正後は、行番号のみを示し、値そのもの・先頭文字・部分文字列は一切含めない（`row {line_no} is not a positive decimal integer`）。
+
+### 追加後のテスト総数と結果
+
+`python -B -m unittest discover -s experiments -p "test_submission_sync.py" -v` の結果、テスト総数は **76件（74 pass / 2 skip / 0 fail）** に増加した。追加した主なテスト:
+
+- symlinkによる内部リダイレクト拒否（実symlink作成不能な環境では明示的skip）
+- `unittest.mock` で `os.path.realpath` を差し替えた、非skipの決定的な内部リダイレクト拒否テスト（最終パス要素・中間ディレクトリの両方）
+- リダイレクトなしの通常ケースが引き続き受理されることを確認する回帰用テスト
+- 閉じられていない引用符1件のMALFORMED化（validate_structure・CLI exit 4の双方）
+- 61物理行が60論理行へ折り畳まれる回帰ケースのMALFORMED化（validate_structure・CLI exit 4の双方）
+- secret風の文字列を不正値として与え、reason・PairReport相当の出力・CLI標準出力のいずれにも元の文字列が含まれないことを確認するテスト
+
+skipは2件で、いずれも実行環境（Windows、symlink作成に必要な権限/Developer Mode制約）による明示的skipであり、機能失敗ではない。同じ安全性の性質は、`unittest.mock` を用いた非skipの決定的テストで別途検証済み。
+
+### Final Auditor結果
+
+修正後、Codex Final Auditorを新規read-only threadで実行した。重点確認事項（内部symlink redirect拒否、unclosed quote/multiline CSVの拒否、不正値の非表示、read-only境界維持、exit code維持、対象外変更なし）をすべて確認した上で、**最終Verdict: `APPROVE`**（Blocker 0件、Major 0件、Minor 0件）となった。Test gapとして、`PairReport` のフィールドへの直接アサーションがCLI出力経由の間接検証に留まっている点、secret文字列の完全一致以外の部分文字列レベルでの網羅までは検証していない点、正の引用済み整数の受理を明示的に確認する回帰テストがない点が指摘されたが、いずれもマージを妨げるものではないとされた。
 
 ## Step 9は未実施
 
@@ -211,4 +248,4 @@ Step 9（再利用可能なテンプレート抽出）はこの文書の時点�
 
 **Verified**
 
-read-only check-only v1の実装・66件のテスト（65 pass / 1 skip / 0 fail）・実リポジトリに対する実CLI確認・実装前後のSHA-256不変確認・Codex Final Auditorによる2回の監査（初回CHANGES_REQUIRED→修正→再監査APPROVE）を、実機で確認した。
+read-only check-only v1の実装・Codex Final Auditorによる2回の監査（初回CHANGES_REQUIRED→修正→再監査APPROVE）・PR #209の作成、およびマージ前hardening（内部symlink redirect拒否・deck.csvのstrict CSV解析・不正値の非表示）とその追加テスト（76件、74 pass / 2 skip / 0 fail）・別スレッドでのCodex Final Auditor再監査（APPROVE）を、実機で確認した。実リポジトリに対する実CLI確認と、対象6ファイルの実装前後SHA-256不変確認も、hardening前後の双方で実施した。

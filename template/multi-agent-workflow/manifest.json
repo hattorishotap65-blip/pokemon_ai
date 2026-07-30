@@ -1,0 +1,324 @@
+{
+  "template_version": "0.1.0",
+  "generated_from": "Approved reusable-workflow design, template implementation, and read-only verifier validation via unittest, together with disposable portability evidence gathered on a fresh non-Git target and a pre-existing dirty Git target in one Windows environment (manual adoption flow, strict byte comparison, drift detection, existing-file protection, .mcp.json manual merge); production-repository adoption and cross-OS portability not yet verified",
+  "verification_status": "UNVERIFIED_IMPLEMENTATION",
+  "files": [
+    {
+      "path": ".claude/agents/claude-architect.md",
+      "classification": "AGENT",
+      "content_mode": "VERBATIM",
+      "sha256": "460fde5bd7fcd7521cf3e4f36da38244a9c339aa554996fa899cc97605115462",
+      "required": true,
+      "notes": "Verbatim copy; SHA-256 confirmed identical to source at packaging time",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": ".claude/agents/claude-architect.md"
+    },
+    {
+      "path": ".claude/agents/design-judge.md",
+      "classification": "AGENT",
+      "content_mode": "VERBATIM",
+      "sha256": "249acfe380158eb4205ead663f05a7b3fa993790fae244e3c19a3481871bb6c6",
+      "required": true,
+      "notes": "Verbatim copy; SHA-256 confirmed identical to source at packaging time",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": ".claude/agents/design-judge.md"
+    },
+    {
+      "path": ".claude/agents/requirements-auditor.md",
+      "classification": "AGENT",
+      "content_mode": "VERBATIM",
+      "sha256": "f89a163bfc5622b7d9516be4e069ae590e2f216bc2dbcc7703e458c557bee235",
+      "required": true,
+      "notes": "Verbatim copy; SHA-256 confirmed identical to source at packaging time",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": ".claude/agents/requirements-auditor.md"
+    },
+    {
+      "path": ".claude/agents/simplifier.md",
+      "classification": "AGENT",
+      "content_mode": "VERBATIM",
+      "sha256": "a3a27f3e984954d2c286d10ffa07aad466410fdf470fe818cc66e7f5ef4e5fad",
+      "required": true,
+      "notes": "Verbatim copy; SHA-256 confirmed identical to source at packaging time",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": ".claude/agents/simplifier.md"
+    },
+    {
+      "path": ".claude/skills/{{DESIGN_SKILL_NAME}}/SKILL.md",
+      "classification": "SKILL",
+      "content_mode": "GENERIFIED",
+      "sha256": "c4fc7c1da78465b3b0797be9bccde3df654d189cee7f725e9bcec6079323422b",
+      "required": true,
+      "notes": "Directory name itself is a placeholder ({{DESIGN_SKILL_NAME}}); source content had project-specific rollout references and a hardcoded ADR path removed, the generic design-review workflow steps are otherwise unchanged",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": ".claude/skills/{{DESIGN_SKILL_NAME}}/SKILL.md"
+    },
+    {
+      "path": ".mcp.json",
+      "classification": "CONFIG",
+      "content_mode": "VERBATIM",
+      "sha256": "09c14e286798613ef6aed7942893beda9184bcb32626a14deb33239a9cde9985",
+      "required": true,
+      "notes": "Verbatim copy of the source repository's .mcp.json; SHA-256 confirmed identical to source at packaging time",
+      "adoption_mode": "MANUAL_REVIEW",
+      "target_path": ".mcp.json"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "3e79bba321b9b89d5066c7bdd777c96d81270e6ac5c2a13fd41b8b7cdda11524",
+      "required": true,
+      "notes": "Package version history",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
+    },
+    {
+      "path": "PLACEHOLDERS.md",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "1c0a82cd14c46d2417e15a0babf37f4d1ff60eddaf88f11bdd98bc633064986b",
+      "required": true,
+      "notes": "Placeholder reference table",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
+    },
+    {
+      "path": "PROJECT_RULES_SNIPPET.md",
+      "classification": "RULE_SNIPPET",
+      "content_mode": "NEW",
+      "sha256": "23725126af87353d9dd24468bed6a265965ee77ac8aa2d7b4df2440bd3c361fd",
+      "required": true,
+      "notes": "Manual-paste-only reference snippet; explicitly not for automatic insertion into any existing rules file",
+      "adoption_mode": "REFERENCE_ONLY",
+      "target_path": null
+    },
+    {
+      "path": "README.md",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "bd36110b7eef2c3d63b55e6672fd7aa70a28c2f28d08414b335c61801a9e34d6",
+      "required": true,
+      "notes": "Package-level README; not an installer, no apply/update/uninstall in this version",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
+    },
+    {
+      "path": "VERSION",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "e9dd8507f4bf0c6f42458e41aea833ad0bd3f6127272335eee9bf4d58541ed67",
+      "required": true,
+      "notes": "Semantic Versioning marker for this package",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
+    },
+    {
+      "path": "docs/agent-workflow/README.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "GENERIFIED",
+      "sha256": "8f7c6466c361c941e658ab291a8bbca6db4e5672e96bdbb24b9713c123040e5e",
+      "required": true,
+      "notes": "Heavily generified: rollout-history table, role-nickname table, and project-specific doc pointers removed/blanked; logical-role table and basic flow retained",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/README.md"
+    },
+    {
+      "path": "docs/agent-workflow/git-safety.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "NEW",
+      "sha256": "8df687b086d11ac5433707d31b814a28569108dde8be05eebbd732b4a81ffcf9",
+      "required": true,
+      "notes": "New consolidation of Git safety rules previously duplicated across multiple source documents; each item cites its source or is labeled new guidance",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/git-safety.md"
+    },
+    {
+      "path": "docs/agent-workflow/mcp-connection.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "GENERIFIED",
+      "sha256": "0f0176eb578c7ab29201a6de5d1dc8d8fa05128aa6de1c07b277018e176521e8",
+      "required": true,
+      "notes": "Server name/command replaced with placeholders; pinned tool versions and source-repo verification results blanked to fill-in prompts",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/mcp-connection.md"
+    },
+    {
+      "path": "docs/agent-workflow/multi-agent-design-skill.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "GENERIFIED",
+      "sha256": "7ab85886732abeac6bde38d166e271290aa71ec7a9dac21959a51111a6c9b6fa",
+      "required": true,
+      "notes": "Skill name replaced with {{DESIGN_SKILL_NAME}} placeholder throughout; source-repo rollout narrative and verification results blanked to fill-in prompts",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/multi-agent-design-skill.md"
+    },
+    {
+      "path": "docs/agent-workflow/quality-first-token-policy.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "GENERIFIED",
+      "sha256": "5a3a4630efa89185f75cc9bae856b7a7eca664d0db3e9259d23eb2739e9290e4",
+      "required": true,
+      "notes": "Source-repo project-specific rollout reference removed; rest unchanged from source",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/quality-first-token-policy.md"
+    },
+    {
+      "path": "docs/agent-workflow/repository-audit-template.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "SKELETON",
+      "sha256": "323283e5cba5b018c468194cf9ba5ea46295ab22545a637871209e0366b60f9e",
+      "required": true,
+      "notes": "Empty fill-in skeleton; does not contain the source repository's actual audit content",
+      "adoption_mode": "REFERENCE_ONLY",
+      "target_path": null
+    },
+    {
+      "path": "docs/agent-workflow/review-protocol.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "GENERIFIED",
+      "sha256": "b14579db0903d17dbf9cc7fde91bdecd0ca905f7be076ab700ed887d92940e69",
+      "required": true,
+      "notes": "Model-nickname parentheticals and one source-project domain-specific policy/score term removed; rest unchanged from source",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/review-protocol.md"
+    },
+    {
+      "path": "docs/agent-workflow/subagents.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "GENERIFIED",
+      "sha256": "006a8b6e856af44821aff4579e1e617aaa42258705ac715315814f620828be05",
+      "required": true,
+      "notes": "Pinned Claude Code version and source-repo verification narrative blanked to fill-in prompts; role table and procedure retained",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/subagents.md"
+    },
+    {
+      "path": "docs/agent-workflow/trial-log-template.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "SKELETON",
+      "sha256": "7ce6809e5d3f161be3edf320d4507505542675ef3518f9109272d5603d3a80f7",
+      "required": true,
+      "notes": "Empty fill-in skeleton; does not contain the source repository's actual trial content",
+      "adoption_mode": "REFERENCE_ONLY",
+      "target_path": null
+    },
+    {
+      "path": "docs/agent-workflow/troubleshooting.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "NEW",
+      "sha256": "754a1b4d9a5cce2a228d0a59e770167c1b6b941fd01dc67cfd7aa9a19046992b",
+      "required": true,
+      "notes": "New synthesized document; each entry cites its source or is labeled new guidance. Does not instruct pasting secrets or personal paths into diagnostic output. Includes two entries added after a disposable portability trial: newline-conversion drift and manual-merge DIFFERENT results",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/troubleshooting.md"
+    },
+    {
+      "path": "docs/decisions/{{ADR_NUMBER}}-multi-agent-workflow-boundary.template.md",
+      "classification": "DECISION_TEMPLATE",
+      "content_mode": "GENERIFIED",
+      "sha256": "16d6188fae7b4a977a6eca1a7d94c3584ca66a5addaa8c6383860ee2ca40d1b4",
+      "required": true,
+      "notes": "Filename itself contains the {{ADR_NUMBER}} placeholder; only the generic Decision/Role-boundary/Authentication/Repository-Git/Secret-management/Alternatives-considered content retained, all source-repo narrative and source-project domain-specific content removed",
+      "adoption_mode": "TEMPLATE_RENAME",
+      "target_path": "docs/decisions/{{ADR_NUMBER}}-multi-agent-workflow-boundary.md"
+    },
+    {
+      "path": "manifest.json",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": null,
+      "required": true,
+      "notes": "self-referential hash intentionally omitted",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
+    },
+    {
+      "path": "tools/verify_workflow_template.py",
+      "classification": "PACKAGE_TOOL",
+      "content_mode": "NEW",
+      "sha256": "67efb6f32dcadd8506ab1171ef21d574d89c87dc408e3a89267cc3f9b3e92416",
+      "required": true,
+      "notes": "Bundled read-only verifier; run from the package and do not copy automatically into the target repository.",
+      "target_path": null,
+      "adoption_mode": "REFERENCE_ONLY"
+    }
+  ],
+  "exclusions": [
+    {
+      "item": ".claude/settings.local.json",
+      "reason": "Per-developer/per-session MCP-enablement state (e.g. enabledMcpjsonServers); copying it into another project would silently carry over one developer's local approval state"
+    },
+    {
+      "item": "CLAUDE.md",
+      "reason": "Source project's own Claude Code project rules (application-domain specific), not part of the generic workflow"
+    },
+    {
+      "item": "AGENTS.md",
+      "reason": "Source project's own Codex project rules (application-domain specific), not part of the generic workflow"
+    },
+    {
+      "item": "source-repository audit artifacts",
+      "reason": "Entirely the source repository's own audit content; the reusable shape is provided instead via repository-audit-template.md"
+    },
+    {
+      "item": "source-repository trial artifacts",
+      "reason": "Entirely the source repository's own project-specific trial log; the reusable shape is provided instead via trial-log-template.md"
+    },
+    {
+      "item": "source-repository trial artifacts (application-specific)",
+      "reason": "Entirely the source repository's own project-specific trial log, and describes an excluded application-specific tool; the reusable shape is provided instead via trial-log-template.md"
+    },
+    {
+      "item": "Agent ID / threadId / MCP task ID",
+      "reason": "Transient runtime identifiers; the workflow's own policy is to never persist these in any file"
+    },
+    {
+      "item": "API keys / tokens / credentials",
+      "reason": "Must never be stored in the template or any project rule document"
+    },
+    {
+      "item": "Username-bearing absolute paths",
+      "reason": "Personal/environment-specific paths must not be hardcoded in a reusable template"
+    },
+    {
+      "item": "full model ID (pinned model version identifiers)",
+      "reason": "The workflow uses generic model aliases (e.g. haiku/sonnet/opus) only, never a pinned full model ID"
+    },
+    {
+      "item": "Fixed Claude Code version numbers",
+      "reason": "Environment-specific version facts that would go stale; generified to version-neutral wording in the copied documents"
+    },
+    {
+      "item": "source-project experiment tree",
+      "reason": "Directory containing only the source project's own experiment code and tests; no generic workflow content"
+    },
+    {
+      "item": "source-project implementation-trial artifacts",
+      "reason": "Code and tests produced by an implementation trial specific to the source project's own deliverable-sync workflow; out of scope for the generic multi-agent workflow template"
+    },
+    {
+      "item": "source-project application code",
+      "reason": "Application-domain-specific implementation code and identifiers belonging to the source project; unrelated to the generic multi-agent workflow"
+    },
+    {
+      "item": "source-project submission artifacts",
+      "reason": "Build/release artifacts specific to the source project's own deliverable packaging; not part of the generic workflow"
+    },
+    {
+      "item": "source-project domain-specific documentation",
+      "reason": "Strategy/performance/handoff documentation specific to the source project's application domain; referenced only generically via {{PROJECT_SPECIFIC_DOCS}}"
+    }
+  ],
+  "placeholders": [
+    "{{PROJECT_NAME}}",
+    "{{DEFAULT_BRANCH}}",
+    "{{MCP_SERVER_NAME}}",
+    "{{CODEX_COMMAND}}",
+    "{{DESIGN_SKILL_NAME}}",
+    "{{ADR_NUMBER}}",
+    "{{TEST_COMMANDS}}",
+    "{{PROTECTED_PATHS}}",
+    "{{PROJECT_SPECIFIC_DOCS}}"
+  ]
+}

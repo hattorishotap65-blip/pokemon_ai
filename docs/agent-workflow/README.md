@@ -85,7 +85,18 @@ Sonnet は「統合設計の作成」担当ではない。統合設計は Design
 
 ## 導入状況
 
-Step 4のCodex MCP接続（プロジェクトスコープの `.mcp.json`、サーバー名 `codex-reviewer`）を追加し、`codex`・`codex-reply` ツールの実機での読み取り専用呼び出しを確認済み。詳細は [`mcp-connection.md`](mcp-connection.md) を参照。Step 5のClaude project subagents（`requirements-auditor` / `simplifier` / `claude-architect` / `design-judge`）も追加済みで、Agentツールによる明示的な直接起動での実機確認を完了している。詳細は [`subagents.md`](subagents.md) を参照。Step 6のmulti-agent-design Skill（`.claude/skills/multi-agent-design/SKILL.md`）も追加済みで、ユーザーの明示起動による8フェーズ実行の実機確認を完了している。詳細は [`multi-agent-design-skill.md`](multi-agent-design-skill.md) を参照。Step 7では実案件（開発元と提出用ファイルの同期・差分検証ワークフローの設計）を用いた設計専用・read-onlyトライアルを実施し、統合設計は提示されたが未承認・未実装である。詳細は [`design-only-trial.md`](design-only-trial.md) を参照。Step 8以降は未実施。
+| Step | 状態 |
+|---|---|
+| Step 4（Codex MCP接続） | 完了 |
+| Step 5（Claude project subagents） | 完了 |
+| Step 6（multi-agent-design Skill） | 完了 |
+| Step 7（design-only trial） | 完了 |
+| Step 8（small implementation trial） | 完了 |
+| Step 9（reusable template extraction） | 未実施 |
+
+Step 4のCodex MCP接続（プロジェクトスコープの `.mcp.json`、サーバー名 `codex-reviewer`）を追加し、`codex`・`codex-reply` ツールの実機での読み取り専用呼び出しを確認済み。詳細は [`mcp-connection.md`](mcp-connection.md) を参照。Step 5のClaude project subagents（`requirements-auditor` / `simplifier` / `claude-architect` / `design-judge`）も追加済みで、Agentツールによる明示的な直接起動での実機確認を完了している。詳細は [`subagents.md`](subagents.md) を参照。Step 6のmulti-agent-design Skill（`.claude/skills/multi-agent-design/SKILL.md`）も追加済みで、ユーザーの明示起動による8フェーズ実行の実機確認を完了している。詳細は [`multi-agent-design-skill.md`](multi-agent-design-skill.md) を参照。Step 7では実案件（開発元と提出用ファイルの同期・差分検証ワークフローの設計）を用いた設計専用・read-onlyトライアルを実施し、統合設計は提示されたが未承認・未実装である。詳細は [`design-only-trial.md`](design-only-trial.md) を参照。
+
+Step 8では、Step 7の統合設計のうち安全性が高い**read-only check-only v1**だけを実際に実装した。実装ファイルは `tools/submission_sync.py`、テストファイルは `experiments/test_submission_sync.py`。テストは66件（65 pass、1 skip、0 fail）。Codex Final Auditorの最終Verdictは `APPROVE`（初回はCHANGES_REQUIREDで、修正後にcodex-replyで同一threadを再監査してAPPROVEへ至った）。自動同期・apply・正本決定機能は実装していない。詳細は [`small-implementation-trial.md`](small-implementation-trial.md) を参照。Step 9以降は未実施。
 
 ## 関連文書
 
@@ -93,6 +104,7 @@ Step 4のCodex MCP接続（プロジェクトスコープの `.mcp.json`、サ�
 - [subagents.md](subagents.md) — Claude Code project subagentsの定義と実機確認結果（Step 5）
 - [multi-agent-design-skill.md](multi-agent-design-skill.md) — read-only multi-agent design Skillの定義と実機確認結果（Step 6）
 - [design-only-trial.md](design-only-trial.md) — 実案件を用いた設計専用・read-only試行と結果（Step 7）
+- [small-implementation-trial.md](small-implementation-trial.md) — read-only差分確認CLIの小規模実装トライアルと監査結果（Step 8）
 - [quality-first-token-policy.md](quality-first-token-policy.md) — 判断品質を維持しながら重複コンテキストを削減する共通方針
 - [review-protocol.md](review-protocol.md) — 設計討論・レビューの具体的手順
 - [../decisions/0001-multi-agent-workflow-boundary.md](../decisions/0001-multi-agent-workflow-boundary.md) — この方式の意思決定記録（ADR）

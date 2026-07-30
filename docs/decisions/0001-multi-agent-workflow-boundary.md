@@ -88,7 +88,11 @@ Step 7では、実案件（開発元ファイルとルート提出用ファイ�
 
 Step 8では、Step 7の統合設計候補のうちユーザーが明示承認した**read-only check-only v1**だけを実装した。実装対象は `tools/submission_sync.py`、テストは `experiments/test_submission_sync.py`。親Claude CodeセッションがImplementation Ownerとして直接実装し、Claude subagentやCodexへのファイル編集委任は行っていない。CodexはFinal Auditorとして、実装完了後にread-onlyの新規threadで1回起動し、初回Verdictは `CHANGES_REQUIRED`（Blocker 2件のうち1件は誤検出、Major 5件）だった。実issue（"authoritative"表現、OSErrorメッセージからの絶対パス漏洩、`exists()`/`is_file()` の `OSError` 未捕捉、`csv.Error` 未捕捉、exit code優先順位・出力内容のテスト不足）を修正し、同一Codex threadを `codex-reply` で継続して再監査した結果、最終Verdictは `APPROVE`（Blocker 0件、Major 0件）となった。誤検出だった1件（出力ラベル `development:`/`submission:`）は、ユーザーの確定指示内の出力例と一致することを根拠に押し戻し、Codexも再監査で撤回した。
 
-実装内容: 正本・同期方向を決定しない対称比較（development candidate ↔ root submission、固定マッピングはmain.py/deck.csv/params.jsonの3組）、BYTE_IDENTICAL/SEMANTICALLY_EQUIVALENT/DIFFERENTの3状態分類、通常checkとの`--strict`の挙動差、exit code（0/1/2/3/4/8、優先順位 `8 > 4 > 3 > 1 > 0`）。apply・sync・copy・write機能はなく、`cg` のimportも `main.py` のimport・実行も `build_submission.py` の呼び出しも行わない。テストは66件（65 pass、1 skip、0 fail）で、実リポジトリの対象6ファイルのSHA-256は実装前後で不変であることを確認した。残存リスクとして、containment確認とファイル読み取りの間のTOCTOU（check-then-open競合）をコードコメントで明示した上で、ローカル単一ユーザー向けread-only診断ツールとして許容した。Codex Final Auditorはread-only監査であり、テスト・CLI・Git・SHA-256確認は自ら実行しておらず、実装者の実行結果をコード読解で確認したものである（Evidence limitation）。Agent ID・threadIdは記録していない。詳細は [`../agent-workflow/small-implementation-trial.md`](../agent-workflow/small-implementation-trial.md)。
+実装内容: 正本・同期方向を決定しない対称比較（development candidate ↔ root submission、固定マッピングはmain.py/deck.csv/params.jsonの3組）、BYTE_IDENTICAL/SEMANTICALLY_EQUIVALENT/DIFFERENTの3状態分類、通常checkとの`--strict`の挙動差、exit code（0/1/2/3/4/8、優先順位 `8 > 4 > 3 > 1 > 0`）。apply・sync・copy・write機能はなく、`cg` のimportも `main.py` のimport・実行も `build_submission.py` の呼び出しも行わない。
+
+PR #209のマージ前に、ユーザー指示による追加のhardeningを3件実施した: (1) repo内の別位置を指すsymlink/junction/reparse point redirectの拒否（real path解決後の位置が「root real path + 未解決rel_path」の期待位置と完全一致することまで確認する）、(2) deck.csvの物理行単位strict CSV解析（`csv.reader([line], strict=True)`を1行ずつ、未閉じ引用符が次の物理行を静かに継続して行数チェックを迂回する不具合を修正）、(3) 不正なdeck値をreasonやCLI標準出力へ表示しない（値そのもの・部分文字列を一切出力しない）。この修正後、新規read-only threadでCodex Final Auditorを再度実行し、最終Verdictは `APPROVE`（Blocker 0件、Major 0件、Minor 0件）となった。
+
+最終テストは76件（74 pass、2 skip、0 fail）で、実リポジトリの対象6ファイルのSHA-256は実装前後・hardening前後を通じて不変であることを確認した。残存リスクとして、containment確認とファイル読み取りの間のTOCTOU（check-then-open競合）をコードコメントで明示した上で、ローカル単一ユーザー向けread-only診断ツールとして許容した（hardening後も対象外として維持）。Codex Final Auditorはread-only監査であり、テスト・CLI・Git・SHA-256確認は自ら実行しておらず、実装者の実行結果をコード読解で確認したものである（Evidence limitation）。Agent ID・threadIdは記録していない。詳細は [`../agent-workflow/small-implementation-trial.md`](../agent-workflow/small-implementation-trial.md)。
 
 ## Consequences
 
@@ -120,7 +124,7 @@ Step 8では、Step 7の統合設計候補のうちユーザーが明示承認�
 - Step 5: 完了。`.claude/agents/` へ4つのClaude project subagentsを定義し、Agentツールによる明示的な直接起動で実機確認した。full model IDは固定せずmodel aliasのみを使用している
 - Step 6: 完了。`.claude/skills/multi-agent-design/SKILL.md` を追加し、ユーザーの明示起動のみで動作する8フェーズの設計専用・read-only Skillを、実機実行で確認した。Agent ID・threadIdは記録していない
 - Step 7: 完了。実案件（開発元と提出用ファイルの同期・差分検証ワークフロー設計）で `/multi-agent-design` を実機実行し、8フェーズが規定通り動作し、ユーザー承認前に停止することを確認した。統合設計（read-only check-only v1候補）は未承認・未実装。Agent ID・threadIdは記録していない
-- Step 8: 完了。Step 7の統合設計候補のうちread-only check-only v1を実装（`tools/submission_sync.py` / `experiments/test_submission_sync.py`）。テストは66件（65 pass、1 skip、0 fail）。Codex Final Auditorは初回`CHANGES_REQUIRED`、修正・codex-reply再監査を経て最終Verdict `APPROVE`。Agent ID・threadIdは記録していない
+- Step 8: 完了。Step 7の統合設計候補のうちread-only check-only v1を実装（`tools/submission_sync.py` / `experiments/test_submission_sync.py`）。実装本体はCodex Final Auditorが初回`CHANGES_REQUIRED`、修正・codex-reply再監査を経て`APPROVE`。マージ前hardening（内部symlink redirect拒否・deck.csvの物理行単位strict CSV解析・不正値の非表示）後、新規read-only threadで再監査し最終Verdict `APPROVE`（Blocker 0件、Major 0件、Minor 0件）。最終テストは76件（74 pass、2 skip、0 fail）。Agent ID・threadIdは記録していない
 - Step 9: 未実施。再利用可能なテンプレート抽出
 
 各Stepはユーザーが明示的に指示した範囲でのみ着手する（[`../../CLAUDE.md`](../../CLAUDE.md) / [`../../AGENTS.md`](../../AGENTS.md) のフェーズ制御ルールを継承）。

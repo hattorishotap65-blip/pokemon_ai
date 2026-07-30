@@ -98,7 +98,9 @@ python tools/submission_sync.py check --file params.json
 - 固定マッピング以外のパスは処理しない
 - 対象ファイルが見つからない場合は `MISSING` として扱う（書き込み・作成はしない）
 
-## テスト結果
+## テスト結果（マージ前hardening前の初回結果）
+
+**この節はマージ前hardening前の初回結果の記録であり、最終結果ではない。** 最終結果は76 tests、74 pass、2 skip、0 failであり、詳細は本文書の「マージ前hardening（PR #209マージ前修正）」節および「検証状態」節を参照。
 
 実行コマンド:
 
@@ -106,11 +108,11 @@ python tools/submission_sync.py check --file params.json
 python -B -m unittest discover -s experiments -p "test_submission_sync.py" -v
 ```
 
-結果: **66 tests、65 pass、1 skip、0 fail**。
+初回結果（マージ前hardening前）: **66 tests、65 pass、1 skip、0 fail**。
 
-### symlinkテスト1件skipの理由
+### symlinkテスト1件skipの理由（初回結果時点）
 
-`test_symlink_escaping_root_is_rejected` は、実行環境（Windowsでシンボリックリンク作成に必要な権限/Developer Modeが有効でない）でシンボリックリンクを作成できなかったため、`self.skipTest(...)` により明示的にskipされた。これは機能の失敗ではなく、環境上の制約による事前スキップである。他のcontainmentテスト（root外への相対パス拒否、通常の相対パスの受理）はskipなしで成功している。
+初回結果の時点では、`test_symlink_escaping_root_is_rejected` が、実行環境（Windowsでシンボリックリンク作成に必要な権限/Developer Modeが有効でない）でシンボリックリンクを作成できなかったため、`self.skipTest(...)` により明示的にskipされた。これは機能の失敗ではなく、環境上の制約による事前スキップである。他のcontainmentテスト（root外への相対パス拒否、通常の相対パスの受理）はskipなしで成功している。マージ前hardeningでsymlinkベースのテストが1件追加され、最終的なskipは2件になった（詳細は「マージ前hardening」節を参照）。
 
 ## 実CLI結果
 
@@ -122,11 +124,11 @@ python -B -m unittest discover -s experiments -p "test_submission_sync.py" -v
 | `check`（3件） | main.py DIFFERENT、他2件 BYTE_IDENTICAL | 1 |
 | `check --strict`（3件） | main.py DIFFERENT、他2件 BYTE_IDENTICAL | 1 |
 
-`main.py` の開発元とルート版の差分は、Step 7の設計時点での確認結果（PR0-A/PR0-Bのテレメトリ・リプレイ基盤が開発元にのみ存在する）と一致している。`--strict` は今回のリポジトリ状態にSEMANTICALLY_EQUIVALENTなペアが存在しないため、通常 `check` と同じ結果になった。
+`main.py` の開発元とルート版の差分は、Step 7の設計時点での確認結果（PR0-A/PR0-Bのテレメトリ・リプレイ基盤が開発元にのみ存在する）と一致している。`--strict` は今回のリポジトリ状態にSEMANTICALLY_EQUIVALENTなペアが存在しないため、通常 `check` と同じ結果になった。上記5コマンドはマージ前hardening後にも再実行し、同じ結果・同じexit codeであることを確認済み。
 
 ## SHA-256不変確認
 
-実装前後で、次の6ファイルのSHA-256ハッシュがすべて一致することを確認した。
+実装前後（マージ前hardening前後を含む）で、次の6ファイルのSHA-256ハッシュがすべて一致することを確認した。
 
 - `main.py`
 - `deck.csv`

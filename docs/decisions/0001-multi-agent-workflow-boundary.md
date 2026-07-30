@@ -82,9 +82,17 @@ Step 1（リポジトリ監査、[`../agent-workflow/step1_repository_audit.md`]
 8. Small implementation trial
 9. Reusable template extraction
 
-**Step 4・Step 5・Step 6・Step 7は完了。Step 8以降はまだ未実施。** プロジェクトスコープの `.mcp.json`（サーバー名 `codex-reviewer`、起動コマンド `codex mcp-server`）を追加し、`codex` / `codex-reply` ツールの読み取り専用呼び出しが実機で成功することを確認した（詳細は [`../agent-workflow/mcp-connection.md`](../agent-workflow/mcp-connection.md)）。続けて `.claude/agents/` 配下へ4つのClaude project subagents（`requirements-auditor`/`simplifier`/`claude-architect`/`design-judge`）を追加し、Agentツールによる明示的な直接起動で、全エージェントがread-onlyで動作しファイル変更を行わないことを実機確認した（詳細は [`../agent-workflow/subagents.md`](../agent-workflow/subagents.md)）。手動確認で見つかった軽微な3点（破壊的ロールバック操作の提案、出力見出しの省略、「承認不要」区分の記載）はStep 5Bで各エージェント定義へ反映済み。さらに `.claude/skills/multi-agent-design/SKILL.md` を追加し、`/multi-agent-design` の明示起動によって8フェーズ（Phase 0〜Phase 7）が規定通り実行され、requirements-auditorの停止ゲート・2案の独立性・Codex thread再利用・最大2ラウンドのrebuttal・Alternative Architectの条件付き起動・匿名化・design-judgeの匿名採点と統合設計・ユーザー承認前の停止・ファイル非変更が実機で成功することを確認した（詳細は [`../agent-workflow/multi-agent-design-skill.md`](../agent-workflow/multi-agent-design-skill.md)）。この実機確認でRed Team Reviewerがリポジトリ一次証拠を再確認できない事例（Evidence limitation）が見つかり、Evidence limitationの記録・design-judgeによる重要事実の再確認・重大な場合のBLOCKED化というルールをStep 6Bで `SKILL.md` へ反映した。品質優先トークンポリシー（[`../agent-workflow/quality-first-token-policy.md`](../agent-workflow/quality-first-token-policy.md)）はStep 5・Step 6のいずれも継承している。
+**Step 4・Step 5・Step 6・Step 7・Step 8は完了。Step 9はまだ未実施。** プロジェクトスコープの `.mcp.json`（サーバー名 `codex-reviewer`、起動コマンド `codex mcp-server`）を追加し、`codex` / `codex-reply` ツールの読み取り専用呼び出しが実機で成功することを確認した（詳細は [`../agent-workflow/mcp-connection.md`](../agent-workflow/mcp-connection.md)）。続けて `.claude/agents/` 配下へ4つのClaude project subagents（`requirements-auditor`/`simplifier`/`claude-architect`/`design-judge`）を追加し、Agentツールによる明示的な直接起動で、全エージェントがread-onlyで動作しファイル変更を行わないことを実機確認した（詳細は [`../agent-workflow/subagents.md`](../agent-workflow/subagents.md)）。手動確認で見つかった軽微な3点（破壊的ロールバック操作の提案、出力見出しの省略、「承認不要」区分の記載）はStep 5Bで各エージェント定義へ反映済み。さらに `.claude/skills/multi-agent-design/SKILL.md` を追加し、`/multi-agent-design` の明示起動によって8フェーズ（Phase 0〜Phase 7）が規定通り実行され、requirements-auditorの停止ゲート・2案の独立性・Codex thread再利用・最大2ラウンドのrebuttal・Alternative Architectの条件付き起動・匿名化・design-judgeの匿名採点と統合設計・ユーザー承認前の停止・ファイル非変更が実機で成功することを確認した（詳細は [`../agent-workflow/multi-agent-design-skill.md`](../agent-workflow/multi-agent-design-skill.md)）。この実機確認でRed Team Reviewerがリポジトリ一次証拠を再確認できない事例（Evidence limitation）が見つかり、Evidence limitationの記録・design-judgeによる重要事実の再確認・重大な場合のBLOCKED化というルールをStep 6Bで `SKILL.md` へ反映した。品質優先トークンポリシー（[`../agent-workflow/quality-first-token-policy.md`](../agent-workflow/quality-first-token-policy.md)）はStep 5・Step 6のいずれも継承している。
 
 Step 7では、実案件（開発元ファイルとルート提出用ファイルの同期・差分検証ワークフローの設計）を用いて `/multi-agent-design` を実行した。`requirements-auditor` がREADYと判定し、`claude-architect` とCodex Independent Architectが互いを見ずに独立2案を作成、`simplifier` とCodex Red Team Reviewerがレビューし、rebuttalを1ラウンド実施した（Alternative Architectは条件不成立のため未実施）。匿名採点は案A 81・案B 69で、Verdictは `READY_FOR_APPROVAL`。`READY_FOR_APPROVAL` は実装許可として扱わず、ユーザー承認前に停止した。統合設計（read-only check-only v1の候補）は提示されたが**未承認・未実装**であり、リポジトリファイルの変更は一切発生していない（詳細は [`../agent-workflow/design-only-trial.md`](../agent-workflow/design-only-trial.md)）。
+
+Step 8では、Step 7の統合設計候補のうちユーザーが明示承認した**read-only check-only v1**だけを実装した。実装対象は `tools/submission_sync.py`、テストは `experiments/test_submission_sync.py`。親Claude CodeセッションがImplementation Ownerとして直接実装し、Claude subagentやCodexへのファイル編集委任は行っていない。CodexはFinal Auditorとして、実装完了後にread-onlyの新規threadで1回起動し、初回Verdictは `CHANGES_REQUIRED`（Blocker 2件のうち1件は誤検出、Major 5件）だった。実issue（"authoritative"表現、OSErrorメッセージからの絶対パス漏洩、`exists()`/`is_file()` の `OSError` 未捕捉、`csv.Error` 未捕捉、exit code優先順位・出力内容のテスト不足）を修正し、同一Codex threadを `codex-reply` で継続して再監査した結果、最終Verdictは `APPROVE`（Blocker 0件、Major 0件）となった。誤検出だった1件（出力ラベル `development:`/`submission:`）は、ユーザーの確定指示内の出力例と一致することを根拠に押し戻し、Codexも再監査で撤回した。
+
+実装内容: 正本・同期方向を決定しない対称比較（development candidate ↔ root submission、固定マッピングはmain.py/deck.csv/params.jsonの3組）、BYTE_IDENTICAL/SEMANTICALLY_EQUIVALENT/DIFFERENTの3状態分類、通常checkとの`--strict`の挙動差、exit code（0/1/2/3/4/8、優先順位 `8 > 4 > 3 > 1 > 0`）。apply・sync・copy・write機能はなく、`cg` のimportも `main.py` のimport・実行も `build_submission.py` の呼び出しも行わない。
+
+PR #209のマージ前に、ユーザー指示による追加のhardeningを3件実施した: (1) repo内の別位置を指すsymlink/junction/reparse point redirectの拒否（real path解決後の位置が「root real path + 未解決rel_path」の期待位置と完全一致することまで確認する）、(2) deck.csvの物理行単位strict CSV解析（`csv.reader([line], strict=True)`を1行ずつ、未閉じ引用符が次の物理行を静かに継続して行数チェックを迂回する不具合を修正）、(3) 不正なdeck値をreasonやCLI標準出力へ表示しない（値そのもの・部分文字列を一切出力しない）。この修正後、新規read-only threadでCodex Final Auditorを再度実行し、最終Verdictは `APPROVE`（Blocker 0件、Major 0件、Minor 0件）となった。
+
+最終テストは76件（74 pass、2 skip、0 fail）で、実リポジトリの対象6ファイルのSHA-256は実装前後・hardening前後を通じて不変であることを確認した。残存リスクとして、containment確認とファイル読み取りの間のTOCTOU（check-then-open競合）をコードコメントで明示した上で、ローカル単一ユーザー向けread-only診断ツールとして許容した（hardening後も対象外として維持）。Codex Final Auditorはread-only監査であり、テスト・CLI・Git・SHA-256確認は自ら実行しておらず、実装者の実行結果をコード読解で確認したものである（Evidence limitation）。Agent ID・threadIdは記録していない。詳細は [`../agent-workflow/small-implementation-trial.md`](../agent-workflow/small-implementation-trial.md)。
 
 ## Consequences
 
@@ -97,6 +105,10 @@ Step 7では、実案件（開発元ファイルとルート提出用ファイ�
   - 匿名評価は単純な多数決ではなく、再確認した証拠に基づいて両案を修正・縮小できた
   - 安全性の観点から、write/apply機能を含む設計はread-only v1へ縮小された
   - Skill実行中に発生した一時的なツールエラー（Invalid tool parameters）やセッションレベルの再開挙動（`/loop wakeup`）は、実行結果（Execution Trace・READY_FOR_APPROVAL等）と分けて記録する必要がある
+- Step 8の小規模実装トライアルで得た学び:
+  - Codex Final Auditorの初回`CHANGES_REQUIRED`は実際の欠陥（絶対パス漏洩、未捕捉例外、テスト不足）を正しく検出できた一方、ユーザーの確定指示内の具体例と矛盾する誤検出も1件発生した。指示の一次情報を根拠に押し戻し、同一threadでの再監査で解消できた
+  - `codex-reply`による同一thread継続の再監査は、実装後の監査ループでも設計討論と同様に機能した（最大2パスの制約内でBlocker/Majorを解消できた）
+  - 完全なTOCTOU排除より、残存リスクをコードコメントとADR/文書へ明示して許容する判断が、stdlibのみ・低複雑度という制約下では合理的だった
 
 ## Alternatives considered
 
@@ -112,6 +124,7 @@ Step 7では、実案件（開発元ファイルとルート提出用ファイ�
 - Step 5: 完了。`.claude/agents/` へ4つのClaude project subagentsを定義し、Agentツールによる明示的な直接起動で実機確認した。full model IDは固定せずmodel aliasのみを使用している
 - Step 6: 完了。`.claude/skills/multi-agent-design/SKILL.md` を追加し、ユーザーの明示起動のみで動作する8フェーズの設計専用・read-only Skillを、実機実行で確認した。Agent ID・threadIdは記録していない
 - Step 7: 完了。実案件（開発元と提出用ファイルの同期・差分検証ワークフロー設計）で `/multi-agent-design` を実機実行し、8フェーズが規定通り動作し、ユーザー承認前に停止することを確認した。統合設計（read-only check-only v1候補）は未承認・未実装。Agent ID・threadIdは記録していない
-- Step 8以降: 小規模実装の試行 → 再利用可能なテンプレート抽出
+- Step 8: 完了。Step 7の統合設計候補のうちread-only check-only v1を実装（`tools/submission_sync.py` / `experiments/test_submission_sync.py`）。実装本体はCodex Final Auditorが初回`CHANGES_REQUIRED`、修正・codex-reply再監査を経て`APPROVE`。マージ前hardening（内部symlink redirect拒否・deck.csvの物理行単位strict CSV解析・不正値の非表示）後、新規read-only threadで再監査し最終Verdict `APPROVE`（Blocker 0件、Major 0件、Minor 0件）。最終テストは76件（74 pass、2 skip、0 fail）。Agent ID・threadIdは記録していない
+- Step 9: 未実施。再利用可能なテンプレート抽出
 
 各Stepはユーザーが明示的に指示した範囲でのみ着手する（[`../../CLAUDE.md`](../../CLAUDE.md) / [`../../AGENTS.md`](../../AGENTS.md) のフェーズ制御ルールを継承）。

@@ -1,7 +1,6 @@
 {
   "template_version": "0.1.0",
   "generated_from": "Approved reusable-workflow design, template implementation, and read-only verifier validation via unittest, together with disposable portability evidence gathered on a fresh non-Git target and a pre-existing dirty Git target in one Windows environment (manual adoption flow, strict byte comparison, drift detection, existing-file protection, .mcp.json manual merge); production-repository adoption and cross-OS portability not yet verified",
-  "verification_status": "UNVERIFIED_IMPLEMENTATION",
   "files": [
     {
       "path": ".claude/agents/claude-architect.md",
@@ -97,7 +96,7 @@
       "path": "README.md",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
-      "sha256": "bd36110b7eef2c3d63b55e6672fd7aa70a28c2f28d08414b335c61801a9e34d6",
+      "sha256": "6ba2ef97c7373b8145d6017763182fda46ef9f4b8cded9d8afecf444a80b62c1",
       "required": true,
       "notes": "Package-level README; not an installer, no apply/update/uninstall in this version",
       "adoption_mode": "PACKAGE_METADATA",

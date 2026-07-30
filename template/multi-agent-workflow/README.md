@@ -90,10 +90,10 @@ template/multi-agent-workflow/
 verifierは状態を報告するだけであり、実際のコピー・置換・統合はすべて利用者が手動で行う。
 
 0. （任意・推奨）`python tools/verify_workflow_template.py source-integrity` をこのパッケージ内で実行し、パッケージ自体がmanifestと整合していることを確認する。
-1. 導入先プロジェクトの `git status` / `git diff` を確認し、このパッケージがコピーしようとするパスと既存ファイルが衝突しないか、利用者自身が確認する。加えて、`python tools/verify_workflow_template.py plan --target-root <導入先パス> --set ...` を実行し、ファイルごとの状態（MISSING/IDENTICAL/DIFFERENT/INVALID/UNRESOLVED_PLACEHOLDER）を事前に確認してもよい（詳細は「検証CLI（verifier）」節を参照）。
-2. `template/multi-agent-workflow/` 配下の内容を、導入先プロジェクトの対応する相対パスへ手動でコピーする。
+1. 導入先プロジェクトの `git status` / `git diff` を確認し、`manifest.json` が導入候補として示す `target_path` と既存ファイルが衝突しないか、利用者自身が確認する。加えて、`python tools/verify_workflow_template.py plan --target-root <導入先パス> --set ...` を実行し、ファイルごとの状態（MISSING/IDENTICAL/DIFFERENT/INVALID/UNRESOLVED_PLACEHOLDER）を事前に確認してもよい（詳細は「検証CLI（verifier）」節を参照）。
+2. `manifest.json` の各 `files` エントリを個別に確認し、`adoption_mode` に従って手動で扱う。`COPY_IF_ABSENT` は導入先の `target_path` が存在しない場合だけコピーする。`TEMPLATE_RENAME` はrename後の `target_path` に手動作成する。`MANUAL_REVIEW` はこの段階で一括コピーせず、手順4で扱う。`PACKAGE_METADATA` と `REFERENCE_ONLY` は導入先へ配置しない。
 3. `PLACEHOLDERS.md` を参照し、各プレースホルダーを導入先プロジェクトの実際の値へ手動で置き換える（`{{DESIGN_SKILL_NAME}}` と `{{ADR_NUMBER}}` は、ディレクトリ名・ファイル名そのもののリネームを含む）。
-4. `.mcp.json` の内容を、導入先プロジェクトの既存 `.mcp.json` と手動で見比べる。既存ファイルがある場合、自動マージはせず、必要なサーバー設定を人が判断して追記する。
+4. `MANUAL_REVIEW` 対象の `.mcp.json` は、導入先での有無にかかわらず内容を人が確認する。既存 `.mcp.json` がある場合は、自動マージや上書きを行わず、必要なサーバー設定だけを人が判断して統合する。存在しない場合も、内容を確認した上で手動作成する。
 5. `PROJECT_RULES_SNIPPET.md` を参照し、導入先プロジェクトの既存ルール文書（`CLAUDE.md` / `AGENTS.md` 相当）に、必要な部分だけを人が判断して手動で貼り付ける。既存ルールを上書きしない。
 6. 導入先プロジェクトで Claude Code を再起動し、MCPサーバーの承認プロンプトを確認した上で承認し、`.claude/agents/` の4エージェントと `{{DESIGN_SKILL_NAME}}` Skill が利用可能であることを、利用者自身が手動で確認する（手順は `docs/agent-workflow/mcp-connection.md` / `subagents.md` / `multi-agent-design-skill.md` を参照）。
 7. `git status` / `git diff` を再確認し、意図した差分だけが生じていることを確認した上で、個別のファイルだけを `git add <file>` でstageする。`git add .` や `git add -A` は使用しない。commit・push・PR作成・mergeは、このテンプレート自体が推奨・自動化するものではなく、利用者自身の判断で行う。
@@ -195,21 +195,57 @@ portability trial中に、プレースホルダー置換をtext modeでのread/w
 
 ```python
 import re
+import unicodedata
 from pathlib import Path
 
 TOKEN_RE = re.compile(r"\{\{([A-Za-z0-9_]+)\}\}")
+DISALLOWED_VALUE_CATEGORIES = {"Cc", "Zl", "Zp"}
 
-def adopt_file(src: Path, dst: Path, placeholders: dict[str, str]) -> None:
+
+def validate_placeholder_value(value: str) -> None:
+    if (
+        value == ""
+        or "{{" in value
+        or "}}" in value
+        or any(
+            unicodedata.category(char) in DISALLOWED_VALUE_CATEGORIES
+            for char in value
+        )
+    ):
+        raise ValueError("unsafe placeholder value")
+
+
+def adopt_file(
+    src: Path,
+    dst: Path,
+    placeholders: dict[str, str],
+) -> None:
     if dst.exists():
-        raise FileExistsError(f"destination already exists, refusing to overwrite: {dst.name}")
+        raise FileExistsError(
+            "destination already exists; refusing to overwrite"
+        )
+
     raw = src.read_bytes()
+
     if placeholders:
+        for value in placeholders.values():
+            validate_placeholder_value(value)
+
         text = raw.decode("utf-8")
-        for name, value in placeholders.items():
-            text = text.replace("{{%s}}" % name, value)
-        if TOKEN_RE.findall(text):
-            raise ValueError("unresolved placeholder remains after substitution")
-        raw = text.encode("utf-8")
+
+        def replace_token(match: re.Match[str]) -> str:
+            name = match.group(1)
+            return placeholders.get(name, match.group(0))
+
+        rendered = TOKEN_RE.sub(replace_token, text)
+
+        if TOKEN_RE.search(rendered):
+            raise ValueError(
+                "unresolved placeholder remains after substitution"
+            )
+
+        raw = rendered.encode("utf-8")
+
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_bytes(raw)
 ```

@@ -4,7 +4,7 @@ Claude Code を Implementation Owner とし、Claude Code project subagents に�
 
 このファイルおよびパッケージ内の各文書本文は日本語で記述する。ただし、ファイル名・ディレクトリ名・JSONキー・CLI名・プレースホルダー名・論理ロール名は英語のまま使用する。全文を英訳する方針ではない。
 
-## このバージョン（0.1.0）の位置づけ
+## このバージョン（0.1.1）の位置づけ
 
 **このパッケージは、design-onlyの統合設計を基に作成された。** テンプレート内容と静的 `manifest.json`、および read-only verifier（`tools/verify_workflow_template.py`）を実装し、source repository内のunittestで検証している。次は、このバージョンにまだ含まれていない。
 
@@ -27,6 +27,7 @@ template/multi-agent-workflow/
 ├── CHANGELOG.md                           (package version history)
 ├── manifest.json                          (static package inventory)
 ├── PROJECT_RULES_SNIPPET.md               (manual-paste reference snippet)
+├── .gitattributes                         (package-local Git attributes: * -text)
 ├── .mcp.json                              (verbatim — Codex MCP server config)
 ├── .claude/
 │   ├── agents/
@@ -54,6 +55,10 @@ template/multi-agent-workflow/
 ```
 
 上記のツリーには含めていないが、`tools/verify_workflow_template.py`（read-only verifier）もこのパッケージの一部である。`adoption_mode` は `REFERENCE_ONLY` であり、パッケージ内から実行するツールであって、導入先リポジトリへコピーする対象ではない（詳細は「検証CLI（verifier）」節を参照）。
+
+`.gitattributes`（内容は `* -text` の1行のみ）は、このパッケージを配布している**このリポジトリ内**で、`core.autocrlf` の設定やOSにかかわらず、fresh clone / fresh checkout後のワーキングツリーのバイト列がGit blobのバイト列（および `manifest.json` に記録されたSHA-256）と一致するよう保護するためのpackage-localな設定である。`adoption_mode` は `PACKAGE_METADATA` であり、導入先リポジトリへコピーする対象ではない。導入先リポジトリへ手動配置されたファイルには、導入先リポジトリ自身のGit attributes・`core.autocrlf` 設定が適用され得る。導入先でcommit後にfresh checkoutした場合の厳密なバイト一致は、導入先リポジトリの改行コード方針に依存する。**adopter側の改行コード方針を自動的に設定することは、このバージョンの対象外である。** 詳細は今後のproduction-likeな導入試験で別途確認する。
+
+`manifest.json` の `files` は25件であり、うち `manifest.json` 自身（自己参照のため `sha256: null`）を除く24件がSHA-256比較の対象である。
 
 `{{DESIGN_SKILL_NAME}}` と `{{ADR_NUMBER}}` は、実際のディレクトリ名・ファイル名そのものに使われているプレースホルダーである。導入時に、実際の値へリネームする必要がある（詳細は `PLACEHOLDERS.md` を参照）。
 
@@ -157,6 +162,7 @@ verifierが判断するのは、プレースホルダー置換後のpackage byte
 - 実際のproduction repositoryへの導入
 - 導入先固有の運用ルール・組織ポリシーとの整合
 - cross-OS portability（Linux/macOS等、Windows以外の環境）
+- 導入先リポジトリ側の改行コード方針（`.gitattributes` / `core.autocrlf`）との整合、および導入先でのcommit・fresh checkout後のバイト一致
 - normalization-sensitiveなファイルシステムでの挙動（「パス安全性」節の既知の制限を参照）
 - semantic mergeの正しさ（`.mcp.json` 等の意味的な統合が妥当かどうかは、常に人が判断する）
 - 大規模パッケージ・大量ファイルでの導入
@@ -423,7 +429,7 @@ python -B template/multi-agent-workflow/tools/verify_workflow_template.py plan \
 | `unlisted_package_files` | manifestの `files` に登録されていない通常ファイルの件数（`UNLISTED_PACKAGE_FILE` reasonで報告された件数、`invalid` の内訳の一部）。symlink/reparse由来の未登録エントリはこの件数には含まれず、`[BLOCKING_ERROR]`（`blocking_errors`、exit 8）として別途報告される |
 | `final_exit` | このコマンド呼び出し全体のexit code |
 
-正常なパッケージ実行時の期待値: `compared: 23` / `identical: 23` / `invalid: 0` / `blocking_errors: 0` / `hash_compared: 23` / `hash_matched: 23` / `hash_mismatched: 0` / `self_hash_omitted: 1` / `manifest_valid: 1` / `unlisted_package_files: 0` / `final_exit: 0`。
+正常なパッケージ実行時の期待値: `compared: 24` / `identical: 24` / `invalid: 0` / `blocking_errors: 0` / `hash_compared: 24` / `hash_matched: 24` / `hash_mismatched: 0` / `self_hash_omitted: 1` / `manifest_valid: 1` / `unlisted_package_files: 0` / `final_exit: 0`。
 
 ### パス安全性
 

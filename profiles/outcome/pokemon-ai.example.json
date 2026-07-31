@@ -1,7 +1,7 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "profile_id": "pokemon-ai.external-league.example",
-  "profile_version": "1.0.0",
+  "profile_version": "1.1.0",
   "status": "example_only",
   "applicability": {
     "description": "Illustrative profile for outcome-affecting Pokemon AI changes; values are not production defaults.",
@@ -31,6 +31,11 @@
     "artifact_id": "baseline-required-before-active-use",
     "immutable_ref": "SET_IMMUTABLE_BASELINE_COMMIT_BEFORE_ACTIVE_USE"
   },
+  "cycle": {
+    "cycle_id": "pokemon-ai-cycle-example",
+    "primary_candidate_id": "pokemon-primary-example",
+    "fallback_candidate_id": "pokemon-fallback-example"
+  },
   "evaluation_targets": [
     {
       "id": "screening-league",
@@ -51,6 +56,7 @@
     {"id": "overall", "description": "All games"},
     {"id": "opponent-lucario", "description": "Lucario opponent"},
     {"id": "opponent-dragapult", "description": "Dragapult opponent"},
+    {"id": "opponent-megastarmie", "description": "Mega Starmie opponent"},
     {"id": "first-player", "description": "Games where the candidate acts first"},
     {"id": "second-player", "description": "Games where the candidate acts second"}
   ],
@@ -60,7 +66,7 @@
       "role": "primary",
       "direction": "maximize",
       "unit": "ratio",
-      "required_segments": ["overall", "opponent-lucario", "opponent-dragapult", "first-player", "second-player"]
+      "required_segments": ["overall", "opponent-lucario", "opponent-dragapult", "opponent-megastarmie", "first-player", "second-player"]
     },
     {
       "id": "error_rate",
@@ -101,6 +107,7 @@
         {"metric_id": "external_league_win_rate", "segment_id": "overall", "basis": "delta", "statistic": "lower", "parameters": {"limit": "0"}},
         {"metric_id": "external_league_win_rate", "segment_id": "opponent-lucario", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
         {"metric_id": "external_league_win_rate", "segment_id": "opponent-dragapult", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
+        {"metric_id": "external_league_win_rate", "segment_id": "opponent-megastarmie", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
         {"metric_id": "external_league_win_rate", "segment_id": "first-player", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
         {"metric_id": "external_league_win_rate", "segment_id": "second-player", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
         {"metric_id": "error_rate", "segment_id": "overall", "basis": "candidate", "statistic": "upper", "parameters": {"limit": "0.01"}},
@@ -110,7 +117,8 @@
       ],
       "catastrophic_criteria": [
         {"metric_id": "external_league_win_rate", "segment_id": "opponent-lucario", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.15"}},
-        {"metric_id": "external_league_win_rate", "segment_id": "opponent-dragapult", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.15"}}
+        {"metric_id": "external_league_win_rate", "segment_id": "opponent-dragapult", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.15"}},
+        {"metric_id": "external_league_win_rate", "segment_id": "opponent-megastarmie", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.15"}}
       ]
     },
     "confirmation": {
@@ -122,6 +130,7 @@
         {"metric_id": "external_league_win_rate", "segment_id": "overall", "basis": "delta", "statistic": "lower", "parameters": {"limit": "0"}},
         {"metric_id": "external_league_win_rate", "segment_id": "opponent-lucario", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
         {"metric_id": "external_league_win_rate", "segment_id": "opponent-dragapult", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
+        {"metric_id": "external_league_win_rate", "segment_id": "opponent-megastarmie", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
         {"metric_id": "external_league_win_rate", "segment_id": "first-player", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
         {"metric_id": "external_league_win_rate", "segment_id": "second-player", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.05"}},
         {"metric_id": "error_rate", "segment_id": "overall", "basis": "candidate", "statistic": "upper", "parameters": {"limit": "0.01"}},
@@ -131,7 +140,8 @@
       ],
       "catastrophic_criteria": [
         {"metric_id": "external_league_win_rate", "segment_id": "opponent-lucario", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.15"}},
-        {"metric_id": "external_league_win_rate", "segment_id": "opponent-dragapult", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.15"}}
+        {"metric_id": "external_league_win_rate", "segment_id": "opponent-dragapult", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.15"}},
+        {"metric_id": "external_league_win_rate", "segment_id": "opponent-megastarmie", "basis": "delta", "statistic": "lower", "parameters": {"limit": "-0.15"}}
       ]
     }
   },

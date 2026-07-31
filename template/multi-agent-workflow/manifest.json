@@ -1,6 +1,6 @@
 {
-  "template_version": "0.2.0",
-  "generated_from": "Approved generic Outcome Improvement Cycle design and one bounded refinement round, strict versioned JSON App Profile and external Evidence contracts, a standard-library-only read-only deterministic Gatekeeper, source-repository adoption, unittest coverage, and the existing template verifier/manual-adoption/source-integrity/strict-byte/Windows disposable portability evidence; same-model bootstrap only, heterogeneous independent review and cross-OS portability remain pending",
+  "template_version": "0.3.0",
+  "generated_from": "Approved generic Outcome Improvement Cycle with App Profile/Evidence schema v1.1, fixed Cycle and Primary/Fallback identities, immutable artifact bindings, external delta_stats, fail-closed permission/path conflict checks, one bounded refinement round, a standard-library-only read-only deterministic Gatekeeper, source-repository adoption and CI coverage, and the existing template verifier/manual-adoption/source-integrity/strict-byte/Windows disposable portability evidence; same-model bootstrap only, heterogeneous independent review and cross-OS portability remain pending",
   "files": [
     {
       "path": ".claude/agents/claude-architect.md",
@@ -60,7 +60,7 @@
       "notes": "Generic opt-in Outcome Improvement Cycle skill; preserves the existing design-only skill and separates control flow from App Profile and Gatekeeper responsibilities",
       "adoption_mode": "COPY_IF_ABSENT",
       "target_path": ".claude/skills/outcome-improvement-cycle/SKILL.md",
-      "sha256": "955e4a68e87f88678c4b7b6a7f8a43ff1e03ba541252bd91a42a0ad9472e0244"
+      "sha256": "e99f4f4cec921a118aa167423790a84c0746810b55386766b2c959cbb1b06768"
     },
     {
       "path": ".gitattributes",
@@ -86,7 +86,7 @@
       "path": "CHANGELOG.md",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
-      "sha256": "0a5bef4298f10c55a8964d338818f1e139294fe979c2212ad871210e9bcbd2b2",
+      "sha256": "d39ef589f387da3285e1821f784eba140a7272e06fcb68a4bc36c1c93dcbdd7c",
       "required": true,
       "notes": "Package version history",
       "adoption_mode": "PACKAGE_METADATA",
@@ -97,10 +97,10 @@
       "classification": "WORKFLOW_DOC",
       "content_mode": "NEW",
       "required": true,
-      "notes": "Strict versioned JSON App Profile and external Evidence Bundle contract, including five metric directions, bounded permissions, and fail-closed verdict semantics",
+      "notes": "Strict App Profile/Evidence schema v1.1 with five metric directions, immutable artifact bindings, fixed Cycle/candidate/round identities, external delta_stats, bounded permissions, and fail-closed conflict/verdict semantics",
       "adoption_mode": "COPY_IF_ABSENT",
       "target_path": "docs/agent-workflow/app-profile.md",
-      "sha256": "462bf5535b953d388afc5ecfbe27698c8b405bb90bcc4da18e5c15888ca2d968"
+      "sha256": "2bc7adca9e0a3a9179c045338fa5b4d82b4dcf280645b076d7fecb191455a47e"
     },
     {
       "path": "docs/agent-workflow/git-safety.md",
@@ -140,7 +140,7 @@
       "notes": "Generic bounded design, implementation, external screening/confirmation, deterministic gating, and final-audit workflow",
       "adoption_mode": "COPY_IF_ABSENT",
       "target_path": "docs/agent-workflow/outcome-improvement-cycle.md",
-      "sha256": "73b4e449a1a23d258c34f15b2366e17cf13f7fe4c2921333e30fdeb891a6b509"
+      "sha256": "e6691c0ec9a0d674e1ec8d4b7e9ce40671433918e04c5d99a8806e4ed65fe0c1"
     },
     {
       "path": "docs/agent-workflow/quality-first-token-policy.md",
@@ -230,7 +230,7 @@
       "notes": "Example-only Pokemon AI Profile fixture; illustrative values are not production defaults and evaluation is blocked",
       "adoption_mode": "REFERENCE_ONLY",
       "target_path": null,
-      "sha256": "ec3eb16f2c9265768ad1ff57f7a5504a8d40c6e55a81ada174fcadc98b535994"
+      "sha256": "4337511232304ef52ec2d700f539ebfd0f53c903dca760663912087e4cc9eab3"
     },
     {
       "path": "examples/app-profiles/rag-quality.example.json",
@@ -240,7 +240,7 @@
       "notes": "Example-only non-Pokemon RAG Profile fixture demonstrating target, minimize, threshold, range, segments, and guardrails",
       "adoption_mode": "REFERENCE_ONLY",
       "target_path": null,
-      "sha256": "bab0559c879963efb3a44a9c2662d2f55a09a71c0b4dad2f941702e85b7aeb61"
+      "sha256": "1466d015cd82ab447b7fc13231608dae9ef09e4d9ee848b0fcfe39cb12983384"
     },
     {
       "path": "manifest.json",
@@ -266,7 +266,7 @@
       "path": "PROJECT_RULES_SNIPPET.md",
       "classification": "RULE_SNIPPET",
       "content_mode": "NEW",
-      "sha256": "2fd1cd9f04be518cc0fd52a7ac5ce1fcce5e671c72bce591f59d38ec8a549be4",
+      "sha256": "4f32c1feb3bc6e1326f9ff8bea296dc567bf8e53dbf2b6551669cc3a2609647e",
       "required": true,
       "notes": "Manual-paste-only reference snippet; explicitly not for automatic insertion into any existing rules file",
       "adoption_mode": "REFERENCE_ONLY",
@@ -276,7 +276,7 @@
       "path": "README.md",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
-      "sha256": "446c1ea4dc00b631f1d0c157668217024ac5f0ff6e5b6f49aebfbb542961ff3b",
+      "sha256": "2aa87fdaf6b441e0a513c19d193603b3f1f3a8ffdb5091766166a2109106a5ef",
       "required": true,
       "notes": "Package-level README; not an installer, no apply/update/uninstall in this version",
       "adoption_mode": "PACKAGE_METADATA",
@@ -287,10 +287,10 @@
       "classification": "PACKAGE_TOOL",
       "content_mode": "NEW",
       "required": true,
-      "notes": "Adoptable standard-library-only read-only App Profile validator and deterministic external-Evidence Gatekeeper; no evaluator, command execution, network, Git, or file writes",
+      "notes": "Adoptable standard-library-only read-only schema v1.1 validator and deterministic external-Evidence Gatekeeper; validates immutable bindings, fixed Cycle/candidate/round identities and external delta_stats without evaluator, command execution, network, Git, or file writes",
       "adoption_mode": "COPY_IF_ABSENT",
       "target_path": "tools/outcome_gatekeeper.py",
-      "sha256": "4f50c5170bb73eb445cea112c0bf99efb3193ea91206951869a20bd80dc2ba58"
+      "sha256": "beeda341ea145f1240ad608c48aef219ddc0244edd093b0f669fea1cb4aab8e2"
     },
     {
       "path": "tools/verify_workflow_template.py",
@@ -306,7 +306,7 @@
       "path": "VERSION",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
-      "sha256": "1f930dd1f133c1f97a94fe3acb8db34372cf4c01ffdb2b3ff4ca72f9494121e9",
+      "sha256": "d915cc95d6ca8f47ae297713ed46d4e5c5d99ddd29fc3c61e263bdf305f2b5b0",
       "required": true,
       "notes": "Semantic Versioning marker for this package",
       "adoption_mode": "PACKAGE_METADATA",

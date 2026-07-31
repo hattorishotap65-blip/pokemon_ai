@@ -19,7 +19,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_ITEMS = 1000
 MAX_NESTING_DEPTH = 64
@@ -181,6 +181,35 @@ def _safe_relative_path(value: Any, path: str) -> str:
     return text
 
 
+def _artifact_binding(value: Any, path: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise GateError(f"{path}_MUST_BE_OBJECT")
+    keys = set(value)
+    if keys == {"artifact_id", "immutable_ref"}:
+        _identifier(value["artifact_id"], f"{path}_ARTIFACT_ID")
+        _text(value["immutable_ref"], f"{path}_IMMUTABLE_REF")
+    elif keys == {"artifact_id", "sha256"}:
+        _identifier(value["artifact_id"], f"{path}_ARTIFACT_ID")
+        if not isinstance(value["sha256"], str) or not SHA256_RE.fullmatch(value["sha256"]):
+            raise GateError(f"{path}_SHA256_INVALID")
+    else:
+        raise GateError(f"{path}_FIELDS_INVALID")
+    return value
+
+
+def _artifact_locator(value: dict[str, Any]) -> tuple[str, str]:
+    if "immutable_ref" in value:
+        return "immutable_ref", value["immutable_ref"]
+    return "sha256", value["sha256"]
+
+
+def _paths_overlap(left: str, right: str) -> bool:
+    left_parts = tuple(part.casefold() for part in PurePosixPath(left).parts)
+    right_parts = tuple(part.casefold() for part in PurePosixPath(right).parts)
+    shared = min(len(left_parts), len(right_parts))
+    return left_parts[:shared] == right_parts[:shared]
+
+
 def _unique_ids(items: list[dict[str, Any]], key: str, path: str) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
     for item in items:
@@ -251,7 +280,7 @@ def validate_profile(profile: dict[str, Any]) -> dict[str, Any]:
         profile,
         {
             "schema_version", "profile_id", "profile_version", "status",
-            "applicability", "objective", "baseline", "evaluation_targets",
+            "applicability", "objective", "baseline", "cycle", "evaluation_targets",
             "segments", "metrics", "stages", "tournament", "change_scope",
             "permissions", "reporting", "rejected_hypothesis_memory",
             "unresolved_unknowns",
@@ -278,9 +307,7 @@ def validate_profile(profile: dict[str, Any]) -> dict[str, Any]:
     _text(objective["description"], "OBJECTIVE_DESCRIPTION")
     primary_reference = _identifier(objective["primary_metric_id"], "PRIMARY_METRIC_REFERENCE")
 
-    baseline = _object(top["baseline"], {"artifact_id", "immutable_ref"}, "BASELINE")
-    _identifier(baseline["artifact_id"], "BASELINE_ARTIFACT_ID")
-    _text(baseline["immutable_ref"], "BASELINE_IMMUTABLE_REF")
+    _artifact_binding(top["baseline"], "BASELINE")
 
     target_items = []
     for raw in _array(top["evaluation_targets"], "EVALUATION_TARGETS"):
@@ -401,11 +428,37 @@ def validate_profile(profile: dict[str, Any]) -> dict[str, Any]:
     _positive_int(tournament["max_design_minutes"], "MAX_DESIGN_MINUTES", 1440)
     _positive_int(tournament["max_evaluation_minutes"], "MAX_EVALUATION_MINUTES", 10080)
 
+    cycle = _object(
+        top["cycle"],
+        {"cycle_id", "primary_candidate_id", "fallback_candidate_id"},
+        "CYCLE",
+    )
+    _identifier(cycle["cycle_id"], "CYCLE_ID")
+    primary_candidate_id = _identifier(cycle["primary_candidate_id"], "PRIMARY_CANDIDATE_ID")
+    fallback_candidate_id = cycle["fallback_candidate_id"]
+    if tournament["fallback_candidates"] == 0:
+        if fallback_candidate_id is not None:
+            raise GateError("FALLBACK_CANDIDATE_CONTRACT_CONFLICT")
+    else:
+        fallback_candidate_id = _identifier(fallback_candidate_id, "FALLBACK_CANDIDATE_ID")
+        if fallback_candidate_id == primary_candidate_id:
+            raise GateError("CANDIDATE_ROLE_ID_CONFLICT")
+
     scope = _object(top["change_scope"], {"allowed_paths", "prohibited_paths"}, "CHANGE_SCOPE")
-    for item in _array(scope["allowed_paths"], "ALLOWED_PATHS"):
+    allowed_paths = [
         _safe_relative_path(item, "ALLOWED_PATH")
-    for item in _array(scope["prohibited_paths"], "PROHIBITED_PATHS"):
+        for item in _array(scope["allowed_paths"], "ALLOWED_PATHS")
+    ]
+    prohibited_paths = [
         _safe_relative_path(item, "PROHIBITED_PATH")
+        for item in _array(scope["prohibited_paths"], "PROHIBITED_PATHS")
+    ]
+    if len(allowed_paths) != len(set(allowed_paths)):
+        raise GateError("ALLOWED_PATH_DUPLICATE")
+    if len(prohibited_paths) != len(set(prohibited_paths)):
+        raise GateError("PROHIBITED_PATH_DUPLICATE")
+    if any(_paths_overlap(allowed, prohibited) for allowed in allowed_paths for prohibited in prohibited_paths):
+        raise GateError("CHANGE_SCOPE_PATH_CONFLICT")
 
     permissions = _object(
         top["permissions"], {"implementation", "commit", "push", "pull_request", "merge"}, "PERMISSIONS"
@@ -420,6 +473,12 @@ def validate_profile(profile: dict[str, Any]) -> dict[str, Any]:
     for name, allowed in permission_enums.items():
         if permissions[name] not in allowed:
             raise GateError("PERMISSION_VALUE_INVALID")
+    permission_order = ("implementation", "commit", "push", "pull_request", "merge")
+    for index, name in enumerate(permission_order):
+        if permissions[name] != "denied" and any(
+            permissions[dependency] == "denied" for dependency in permission_order[:index]
+        ):
+            raise GateError("PERMISSION_DEPENDENCY_CONFLICT")
 
     reporting = _object(top["reporting"], {"required_fields", "evidence_registry_required"}, "REPORTING")
     for item in _array(reporting["required_fields"], "REPORTING_FIELDS"):
@@ -477,7 +536,8 @@ def validate_evidence(evidence: dict[str, Any], profile: dict[str, Any]) -> dict
         evidence,
         {
             "schema_version", "evidence_id", "stage", "profile_id", "profile_version",
-            "profile_sha256", "candidate_identity", "baseline_identity",
+            "profile_sha256", "cycle_id", "candidate_role", "evidence_round",
+            "candidate_artifact", "baseline_artifact",
             "evaluation_target_id", "dataset_identity", "protocol_identity", "uncertainty",
             "total_observations", "cells",
         },
@@ -492,9 +552,20 @@ def validate_evidence(evidence: dict[str, Any], profile: dict[str, Any]) -> dict
     _identifier(value["profile_version"], "EVIDENCE_PROFILE_VERSION")
     if not isinstance(value["profile_sha256"], str) or not SHA256_RE.fullmatch(value["profile_sha256"]):
         raise GateError("PROFILE_SHA256_INVALID")
-    candidate_id = _identifier(value["candidate_identity"], "CANDIDATE_IDENTITY")
-    baseline_id = _identifier(value["baseline_identity"], "BASELINE_IDENTITY")
-    if candidate_id == baseline_id:
+    _identifier(value["cycle_id"], "EVIDENCE_CYCLE_ID")
+    if value["candidate_role"] not in {"primary", "fallback"}:
+        raise GateError("CANDIDATE_ROLE_INVALID")
+    _bounded_int(
+        value["evidence_round"],
+        "EVIDENCE_ROUND",
+        0,
+        profile["tournament"]["additional_evidence_rounds"],
+    )
+    candidate_artifact = _artifact_binding(value["candidate_artifact"], "CANDIDATE_ARTIFACT")
+    baseline_artifact = _artifact_binding(value["baseline_artifact"], "EVIDENCE_BASELINE_ARTIFACT")
+    candidate_id = candidate_artifact["artifact_id"]
+    baseline_id = baseline_artifact["artifact_id"]
+    if candidate_id == baseline_id or _artifact_locator(candidate_artifact) == _artifact_locator(baseline_artifact):
         raise GateError("CANDIDATE_EQUALS_BASELINE")
     _identifier(value["evaluation_target_id"], "EVIDENCE_TARGET_ID")
     dataset = _object(value["dataset_identity"], {"id", "version", "sha256"}, "DATASET_IDENTITY")
@@ -516,7 +587,10 @@ def validate_evidence(evidence: dict[str, Any], profile: dict[str, Any]) -> dict
     for raw in _array(value["cells"], "EVIDENCE_CELLS", allow_empty=True):
         cell = _object(
             raw,
-            {"metric_id", "segment_id", "observations", "baseline_stats", "candidate_stats"},
+            {
+                "metric_id", "segment_id", "observations", "baseline_stats",
+                "candidate_stats", "delta_stats",
+            },
             "EVIDENCE_CELL",
         )
         metric_id = _identifier(cell["metric_id"], "CELL_METRIC_ID")
@@ -531,6 +605,7 @@ def validate_evidence(evidence: dict[str, Any], profile: dict[str, Any]) -> dict
             "observations": observations,
             "baseline": _validate_stats(cell["baseline_stats"], "BASELINE_STATS"),
             "candidate": _validate_stats(cell["candidate_stats"], "CANDIDATE_STATS"),
+            "delta": _validate_stats(cell["delta_stats"], "DELTA_STATS"),
         }
     return cells
 
@@ -554,11 +629,7 @@ def _blocked(profile_id: str | None, candidate_id: str | None, *reasons: str) ->
 def _stats_for_basis(cell: dict[str, Any], basis: str) -> dict[str, Decimal]:
     if basis == "candidate":
         return cell["candidate"]
-    return {
-        "estimate": cell["candidate"]["estimate"] - cell["baseline"]["estimate"],
-        "lower": cell["candidate"]["lower"] - cell["baseline"]["upper"],
-        "upper": cell["candidate"]["upper"] - cell["baseline"]["lower"],
-    }
+    return cell["delta"]
 
 
 def _criterion_pass(criterion: dict[str, Any], metric: dict[str, Any], cell: dict[str, Any]) -> bool:
@@ -590,10 +661,18 @@ def _identity_reasons(profile: dict[str, Any], evidence: dict[str, Any], digest:
         reasons.append("PROFILE_VERSION_MISMATCH")
     if evidence["profile_sha256"] != digest:
         reasons.append("PROFILE_DIGEST_MISMATCH")
+    if evidence["cycle_id"] != profile["cycle"]["cycle_id"]:
+        reasons.append("CYCLE_ID_MISMATCH")
     if evidence["stage"] != stage:
         reasons.append("STAGE_MISMATCH")
-    if evidence["baseline_identity"] != profile["baseline"]["artifact_id"]:
-        reasons.append("BASELINE_IDENTITY_MISMATCH")
+    if evidence["baseline_artifact"] != profile["baseline"]:
+        reasons.append("BASELINE_ARTIFACT_MISMATCH")
+    role = evidence["candidate_role"]
+    expected_candidate_id = profile["cycle"][f"{role}_candidate_id"]
+    if expected_candidate_id is None:
+        reasons.append("FALLBACK_NOT_CONFIGURED")
+    elif evidence["candidate_artifact"]["artifact_id"] != expected_candidate_id:
+        reasons.append("CANDIDATE_IDENTITY_MISMATCH")
     stage_profile = profile["stages"][stage]
     target_id = stage_profile["evaluation_target_id"]
     if evidence["evaluation_target_id"] != target_id:
@@ -621,7 +700,8 @@ def _identity_reasons(profile: dict[str, Any], evidence: dict[str, Any], digest:
 def _evaluate_stage(
     profile: dict[str, Any], evidence: dict[str, Any], digest: str, stage_name: str
 ) -> dict[str, Any]:
-    candidate_id = evidence.get("candidate_identity") if isinstance(evidence, dict) else None
+    candidate_artifact = evidence.get("candidate_artifact") if isinstance(evidence, dict) else None
+    candidate_id = candidate_artifact.get("artifact_id") if isinstance(candidate_artifact, dict) else None
     try:
         cells = validate_evidence(evidence, profile)
     except GateError as exc:
@@ -693,6 +773,7 @@ def _evaluate_stage(
             all(role == "primary" for _metric, _segment, role in failures)
             and profile["tournament"]["fallback_candidates"] == 1
             and stage_name == "screening"
+            and evidence["candidate_role"] == "primary"
         )
 
     permissions = profile["permissions"]
@@ -720,6 +801,7 @@ def evaluate(
     profile: dict[str, Any],
     screening_evidence: dict[str, Any],
     confirmation_evidence: dict[str, Any] | None = None,
+    primary_screening_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     try:
         validate_profile(profile)
@@ -732,6 +814,22 @@ def evaluate(
         return _blocked(profile["profile_id"], None, "UNRESOLVED_UNKNOWNS")
 
     screening = _evaluate_stage(profile, screening_evidence, digest, "screening")
+    if screening["verdict"] == "BLOCKED":
+        return screening
+    requested_role = screening_evidence.get("candidate_role") if isinstance(screening_evidence, dict) else None
+    if requested_role == "fallback":
+        if primary_screening_evidence is None:
+            return _blocked(profile["profile_id"], None, "FALLBACK_PRIMARY_EVIDENCE_REQUIRED")
+        primary_result = _evaluate_stage(profile, primary_screening_evidence, digest, "screening")
+        if primary_result["verdict"] != "FAIL" or not primary_result["fallback_allowed"]:
+            return _blocked(profile["profile_id"], None, "FALLBACK_NOT_AUTHORIZED")
+        if _artifact_locator(primary_screening_evidence["candidate_artifact"]) == _artifact_locator(
+            screening_evidence.get("candidate_artifact", {})
+        ):
+            return _blocked(profile["profile_id"], None, "PRIMARY_FALLBACK_ARTIFACT_COLLISION")
+    elif primary_screening_evidence is not None:
+        return _blocked(profile["profile_id"], None, "PRIMARY_EVIDENCE_UNEXPECTED")
+
     if confirmation_evidence is None:
         return screening
     if screening["verdict"] != "PASS_TO_CONFIRMATION":
@@ -741,8 +839,12 @@ def evaluate(
             "CONFIRMATION_NOT_ALLOWED",
         )
     confirmation = _evaluate_stage(profile, confirmation_evidence, digest, "confirmation")
-    if confirmation.get("candidate_identity") != screening.get("candidate_identity"):
-        return _blocked(profile["profile_id"], None, "CONFIRMATION_CANDIDATE_MISMATCH")
+    if confirmation["verdict"] == "BLOCKED":
+        return confirmation
+    if confirmation_evidence["candidate_artifact"] != screening_evidence["candidate_artifact"]:
+        return _blocked(profile["profile_id"], None, "CONFIRMATION_CANDIDATE_ARTIFACT_MISMATCH")
+    if confirmation_evidence["candidate_role"] != screening_evidence["candidate_role"]:
+        return _blocked(profile["profile_id"], None, "CONFIRMATION_CANDIDATE_ROLE_MISMATCH")
     return confirmation
 
 
@@ -766,6 +868,7 @@ def _build_parser() -> argparse.ArgumentParser:
     evaluate_cmd.add_argument("--profile", required=True)
     evaluate_cmd.add_argument("--evidence", required=True)
     evaluate_cmd.add_argument("--confirmation-evidence")
+    evaluate_cmd.add_argument("--primary-screening-evidence")
     return parser
 
 
@@ -795,7 +898,10 @@ def main(argv: list[str] | None = None) -> int:
         profile = _read_json(args.profile)
         evidence = _read_json(args.evidence)
         confirmation = _read_json(args.confirmation_evidence) if args.confirmation_evidence else None
-        result = evaluate(profile, evidence, confirmation)
+        primary_screening = (
+            _read_json(args.primary_screening_evidence) if args.primary_screening_evidence else None
+        )
+        result = evaluate(profile, evidence, confirmation, primary_screening)
         _emit(result)
         return VERDICT_EXIT[result["verdict"]]
     except GateError as exc:

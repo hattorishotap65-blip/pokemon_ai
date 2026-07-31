@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 
@@ -52,7 +53,21 @@ def passing_stats(metric):
     return {"estimate": value, "lower": value, "upper": value}
 
 
-def make_evidence(profile, stage="screening", candidate="candidate-v1"):
+def decimal_text(value):
+    text = format(value, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return "0" if text in {"-0", ""} else text
+
+
+def make_evidence(
+    profile,
+    stage="screening",
+    candidate=None,
+    role="primary",
+    evidence_round=0,
+    candidate_ref=None,
+):
     stage_profile = profile["stages"][stage]
     target = next(
         value for value in profile["evaluation_targets"]
@@ -61,22 +76,35 @@ def make_evidence(profile, stage="screening", candidate="candidate-v1"):
     cells = []
     for metric in profile["metrics"]:
         for segment_id in metric["required_segments"]:
+            baseline_stats = {"estimate": "0.5", "lower": "0.5", "upper": "0.5"}
+            candidate_stats = passing_stats(metric)
+            delta_stats = {
+                "estimate": decimal_text(Decimal(candidate_stats["estimate"]) - Decimal("0.5")),
+                "lower": decimal_text(Decimal(candidate_stats["lower"]) - Decimal("0.5")),
+                "upper": decimal_text(Decimal(candidate_stats["upper"]) - Decimal("0.5")),
+            }
             cells.append({
                 "metric_id": metric["id"],
                 "segment_id": segment_id,
                 "observations": stage_profile["min_observations_per_segment"],
-                "baseline_stats": {"estimate": "0.5", "lower": "0.5", "upper": "0.5"},
-                "candidate_stats": passing_stats(metric),
+                "baseline_stats": baseline_stats,
+                "candidate_stats": candidate_stats,
+                "delta_stats": delta_stats,
             })
+    candidate_id = candidate or profile["cycle"][f"{role}_candidate_id"]
+    candidate_ref = candidate_ref or f"immutable-{candidate_id}"
     return {
-        "schema_version": "1.0",
-        "evidence_id": f"{stage}-evidence-v1",
+        "schema_version": "1.1",
+        "evidence_id": f"{stage}-{role}-round-{evidence_round}",
         "stage": stage,
         "profile_id": profile["profile_id"],
         "profile_version": profile["profile_version"],
         "profile_sha256": gate.profile_digest(profile),
-        "candidate_identity": candidate,
-        "baseline_identity": profile["baseline"]["artifact_id"],
+        "cycle_id": profile["cycle"]["cycle_id"],
+        "candidate_role": role,
+        "evidence_round": evidence_round,
+        "candidate_artifact": {"artifact_id": candidate_id, "immutable_ref": candidate_ref},
+        "baseline_artifact": copy.deepcopy(profile["baseline"]),
         "evaluation_target_id": target["id"],
         "dataset_identity": {
             "id": target["dataset_id"],
@@ -102,7 +130,23 @@ def cell(evidence, metric_id, segment_id="overall"):
 
 def set_candidate(evidence, metric_id, estimate, lower=None, upper=None, segment_id="overall"):
     target = cell(evidence, metric_id, segment_id)
-    target["candidate_stats"] = {
+    candidate_stats = {
+        "estimate": estimate,
+        "lower": lower if lower is not None else estimate,
+        "upper": upper if upper is not None else estimate,
+    }
+    target["candidate_stats"] = candidate_stats
+    baseline = target["baseline_stats"]
+    target["delta_stats"] = {
+        "estimate": decimal_text(Decimal(candidate_stats["estimate"]) - Decimal(baseline["estimate"])),
+        "lower": decimal_text(Decimal(candidate_stats["lower"]) - Decimal(baseline["upper"])),
+        "upper": decimal_text(Decimal(candidate_stats["upper"]) - Decimal(baseline["lower"])),
+    }
+
+
+def set_delta(evidence, metric_id, estimate, lower=None, upper=None, segment_id="overall"):
+    target = cell(evidence, metric_id, segment_id)
+    target["delta_stats"] = {
         "estimate": estimate,
         "lower": lower if lower is not None else estimate,
         "upper": upper if upper is not None else estimate,
@@ -140,6 +184,12 @@ class SampleProfileTests(unittest.TestCase):
             for metric in load_json(path)["metrics"]
         }
         self.assertEqual(directions, {"maximize", "minimize", "target", "threshold", "range"})
+
+    def test_pokemon_profile_includes_megastarmie_segment(self):
+        profile = load_json(POKEMON_PROFILE)
+        self.assertIn("opponent-megastarmie", {segment["id"] for segment in profile["segments"]})
+        primary = next(metric for metric in profile["metrics"] if metric["role"] == "primary")
+        self.assertIn("opponent-megastarmie", primary["required_segments"])
 
 
 class ProfileValidationTests(unittest.TestCase):
@@ -204,8 +254,60 @@ class ProfileValidationTests(unittest.TestCase):
     def test_permission_cannot_be_broadened(self):
         self.assert_invalid(lambda p: p["permissions"].update({"merge": "automatic"}), "PERMISSION_VALUE_INVALID")
 
+    def test_permission_dependencies_cannot_contradict_each_other(self):
+        self.assert_invalid(
+            lambda p: p["permissions"].update({"implementation": "denied"}),
+            "PERMISSION_DEPENDENCY_CONFLICT",
+        )
+        self.assert_invalid(
+            lambda p: p["permissions"].update({"commit": "denied"}),
+            "PERMISSION_DEPENDENCY_CONFLICT",
+        )
+
     def test_unsafe_profile_path_is_rejected(self):
         self.assert_invalid(lambda p: p["change_scope"]["allowed_paths"].append("../escape"), "ALLOWED_PATH_PATH_UNSAFE")
+
+    def test_allowed_and_prohibited_paths_may_not_overlap(self):
+        self.assert_invalid(
+            lambda p: p["change_scope"]["prohibited_paths"].append(
+                "experiments/agents/raging_bolt/main.py"
+            ),
+            "CHANGE_SCOPE_PATH_CONFLICT",
+        )
+        self.assert_invalid(
+            lambda p: p["change_scope"]["prohibited_paths"].append("experiments/agents"),
+            "CHANGE_SCOPE_PATH_CONFLICT",
+        )
+        self.assert_invalid(
+            lambda p: p["change_scope"]["allowed_paths"].append("experiments"),
+            "CHANGE_SCOPE_PATH_CONFLICT",
+        )
+        self.assert_invalid(
+            lambda p: p["change_scope"]["prohibited_paths"].append(
+                "EXPERIMENTS/AGENTS/RAGING_BOLT/MAIN.PY"
+            ),
+            "CHANGE_SCOPE_PATH_CONFLICT",
+        )
+
+    def test_artifact_binding_requires_exactly_one_immutable_locator(self):
+        self.assert_invalid(
+            lambda p: p["baseline"].update({"sha256": "a" * 64}),
+            "BASELINE_FIELDS_INVALID",
+        )
+        self.assert_invalid(
+            lambda p: p.update({"baseline": {"artifact_id": "baseline-v1"}}),
+            "BASELINE_FIELDS_INVALID",
+        )
+
+    def test_cycle_fixes_primary_and_fallback_candidates(self):
+        self.assert_invalid(
+            lambda p: p["cycle"].update({"fallback_candidate_id": p["cycle"]["primary_candidate_id"]}),
+            "CANDIDATE_ROLE_ID_CONFLICT",
+        )
+        self.assert_invalid(
+            lambda p: p["tournament"].update({"fallback_candidates": 0}),
+            "FALLBACK_CANDIDATE_CONTRACT_CONFLICT",
+        )
 
     def test_unresolved_unknown_blocks_active_evaluation(self):
         self.profile["unresolved_unknowns"] = [
@@ -287,6 +389,18 @@ class DeterministicEvaluationTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "BLOCKED")
         self.assertIn("EVIDENCE_CELL_DUPLICATE", result["reasons"])
 
+    def test_missing_external_delta_stats_is_blocked(self):
+        cell(self.screening, "external_league_win_rate").pop("delta_stats")
+        result = gate.evaluate(self.profile, self.screening)
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("EVIDENCE_CELL_FIELDS_INVALID", result["reasons"])
+
+    def test_external_delta_stats_are_used_without_gatekeeper_synthesis(self):
+        set_candidate(self.screening, "external_league_win_rate", "0.4")
+        set_delta(self.screening, "external_league_win_rate", "0.1")
+        result = gate.evaluate(self.profile, self.screening)
+        self.assertEqual(result["verdict"], "PASS_TO_CONFIRMATION")
+
     def test_extra_metric_segment_cell_is_blocked(self):
         extra = copy.deepcopy(cell(self.screening, "error_rate", "overall"))
         extra["segment_id"] = "opponent-lucario"
@@ -316,16 +430,95 @@ class DeterministicEvaluationTests(unittest.TestCase):
         self.assertIn("UNCERTAINTY_IDENTITY_MISMATCH", result["reasons"])
 
     def test_candidate_may_not_equal_baseline(self):
-        self.screening["candidate_identity"] = self.screening["baseline_identity"]
+        self.screening["candidate_artifact"] = copy.deepcopy(self.screening["baseline_artifact"])
         result = gate.evaluate(self.profile, self.screening)
         self.assertEqual(result["verdict"], "BLOCKED")
         self.assertIn("CANDIDATE_EQUALS_BASELINE", result["reasons"])
 
-    def test_confirmation_candidate_must_match_screening(self):
-        confirmation = make_evidence(self.profile, "confirmation", candidate="other-candidate")
+    def test_baseline_artifact_must_match_profile(self):
+        self.screening["baseline_artifact"]["immutable_ref"] = "other-baseline-ref"
+        result = gate.evaluate(self.profile, self.screening)
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("BASELINE_ARTIFACT_MISMATCH", result["reasons"])
+
+    def test_cycle_candidate_role_and_round_are_fixed(self):
+        cycle_mismatch = copy.deepcopy(self.screening)
+        cycle_mismatch["cycle_id"] = "other-cycle"
+        self.assertIn("CYCLE_ID_MISMATCH", gate.evaluate(self.profile, cycle_mismatch)["reasons"])
+
+        candidate_mismatch = copy.deepcopy(self.screening)
+        candidate_mismatch["candidate_artifact"]["artifact_id"] = "other-candidate"
+        self.assertIn("CANDIDATE_IDENTITY_MISMATCH", gate.evaluate(self.profile, candidate_mismatch)["reasons"])
+
+        round_overflow = copy.deepcopy(self.screening)
+        round_overflow["evidence_round"] = self.profile["tournament"]["additional_evidence_rounds"] + 1
+        self.assertIn("EVIDENCE_ROUND_INTEGER_INVALID", gate.evaluate(self.profile, round_overflow)["reasons"])
+
+    def test_fallback_requires_authorizing_primary_failure(self):
+        fallback = make_evidence(self.profile, role="fallback")
+        blocked = gate.evaluate(self.profile, fallback)
+        self.assertEqual(blocked["verdict"], "BLOCKED")
+        self.assertIn("FALLBACK_PRIMARY_EVIDENCE_REQUIRED", blocked["reasons"])
+
+        primary_failure = copy.deepcopy(self.screening)
+        set_candidate(primary_failure, "external_league_win_rate", "0.4")
+        authorized = gate.evaluate(self.profile, fallback, primary_screening_evidence=primary_failure)
+        self.assertEqual(authorized["verdict"], "PASS_TO_CONFIRMATION")
+
+        same_artifact = copy.deepcopy(fallback)
+        same_artifact["candidate_artifact"]["immutable_ref"] = primary_failure["candidate_artifact"]["immutable_ref"]
+        collision = gate.evaluate(self.profile, same_artifact, primary_screening_evidence=primary_failure)
+        self.assertEqual(collision["verdict"], "BLOCKED")
+        self.assertIn("PRIMARY_FALLBACK_ARTIFACT_COLLISION", collision["reasons"])
+
+        malformed = copy.deepcopy(fallback)
+        malformed.pop("candidate_artifact")
+        malformed_result = gate.evaluate(self.profile, malformed, primary_screening_evidence=primary_failure)
+        self.assertEqual(malformed_result["verdict"], "BLOCKED")
+        self.assertIn("EVIDENCE_FIELDS_INVALID", malformed_result["reasons"])
+
+    def test_confirmation_candidate_artifact_must_match_screening(self):
+        confirmation = make_evidence(self.profile, "confirmation")
+        confirmation["candidate_artifact"]["immutable_ref"] = "different-candidate-ref"
         result = gate.evaluate(self.profile, self.screening, confirmation)
         self.assertEqual(result["verdict"], "BLOCKED")
-        self.assertIn("CONFIRMATION_CANDIDATE_MISMATCH", result["reasons"])
+        self.assertIn("CONFIRMATION_CANDIDATE_ARTIFACT_MISMATCH", result["reasons"])
+
+    def test_malformed_confirmation_is_blocked_without_exception(self):
+        confirmation = make_evidence(self.profile, "confirmation")
+        confirmation.pop("candidate_artifact")
+        result = gate.evaluate(self.profile, self.screening, confirmation)
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("EVIDENCE_FIELDS_INVALID", result["reasons"])
+
+    def test_sha256_artifact_bindings_are_supported(self):
+        profile = active_profile()
+        profile["baseline"] = {"artifact_id": "baseline-v1", "sha256": "a" * 64}
+        screening = make_evidence(profile)
+        confirmation = make_evidence(profile, "confirmation")
+        candidate = {
+            "artifact_id": profile["cycle"]["primary_candidate_id"],
+            "sha256": "b" * 64,
+        }
+        screening["candidate_artifact"] = copy.deepcopy(candidate)
+        confirmation["candidate_artifact"] = copy.deepcopy(candidate)
+        result = gate.evaluate(profile, screening, confirmation)
+        self.assertEqual(result["verdict"], "PASS")
+
+    def test_invalid_permission_or_scope_contract_returns_blocked(self):
+        permission_profile = copy.deepcopy(self.profile)
+        permission_profile["permissions"]["implementation"] = "denied"
+        permission_result = gate.evaluate(permission_profile, {})
+        self.assertEqual(permission_result["verdict"], "BLOCKED")
+        self.assertIn("PERMISSION_DEPENDENCY_CONFLICT", permission_result["reasons"])
+
+        scope_profile = copy.deepcopy(self.profile)
+        scope_profile["change_scope"]["prohibited_paths"].append(
+            scope_profile["change_scope"]["allowed_paths"][0]
+        )
+        scope_result = gate.evaluate(scope_profile, {})
+        self.assertEqual(scope_result["verdict"], "BLOCKED")
+        self.assertIn("CHANGE_SCOPE_PATH_CONFLICT", scope_result["reasons"])
 
     def test_same_input_has_same_result(self):
         first = gate.evaluate(self.profile, self.screening)
@@ -527,6 +720,18 @@ class SafetyAndTemplateTests(unittest.TestCase):
             POKEMON_PROFILE,
         ):
             self.assertTrue(path.is_file(), path)
+
+    def test_github_actions_runs_gatekeeper_and_template_tests(self):
+        workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+        self.assertIn("python -B -m unittest experiments.test_outcome_gatekeeper -v", workflow)
+        self.assertIn(
+            'python -B -m unittest discover -s experiments -p "test_verify_workflow_template.py" -v',
+            workflow,
+        )
+        self.assertIn(
+            "python -B template/multi-agent-workflow/tools/verify_workflow_template.py source-integrity",
+            workflow,
+        )
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "profile_id": "rag.quality.example",
-  "profile_version": "1.0.0",
+  "profile_version": "1.1.0",
   "status": "example_only",
   "applicability": {
     "description": "Illustrative RAG quality profile; it does not implement a RAG application or evaluator.",
@@ -10,6 +10,7 @@
   },
   "objective": {"description": "Keep answer correctness in an accepted target band while controlling hallucination, citation mismatch, and p95 latency.", "primary_metric_id": "answer_correctness"},
   "baseline": {"artifact_id": "rag-baseline-required", "immutable_ref": "SET_IMMUTABLE_RAG_BASELINE_BEFORE_ACTIVE_USE"},
+  "cycle": {"cycle_id": "rag-quality-cycle-example", "primary_candidate_id": "rag-primary-example", "fallback_candidate_id": "rag-fallback-example"},
   "evaluation_targets": [
     {"id": "rag-screening", "dataset_id": "rag-screening-set", "dataset_version": "example-v1", "dataset_sha256": "2222222222222222222222222222222222222222222222222222222222222222", "protocol_id": "rag-external-screening-example"},
     {"id": "rag-confirmation", "dataset_id": "rag-confirmation-set", "dataset_version": "example-v1", "dataset_sha256": "3333333333333333333333333333333333333333333333333333333333333333", "protocol_id": "rag-external-confirmation-example"}

@@ -1,4 +1,4 @@
-# App Profile v1
+# App Profile v1.1
 
 App Profileは、アプリ固有の改善目標と外部評価条件を、汎用Outcome Improvement Cycleへ渡すversioned JSON契約である。Profileは評価を実行する設定ではない。Profile内の文字列をcommand、module、URL、scriptとして実行してはならない。
 
@@ -35,12 +35,13 @@ Top-levelは次のkeyをすべて必須とし、それ以外を拒否する。
 
 | Key | 内容 |
 |---|---|
-| `schema_version` | v1は`1.0` |
+| `schema_version` | v1.1は`1.1` |
 | `profile_id` / `profile_version` | 安定IDとversion |
 | `status` | `active`または`example_only` |
 | `applicability` | 適用する変更種別、説明、除外 |
 | `objective` | 目的とprimary metric ID |
-| `baseline` | baseline artifact IDとimmutable ref |
+| `baseline` | baseline artifact IDとimmutable refまたはSHA-256 digest |
+| `cycle` | Cycle IDと固定Primary/Fallback candidate ID |
 | `evaluation_targets` | stageが参照するdataset/protocol identity |
 | `segments` | 明示的な評価segment |
 | `metrics` | primary 1件とguardrail 1件以上 |
@@ -56,7 +57,18 @@ IDは`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`、SHA-256はlowercase 64 hexとする
 
 ### Applicabilityとscope
 
-`applicability`は`description`、非空の`change_kinds`、非空の`exclusions`を持つ。`change_scope`は非空の`allowed_paths`と`prohibited_paths`を持つ。pathはPOSIX形式のrepo相対pathだけを許可し、absolute、UNC、drive-relative、backslash、`.`、`..`、制御文字を拒否する。
+`applicability`は`description`、非空の`change_kinds`、非空の`exclusions`を持つ。`change_scope`は非空の`allowed_paths`と`prohibited_paths`を持つ。pathはPOSIX形式のrepo相対pathだけを許可し、absolute、UNC、drive-relative、backslash、`.`、`..`、制御文字を拒否する。同一pathだけでなく、一方が他方の祖先または子孫になるallowed/prohibited組合せも、大文字小文字を区別せず`CHANGE_SCOPE_PATH_CONFLICT`として拒否する。
+
+### Artifact bindingとCycle
+
+`baseline`、Evidenceの`baseline_artifact`と`candidate_artifact`は、次のどちらか一方のstrict objectである。
+
+- `artifact_id` + `immutable_ref`
+- `artifact_id` + lowercase 64 hexの`sha256`
+
+Evidenceのbaseline bindingはProfileの`baseline`とobject全体が一致しなければならない。candidateとbaselineはartifact IDだけでなく、同じimmutable refまたはdigestを共有してもならない。screeningとconfirmationのcandidate bindingも完全一致させる。
+
+`cycle`は`cycle_id`、`primary_candidate_id`、`fallback_candidate_id`を持つ。`fallback_candidates=0`ならfallback IDは`null`、`fallback_candidates=1`ならprimaryと異なる固定IDを必須とする。EvidenceはCycle ID、candidate role、固定candidate IDを参照し、cycle途中の候補差替えを認めない。
 
 ### Metrics
 
@@ -94,13 +106,9 @@ Criterionは`metric_id`、`segment_id`、`basis`、`statistic`、`parameters`を
 - threshold: `statistic=estimate|lower|upper`、`parameters.operator=gte|lte`と`limit`
 - range: `statistic=interval`、`parameters.lower/upper`
 
-`delta`のintervalは、外部Evidenceのcandidate/baseline intervalから保守的に算出する。
+`basis=delta`は外部Evaluatorが生成した`delta_stats`だけを使用する。Gatekeeperはcandidate/baseline intervalからdelta intervalを合成しない。paired、unpaired、bootstrapなどの評価設計に応じたdelta estimate/CIの生成責任は外部Evaluatorにある。
 
-- estimate = candidate estimate - baseline estimate
-- lower = candidate lower - baseline upper
-- upper = candidate upper - baseline lower
-
-Gatekeeperは平均、再標本化、CI計算、最新値選択を行わない。
+Gatekeeperは平均、差分、再標本化、CI計算、最新値選択を行わない。
 
 ### Tournament上限
 
@@ -116,6 +124,10 @@ v1は次を必須とする。
 
 unlimited、負数、上限超過を拒否する。今回の標準フローはrefinement 1回である。
 
+Evidenceの`evidence_round`はstageごとの0始まりラベルとして必須にし、`0..additional_evidence_rounds`に固定する。Gatekeeperが受け取る各Evidenceでは省略と上限超過を拒否する。ただしCLIは過去round一式を受け取らないため、roundの連続性や欠番の有無はEvaluator側のEvidence台帳で保証する。
+
+FallbackはPrimaryと異なる`artifact_id`だけでなく、異なるimmutable locatorを持たなければならない。同一`immutable_ref`または同一`sha256`を別IDでFallbackとして再利用した場合は`BLOCKED`とする。
+
 ### Permissions
 
 `permissions`は次の5 keyだけを持つ。
@@ -130,6 +142,8 @@ unlimited、負数、上限超過を拒否する。今回の標準フローはre
 
 Gatekeeperはeligibleかどうかを報告するだけで操作しない。`example_only`では全操作が非eligibleである。mergeは数値条件だけではeligibleにならない。
 
+権限は`implementation -> commit -> push -> pull_request -> merge`の依存順である。後段が`denied`でも前段を許可する構成は有効だが、前段が`denied`なのに後段を許可する構成は`PERMISSION_DEPENDENCY_CONFLICT`である。ユーザー／repo規則との共通部分で相互矛盾が見つかった場合も評価を続けず`BLOCKED`とする。
+
 ## Evidence Bundle
 
 EvidenceはProfileとは別のstrict JSONで、外部evaluatorが作る。必須top-level keyは次のとおり。
@@ -138,7 +152,10 @@ EvidenceはProfileとは別のstrict JSONで、外部evaluatorが作る。必須
 - `evidence_id`
 - `stage`: `screening`または`confirmation`
 - `profile_id` / `profile_version` / `profile_sha256`
-- `candidate_identity` / `baseline_identity`
+- `cycle_id`
+- `candidate_role`: `primary`または`fallback`
+- `evidence_round`: stageごとの0始まりround
+- `candidate_artifact` / `baseline_artifact`: immutable refまたはdigestを含むartifact binding
 - `evaluation_target_id`
 - `dataset_identity`: `id` / `version` / `sha256`
 - `protocol_identity`
@@ -146,13 +163,14 @@ EvidenceはProfileとは別のstrict JSONで、外部evaluatorが作る。必須
 - `total_observations`
 - `cells`
 
-candidateとbaselineは異なるIDでなければならない。Profile、stage、target、dataset、protocolのidentity不一致は`BLOCKED`である。
+candidateとbaselineは異なるbindingでなければならない。Profile、Cycle、candidate role/ID、artifact binding、stage、target、dataset、protocolのidentity不一致は`BLOCKED`である。
 
 各cellの一意keyは`(metric_id, segment_id)`であり、次を持つ。
 
 - `observations`
 - `baseline_stats`: `estimate` / `lower` / `upper`
 - `candidate_stats`: `estimate` / `lower` / `upper`
+- `delta_stats`: 外部Evaluatorが生成した`estimate` / `lower` / `upper`
 
 statsはcanonical Decimal文字列で、`lower <= estimate <= upper`を満たす。required cell欠落または観測数不足は`INSUFFICIENT_EVIDENCE`、duplicate/extra/unknown cellは`BLOCKED`である。
 
@@ -166,7 +184,7 @@ statsはcanonical Decimal文字列で、`lower <= estimate <= upper`を満たす
 4. screening全合格: `PASS_TO_CONFIRMATION`
 5. confirmation全合格: `PASS`
 
-Primary screeningのprimary criterionだけが`FAIL`した場合に限り、事前選定済みfallbackを最大1件評価できる。guardrail/catastrophic FAIL、BLOCKED、INSUFFICIENTではfallbackへ進まない。INSUFFICIENTでは同一候補の不足Evidenceだけを、Profileの有限上限内で追加する。
+Primary screeningのprimary criterionだけが`FAIL`した場合に限り、事前選定済みfallbackを最大1件評価できる。fallback Evidenceを評価するときは、そのCycleのprimary screening failure EvidenceもGatekeeperへ渡す。guardrail/catastrophic FAIL、BLOCKED、INSUFFICIENTではfallbackへ進まない。INSUFFICIENTでは同一候補の不足Evidenceだけを、固定round上限内で追加する。
 
 ## CLI
 
@@ -175,6 +193,7 @@ python tools/outcome_gatekeeper.py validate-profile PROFILE
 python tools/outcome_gatekeeper.py digest-profile PROFILE
 python tools/outcome_gatekeeper.py evaluate --profile PROFILE --evidence SCREENING_EVIDENCE
 python tools/outcome_gatekeeper.py evaluate --profile PROFILE --evidence SCREENING_EVIDENCE --confirmation-evidence CONFIRMATION_EVIDENCE
+python tools/outcome_gatekeeper.py evaluate --profile PROFILE --evidence FALLBACK_SCREENING_EVIDENCE --primary-screening-evidence PRIMARY_FAILURE_EVIDENCE
 ```
 
 出力はstdout上の単一sorted JSONだけである。秘密、raw payload、absolute pathをstderrへ出さない。locale、time、environmentへ判定を依存させない。ファイル出力optionは持たない。

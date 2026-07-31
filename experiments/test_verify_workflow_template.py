@@ -1121,9 +1121,9 @@ class RealRepositorySmokeTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("final_exit: 0", out)
 
-    def test_release_inventory_regression_v0_2_0(self):
+    def test_release_inventory_regression_v0_3_0(self):
         """Pins the exact expected source-integrity summary for the current
-        shipped package (v0.2.0, 31 manifest entries). This is a
+        shipped package (v0.3.0, 31 manifest entries). This is a
         release-inventory regression test: if a future version adds,
         removes, or changes a manifest entry, these expected values MUST be
         updated deliberately in the same change -- a silent mismatch here
@@ -1136,7 +1136,7 @@ class RealRepositorySmokeTests(unittest.TestCase):
         block_start = out.rfind("[", 0, idx)
         self.assertTrue(out[block_start:idx].startswith("[SKIPPED]"))
         self.assertIn("reason: SELF_HASH_INTENTIONALLY_OMITTED", out)
-        # Exact expected summary for v0.2.0's 31-entry manifest
+        # Exact expected summary for v0.3.0's 31-entry manifest
         # (30 real files + manifest.json itself).
         for expected_line in (
             "compared: 30",
@@ -1157,6 +1157,12 @@ class RealRepositorySmokeTests(unittest.TestCase):
             "final_exit: 0",
         ):
             self.assertIn(expected_line, out, f"expected summary line missing: {expected_line!r}")
+
+    def test_version_and_manifest_metadata_are_v0_3_0(self):
+        with open(PACKAGE_ROOT / "manifest.json", encoding="utf-8") as f:
+            manifest = json.load(f)
+        self.assertEqual((PACKAGE_ROOT / "VERSION").read_text(encoding="utf-8"), "0.3.0\n")
+        self.assertEqual(manifest["template_version"], "0.3.0")
 
     def test_gitattributes_content_is_exactly_star_minus_text(self):
         self.assertEqual((PACKAGE_ROOT / ".gitattributes").read_bytes(), b"* -text\n")

@@ -20,6 +20,9 @@ The first argument must identify an App Profile. The remaining arguments describ
 - All auditors, designers, challengers, refiners, and judges are read-only.
 - Never execute Profile strings as commands or import targets.
 - Never ask the Gatekeeper to run evaluation, Git, network, or write operations.
+- Treat permission dependency contradictions and any allowed/prohibited path overlap as `BLOCKED`.
+- Require immutable-ref or digest bindings for both baseline and candidate artifacts.
+- Require external Evaluators to emit `delta_stats`; never ask the Gatekeeper to synthesize delta intervals.
 - Do not automatically overwrite an existing file during template adoption.
 - Do not commit, push, or create a PR before confirmation `PASS`, Test Auditor `APPROVE`, and Final Auditor `APPROVE`.
 - Never merge without explicit user instruction. If heterogeneous review is required and pending, keep the PR Draft and do not merge.
@@ -28,7 +31,7 @@ If a required role or external evaluator is unavailable, record the Evidence lim
 
 ## Phase 0: preflight
 
-Record the intended repository/worktree, baseline SHA, branch, initial status, protected paths, out-of-scope paths, user permissions, and Profile path. Validate the Profile with:
+Record the intended repository/worktree, baseline SHA, branch, initial status, protected paths, out-of-scope paths, user permissions, Profile path, Cycle ID, and fixed Primary/Fallback candidate IDs. Validate the Profile with:
 
 ```text
 python tools/outcome_gatekeeper.py validate-profile PROFILE_PATH
@@ -88,12 +91,14 @@ The Implementation Owner edits only the approved exact allowlist. Preserve unrel
 
 The evaluation harness is external to the Gatekeeper and must be separately authorized. Evaluate the primary candidate first.
 
-1. Produce screening Evidence for the fixed Profile/baseline/dataset/protocol.
-2. Run deterministic Gatekeeper.
-3. Continue to confirmation only on `PASS_TO_CONFIRMATION`.
-4. Produce independent confirmation Evidence and run Gatekeeper again.
+1. Produce screening Evidence for the fixed Profile/Cycle/candidate role/baseline/dataset/protocol and explicit zero-based Evidence round.
+2. Bind baseline and candidate to an immutable ref or SHA-256 digest.
+3. Produce `baseline_stats`, `candidate_stats`, and externally computed `delta_stats`; the Gatekeeper does not derive delta confidence intervals.
+4. Run deterministic Gatekeeper.
+5. Continue to confirmation only on `PASS_TO_CONFIRMATION`.
+6. Produce independent confirmation Evidence for the exact same candidate artifact and run Gatekeeper again.
 
-Primary screening primary-criterion `FAIL` may activate the one preselected fallback. Guardrail/catastrophic `FAIL`, `BLOCKED`, and `INSUFFICIENT_EVIDENCE` do not. For `INSUFFICIENT_EVIDENCE`, collect only the named missing evidence for the same candidate within the finite Profile limit. Never add a new candidate mid-cycle.
+Primary screening primary-criterion `FAIL` may activate the one preselected fallback. When evaluating fallback Evidence, also pass the authorizing Primary failure Evidence with `--primary-screening-evidence`. Guardrail/catastrophic `FAIL`, `BLOCKED`, and `INSUFFICIENT_EVIDENCE` do not. For `INSUFFICIENT_EVIDENCE`, collect only the named missing evidence for the same candidate within the fixed round limit. Never change Cycle ID, candidate role/ID, or candidate artifact mid-cycle.
 
 ## Phase 8: Final Audit and release
 
@@ -113,7 +118,7 @@ Report only roles and actions that actually occurred. Include:
 - refinement count, Challenger result, Alignment verdict
 - Implementation Owner changes
 - Test Auditor verdict and exact tests
-- screening/confirmation evidence and Gate verdicts
+- Cycle ID, Primary/Fallback IDs, artifact bindings, Evidence rounds, screening/confirmation evidence, and Gate verdicts
 - Final Auditor verdict
 - commit/PR status
 - heterogeneous review status

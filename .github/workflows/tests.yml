@@ -209,3 +209,12 @@ jobs:
 
       - name: Run runtime param override tests
         run: python experiments/test_runtime_param_overrides.py
+
+      - name: Run outcome Gatekeeper tests
+        run: python -B -m unittest experiments.test_outcome_gatekeeper -v
+
+      - name: Run multi-agent workflow template tests
+        run: python -B -m unittest discover -s experiments -p "test_verify_workflow_template.py" -v
+
+      - name: Verify multi-agent workflow template source integrity
+        run: python -B template/multi-agent-workflow/tools/verify_workflow_template.py source-integrity

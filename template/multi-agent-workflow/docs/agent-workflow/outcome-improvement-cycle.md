@@ -35,7 +35,7 @@ App Profile
   -> Screening Evaluation
   -> Deterministic Gatekeeper
        PASS_TO_CONFIRMATION -> Confirmation Evaluation -> Gatekeeper
-       FAIL(primary only)   -> optional preselected fallback (max 1)
+       FAIL(primary only)   -> fixed fallback (max 1; primary failure Evidence required)
        INSUFFICIENT         -> missing evidence for same candidate only
        BLOCKED              -> stop
   -> Final Audit
@@ -72,7 +72,7 @@ handoffは口頭の印象ではなく、次のartifact IDとrevisionで管理す
 
 | Artifact | 最低限の内容 |
 |---|---|
-| Cycle Request | purpose、scope、permission、Profile参照 |
+| Cycle Request | purpose、scope、permission、Profile参照、Cycle ID、固定Primary/Fallback ID |
 | Requirements Verdict | READY/BLOCKED、missing values、Unknown |
 | Evidence Registry | Evidence ID、Confirmed/Inference/Unknown、一次資料 |
 | Frozen Proposal Bundle | proposal ID、固定revision、独立性宣言 |
@@ -80,8 +80,8 @@ handoffは口頭の印象ではなく、次のartifact IDとrevisionで管理す
 | Design Decision | score、primary/fallback、order sensitivity、rejection reasons |
 | Refined Design | exact allowlist、schema、CLI、acceptance、rollback |
 | Alignment Verdict | APPROVE/CHANGES_REQUIRED/REJECT |
-| Implementation Manifest | baseline、candidate、変更path、tests |
-| Evidence Bundle | [App Profile契約](app-profile.md)に従う外部測定値 |
+| Implementation Manifest | baseline/candidate immutable binding、Cycle ID、変更path、tests |
+| Evidence Bundle | [App Profile契約](app-profile.md)に従うcandidate role、Evidence round、外部`delta_stats`を含む測定値 |
 | Gate Verdict | 5 verdict、reason code、eligible actions |
 | Final Audit | scope、tests、gate、保護対象、Unknown、release decision |
 
@@ -93,8 +93,8 @@ Profileの必須値を最初に検証する。値がない場合、もっとも�
 
 - `example_only`は設計・validation fixtureには使えるが、候補採用には使えない。
 - `active` Profileに未解決Unknownが残る場合はBLOCKED。
-- Profile permissionはユーザー指示やrepo規則より広い権限を作れない。
-- evaluation target、baseline、metric、segment、stage criteria、Evidence量が確定していなければ実装・評価へ進まない。
+- Profile permissionはユーザー指示やrepo規則より広い権限を作れない。permission依存の相互矛盾、allowed/prohibited pathの同一・祖先・子孫競合はBLOCKED。
+- evaluation target、immutable baseline binding、Cycle ID、Primary/Fallback ID、metric、segment、stage criteria、Evidence round上限が確定していなければ実装・評価へ進まない。
 
 ## Design tournament
 
@@ -130,7 +130,8 @@ Test Auditは少なくとも次を確認する。
 - Profile正常／異常系と5 direction
 - primary/guardrail/segment/stage coverage
 - screening/confirmationと5 verdict
-- dataset/protocol/profile/baseline/candidate identity
+- dataset/protocol/profile/Cycle/baseline/candidate immutable binding、candidate role、Evidence round
+- 外部Evaluator生成`delta_stats`を使用し、Gatekeeperがdelta CIを合成しないこと
 - fallback/refinement/evidence追加上限
 - permission矛盾
 - shell-like文字列が実行されないこと
@@ -144,19 +145,19 @@ Test Auditは少なくとも次を確認する。
 
 Primary candidateを先に実装し、Test Audit承認後にscreeningする。screeningが`PASS_TO_CONFIRMATION`のときだけconfirmationへ進む。
 
-- primary screeningのprimary criterionだけが`FAIL`: 事前選定済みfallbackを最大1件評価可
+- primary screeningのprimary criterionだけが`FAIL`: 固定済みfallbackを、primary failure Evidenceを添えて最大1件評価可
 - guardrail/catastrophic `FAIL`: fallbackなし
-- `INSUFFICIENT_EVIDENCE`: 同じ候補の不足測定だけを有限回追加
+- `INSUFFICIENT_EVIDENCE`: 同じcandidate artifactの不足測定だけを固定round上限内で追加
 - `BLOCKED`: 即停止
 - primary/fallback双方`FAIL`: baselineを維持して終了
 
-candidate間でbaseline、dataset、protocolを黙って変更しない。変更が必要なら新Cycleとする。
+candidate間でCycle ID、baseline、candidate role/ID、artifact binding、dataset、protocolを黙って変更しない。変更が必要なら新Cycleとする。
 
 ## Deterministic Gatekeeper
 
 [`tools/outcome_gatekeeper.py`](../../tools/outcome_gatekeeper.py)はPython標準ライブラリだけのread-only CLIである。外部evaluatorが生成したEvidenceとProfileを比較し、`PASS`、`PASS_TO_CONFIRMATION`、`FAIL`、`INSUFFICIENT_EVIDENCE`、`BLOCKED`のいずれかを返す。
 
-Gatekeeperは評価の実行、統計の推定、候補選択、fallback実装、Git操作、commit、push、PR、mergeを行わない。同じ入力bytesと環境非依存の規則から同じJSON結果を返す。
+Gatekeeperは評価の実行、統計の推定、candidate/baseline CIからのdelta CI合成、候補選択、fallback実装、Git操作、commit、push、PR、mergeを行わない。`basis=delta`では外部Evaluatorの`delta_stats`だけを使用し、同じ入力bytesと環境非依存の規則から同じJSON結果を返す。
 
 ## Release boundary
 
@@ -169,7 +170,7 @@ commit/push/Draft PRは、次の全条件を満たした場合だけ行う。
 - Final Auditor APPROVE
 - protected/out-of-scope差分なし
 - original dirty repo不変
-- user/repo/Profile permissionsの共通部分が許可
+- user/repo/Profile permissionsの共通部分が許可され、依存矛盾とpath競合がない
 
 Profileの`PASS`は操作を自動実行しない。mergeは常にユーザーの明示指示が必要である。Profileがheterogeneous reviewを要求する場合、その完了前にDraft解除またはmergeを行わない。
 

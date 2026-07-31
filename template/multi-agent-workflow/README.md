@@ -4,7 +4,7 @@ Claude Code を Implementation Owner とし、Claude Code project subagents に�
 
 このファイルおよびパッケージ内の各文書本文は日本語で記述する。ただし、ファイル名・ディレクトリ名・JSONキー・CLI名・プレースホルダー名・論理ロール名は英語のまま使用する。全文を英訳する方針ではない。
 
-## このバージョン（0.2.0）の位置づけ
+## このバージョン（0.3.0）の位置づけ
 
 **このパッケージは、既存のdesign-only統合設計に、汎用Outcome Improvement Cycleをopt-inで追加した。** テンプレート内容と静的 `manifest.json`、read-only verifier（`tools/verify_workflow_template.py`）、および外部Evidence専用の決定論的read-only Gatekeeper（`tools/outcome_gatekeeper.py`）をsource repository内のunittestで検証する。既存`multi-agent-design` Skillとverifierの責務は変更していない。次は、このバージョンに含まれない。
 
@@ -16,7 +16,7 @@ Claude Code を Implementation Owner とし、Claude Code project subagents に�
 - 実際のproduction repositoryへの本番導入実績 — 使い捨てのdisposable sample targetによるportability trial（詳細は「Portability validation」節を参照）は実施済みだが、実際の別プロジェクト・production repositoryへ本番導入した実績は、このバージョンの時点では存在しない（未検証）。cross-OS portability（Windows以外の環境）も未検証
 - 外部evaluatorまたはアプリ本体 — Gatekeeperは既に生成されたEvidenceを比較するだけで、測定を実行しない
 - example Profileの本番基準化 — Pokemon AIとRAGの例は`example_only`であり、実運用defaultではない
-- heterogeneous independent review — 0.2.0はsame-model bootstrapであり、異種モデル監査は未完了
+- heterogeneous independent review — 0.3.0はsame-model bootstrapであり、異種モデル監査は未完了
 
 `tools/verify_workflow_template.py`（read-only verifier）を同梱している。verifierは**状態を報告するだけ**であり、コピー・マージ・書き込みは一切行わない（詳細は「検証CLI（verifier）」節を参照）。**手動導入の前に、導入先プロジェクトの既存ファイルとの競合を、利用者自身が `git status` / `git diff`、および必要に応じてverifierの `plan` 出力で確認する必要がある。**
 
@@ -327,7 +327,7 @@ def adopt_file(
 - [`docs/agent-workflow/outcome-improvement-cycle.md`](docs/agent-workflow/outcome-improvement-cycle.md)
 - [`.claude/skills/outcome-improvement-cycle/SKILL.md`](.claude/skills/outcome-improvement-cycle/SKILL.md)
 
-Gatekeeperは評価command、Profile文字列、module、URLを実行しない。subprocess、network、Git、write APIを持たず、stdoutへ判定JSONを返すだけである。`example_only` Profileはvalidate/digestできるがevaluateは`BLOCKED`になる。
+Gatekeeperは評価command、Profile文字列、module、URLを実行しない。subprocess、network、Git、write APIを持たず、stdoutへ判定JSONを返すだけである。Schema v1.1ではpermission依存矛盾とallowed/prohibited path競合をfail-closedにし、Cycle ID、固定Primary/Fallback、Evidence round、immutable artifact bindingを検証する。delta CIは合成せず、外部Evaluator生成の`delta_stats`だけを使用する。`example_only` Profileはvalidate/digestできるがevaluateは`BLOCKED`になる。
 
 ```bash
 python -B tools/outcome_gatekeeper.py validate-profile examples/app-profiles/rag-quality.example.json

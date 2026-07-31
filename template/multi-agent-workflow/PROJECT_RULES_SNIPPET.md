@@ -30,7 +30,10 @@
 
 - 成果へ影響する変更は `docs/agent-workflow/outcome-improvement-cycle.md` とactive App Profileを参照する
 - 必須Profile値を推測で補わない。`example_only` Profileは評価・採用に使わない
+- permission依存の矛盾、allowed/prohibited pathの同一・祖先・子孫競合があればBLOCKEDにする
+- Cycle ID、Primary/Fallback ID、Evidence round、baseline/candidateのimmutable refまたはdigestを固定する
 - Gatekeeperは外部Evidenceを比較するread-only判定専用とし、評価実行・write・network・Git操作をさせない
+- delta CIは外部Evaluatorが`delta_stats`として生成し、Gatekeeper内で合成しない
 - primary FAIL時だけ事前選定済みfallbackを最大1件評価し、INSUFFICIENTでは同じ候補の不足Evidenceだけを追加する
 - confirmation PASS、Test/Final Audit承認前にcommit/push/PRを行わない。mergeはユーザー明示指示時だけ行う
 ```

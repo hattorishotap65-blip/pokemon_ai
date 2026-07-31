@@ -210,6 +210,16 @@ jobs:
       - name: Run runtime param override tests
         run: python experiments/test_runtime_param_overrides.py
 
+  outcome-workflow-linux:
+    name: Outcome Workflow (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Run outcome Gatekeeper tests
         run: python -B -m unittest experiments.test_outcome_gatekeeper -v
 

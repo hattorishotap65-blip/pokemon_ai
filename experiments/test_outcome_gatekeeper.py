@@ -21,6 +21,7 @@ TEMPLATE_POKEMON_PROFILE = (
 RAG_PROFILE = (
     ROOT / "template" / "multi-agent-workflow" / "examples" / "app-profiles" / "rag-quality.example.json"
 )
+CLAUDE_REVIEW_PACK = ROOT / "docs" / "pr-215-claude-heterogeneous-review-pack.md"
 
 spec = importlib.util.spec_from_file_location("outcome_gatekeeper", TOOL_PATH)
 gate = importlib.util.module_from_spec(spec)
@@ -323,6 +324,13 @@ class DeterministicEvaluationTests(unittest.TestCase):
         self.profile = active_profile()
         self.screening = make_evidence(self.profile, "screening")
 
+    def fallback_evidence(self):
+        primary_failure = copy.deepcopy(self.screening)
+        set_candidate(primary_failure, "external_league_win_rate", "0.4")
+        fallback_screening = make_evidence(self.profile, "screening", role="fallback")
+        fallback_confirmation = make_evidence(self.profile, "confirmation", role="fallback")
+        return primary_failure, fallback_screening, fallback_confirmation
+
     def test_screening_passes_to_confirmation(self):
         result = gate.evaluate(self.profile, self.screening)
         self.assertEqual(result["verdict"], "PASS_TO_CONFIRMATION")
@@ -476,6 +484,133 @@ class DeterministicEvaluationTests(unittest.TestCase):
         malformed_result = gate.evaluate(self.profile, malformed, primary_screening_evidence=primary_failure)
         self.assertEqual(malformed_result["verdict"], "BLOCKED")
         self.assertIn("EVIDENCE_FIELDS_INVALID", malformed_result["reasons"])
+
+    def test_fallback_end_to_end_confirmation_pass_releases_non_merge_actions(self):
+        primary_failure, fallback_screening, fallback_confirmation = self.fallback_evidence()
+
+        primary_result = gate.evaluate(self.profile, primary_failure)
+        self.assertEqual(primary_result["verdict"], "FAIL")
+        self.assertEqual(
+            primary_result["reasons"],
+            ["CRITERION_FAILED:external_league_win_rate:overall"],
+        )
+        self.assertTrue(primary_result["fallback_allowed"])
+        self.assertTrue(all(
+            result["passed"]
+            for result in primary_result["metric_results"]
+            if result["role"] == "guardrail"
+        ))
+
+        screening_result = gate.evaluate(
+            self.profile,
+            fallback_screening,
+            primary_screening_evidence=primary_failure,
+        )
+        self.assertEqual(screening_result["verdict"], "PASS_TO_CONFIRMATION")
+        self.assertEqual(
+            fallback_confirmation["candidate_artifact"],
+            fallback_screening["candidate_artifact"],
+        )
+
+        confirmation_result = gate.evaluate(
+            self.profile,
+            fallback_screening,
+            fallback_confirmation,
+            primary_screening_evidence=primary_failure,
+        )
+        self.assertEqual(confirmation_result["verdict"], "PASS")
+        self.assertTrue(confirmation_result["eligible_actions"]["commit"])
+        self.assertTrue(confirmation_result["eligible_actions"]["push"])
+        self.assertTrue(confirmation_result["eligible_actions"]["pull_request"])
+        self.assertFalse(confirmation_result["eligible_actions"]["merge"])
+
+    def test_fallback_confirmation_rejects_primary_artifact(self):
+        primary_failure, fallback_screening, confirmation = self.fallback_evidence()
+        confirmation["candidate_artifact"] = copy.deepcopy(primary_failure["candidate_artifact"])
+        result = gate.evaluate(
+            self.profile,
+            fallback_screening,
+            confirmation,
+            primary_screening_evidence=primary_failure,
+        )
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("CANDIDATE_IDENTITY_MISMATCH", result["reasons"])
+
+    def test_fallback_confirmation_rejects_primary_role(self):
+        primary_failure, fallback_screening, confirmation = self.fallback_evidence()
+        confirmation["candidate_role"] = "primary"
+        result = gate.evaluate(
+            self.profile,
+            fallback_screening,
+            confirmation,
+            primary_screening_evidence=primary_failure,
+        )
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("CANDIDATE_IDENTITY_MISMATCH", result["reasons"])
+
+    def test_fallback_confirmation_rejects_cycle_change(self):
+        primary_failure, fallback_screening, confirmation = self.fallback_evidence()
+        confirmation["cycle_id"] = "other-cycle"
+        result = gate.evaluate(
+            self.profile,
+            fallback_screening,
+            confirmation,
+            primary_screening_evidence=primary_failure,
+        )
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("CYCLE_ID_MISMATCH", result["reasons"])
+
+    def test_fallback_confirmation_rejects_candidate_artifact_change(self):
+        primary_failure, fallback_screening, confirmation = self.fallback_evidence()
+        confirmation["candidate_artifact"]["immutable_ref"] = "other-fallback-ref"
+        result = gate.evaluate(
+            self.profile,
+            fallback_screening,
+            confirmation,
+            primary_screening_evidence=primary_failure,
+        )
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("CONFIRMATION_CANDIDATE_ARTIFACT_MISMATCH", result["reasons"])
+
+    def test_fallback_confirmation_rejects_baseline_change(self):
+        primary_failure, fallback_screening, confirmation = self.fallback_evidence()
+        confirmation["baseline_artifact"]["immutable_ref"] = "other-baseline-ref"
+        result = gate.evaluate(
+            self.profile,
+            fallback_screening,
+            confirmation,
+            primary_screening_evidence=primary_failure,
+        )
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("BASELINE_ARTIFACT_MISMATCH", result["reasons"])
+
+    def test_fallback_confirmation_rejects_dataset_or_protocol_change(self):
+        for field in ("dataset", "protocol"):
+            with self.subTest(field=field):
+                primary_failure, fallback_screening, confirmation = self.fallback_evidence()
+                if field == "dataset":
+                    confirmation["dataset_identity"]["id"] = "other-dataset"
+                else:
+                    confirmation["protocol_identity"] = "other-protocol"
+                result = gate.evaluate(
+                    self.profile,
+                    fallback_screening,
+                    confirmation,
+                    primary_screening_evidence=primary_failure,
+                )
+                self.assertEqual(result["verdict"], "BLOCKED")
+                expected_reason = (
+                    "DATASET_IDENTITY_MISMATCH"
+                    if field == "dataset"
+                    else "PROTOCOL_IDENTITY_MISMATCH"
+                )
+                self.assertIn(expected_reason, result["reasons"])
+
+    def test_fallback_confirmation_requires_primary_failure_evidence(self):
+        _, fallback_screening, confirmation = self.fallback_evidence()
+        result = gate.evaluate(self.profile, fallback_screening, confirmation)
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("FALLBACK_PRIMARY_EVIDENCE_REQUIRED", result["reasons"])
 
     def test_confirmation_candidate_artifact_must_match_screening(self):
         confirmation = make_evidence(self.profile, "confirmation")
@@ -723,15 +858,39 @@ class SafetyAndTemplateTests(unittest.TestCase):
 
     def test_github_actions_runs_gatekeeper_and_template_tests(self):
         workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
-        self.assertIn("python -B -m unittest experiments.test_outcome_gatekeeper -v", workflow)
+        marker = "  outcome-workflow-linux:\n"
+        self.assertEqual(workflow.count(marker), 1)
+        outcome_job = workflow.split(marker, 1)[1]
+        self.assertIn("runs-on: ubuntu-latest", outcome_job)
+        self.assertNotIn("needs: test", outcome_job)
+        self.assertIn("python -B -m unittest experiments.test_outcome_gatekeeper -v", outcome_job)
         self.assertIn(
             'python -B -m unittest discover -s experiments -p "test_verify_workflow_template.py" -v',
-            workflow,
+            outcome_job,
         )
         self.assertIn(
             "python -B template/multi-agent-workflow/tools/verify_workflow_template.py source-integrity",
-            workflow,
+            outcome_job,
         )
+
+    def test_claude_review_pack_requires_independent_diff_review(self):
+        pack = CLAUDE_REVIEW_PACK.read_text(encoding="utf-8")
+        for heading in (
+            "## PR purpose and scope",
+            "## Architecture to verify",
+            "## Trust boundary to verify",
+            "## Schema v1.1 review map",
+            "## State transition to verify",
+            "## Previous findings and claimed changes to inspect",
+            "## Known limitations",
+            "## Read-only review checklist",
+            "## Exact review and test commands",
+        ):
+            self.assertIn(heading, pack)
+        self.assertIn("not review evidence", pack)
+        self.assertIn("Claude must inspect the actual PR diff", pack)
+        self.assertIn("A prior Codex audit result is not evidence", pack)
+        self.assertIn("Review must remain read-only", pack)
 
 
 if __name__ == "__main__":

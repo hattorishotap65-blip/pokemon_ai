@@ -2,6 +2,15 @@
 
 このファイルは `template/multi-agent-workflow/` パッケージ自体のバージョン履歴を記録する。パッケージを導入したプロジェクト側の変更履歴ではない。
 
+## 0.2.0
+
+- 汎用Outcome Improvement Cycleとversioned App Profile v1契約を追加した。
+- 2案固定、Falsification、順序反転Blind Judge、Selected Design Refinement最大1回、Alignment/Test/Final Audit、screening/confirmationの有限フローを追加した。
+- Python標準ライブラリだけのread-only `outcome_gatekeeper.py`を追加した。Profile文字列のcommand実行、外部評価実行、network、Git、ファイル書込みは行わない。
+- Pokemon AIとRAGの`example_only` Profileを追加した。例示値は実運用defaultではなく、evaluateはfail-closedでBLOCKEDになる。
+- 既存`multi-agent-design` Skillと`verify_workflow_template.py`は変更せず、design-only責務とtemplate-integrity責務を維持した。
+- source repositoryでの導入とunittestを追加した。heterogeneous independent reviewとcross-OS portabilityは未完了である。
+
 ## 0.1.1
 
 - package-localな `.gitattributes`（`* -text`）を追加し、`core.autocrlf=true` のWindows環境でのfresh checkoutでも、このパッケージ配下のファイルのワーキングツリーbytesがGit blobと一致するよう修正した。

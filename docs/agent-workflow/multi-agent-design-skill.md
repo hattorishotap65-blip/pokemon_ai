@@ -146,6 +146,6 @@ Terminal版Claude Codeから `/multi-agent-design` を明示的に実行し、�
 
 上記の手動実機確認により、`/multi-agent-design` の8フェーズが実際に規定通り遷移し、requirements-auditorの停止ゲート・2案の独立性・Codex thread再利用・最大2ラウンドのrebuttal・Alternative Architectの条件付き起動・匿名化・Design Judgeの匿名採点と統合設計・ユーザー承認前の停止・ファイル非変更・Agent ID/threadId非保存が確認された。
 
-## Step 7は未実施
+## Step 7の履歴上の位置づけ
 
-設計のみの試行（Step 7）はまだ実施していない。本Step 6（6A・6B）の範囲は `.claude/skills/multi-agent-design/SKILL.md`・本文書・`README.md`/ADRのStep 6関連記述のみであり、Step 7トライアル・アプリコード変更は含まない。
+本Step 6（6A・6B）の完了時点では、Step 7（設計のみの試行）はまだ実施していなかった。その後Step 7は完了しており、結果は [`design-only-trial.md`](design-only-trial.md) に記録されている。この履歴注記は、既存 `.claude/skills/multi-agent-design/SKILL.md` が現在もdesign-only/read-onlyであるという規範を変更しない。

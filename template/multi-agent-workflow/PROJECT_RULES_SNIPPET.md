@@ -23,8 +23,22 @@
 - 入れ子のGitリポジトリを作らない
 ```
 
+成果へ影響する変更にOutcome Improvement Cycleを導入する場合は、次の短い参照規則も必要な範囲だけ手動で反映する。Profile値をcommandとして実行したり、既存ルールを上書きしたりしてはならない。
+
+```md
+## Outcome Improvement Cycle（要約）
+
+- 成果へ影響する変更は `docs/agent-workflow/outcome-improvement-cycle.md` とactive App Profileを参照する
+- 必須Profile値を推測で補わない。`example_only` Profileは評価・採用に使わない
+- Gatekeeperは外部Evidenceを比較するread-only判定専用とし、評価実行・write・network・Git操作をさせない
+- primary FAIL時だけ事前選定済みfallbackを最大1件評価し、INSUFFICIENTでは同じ候補の不足Evidenceだけを追加する
+- confirmation PASS、Test/Final Audit承認前にcommit/push/PRを行わない。mergeはユーザー明示指示時だけ行う
+```
+
 ## 関連文書
 
 - [docs/agent-workflow/review-protocol.md](docs/agent-workflow/review-protocol.md)
 - [docs/agent-workflow/git-safety.md](docs/agent-workflow/git-safety.md)
+- [docs/agent-workflow/outcome-improvement-cycle.md](docs/agent-workflow/outcome-improvement-cycle.md)
+- [docs/agent-workflow/app-profile.md](docs/agent-workflow/app-profile.md)
 - [docs/decisions/{{ADR_NUMBER}}-multi-agent-workflow-boundary.template.md](docs/decisions/{{ADR_NUMBER}}-multi-agent-workflow-boundary.template.md)

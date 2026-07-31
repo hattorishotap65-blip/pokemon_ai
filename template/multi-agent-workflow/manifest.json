@@ -1,6 +1,6 @@
 {
-  "template_version": "0.1.1",
-  "generated_from": "Approved reusable-workflow design, template implementation, and read-only verifier validation via unittest, together with disposable portability evidence gathered on a fresh non-Git target and a pre-existing dirty Git target in one Windows environment (manual adoption flow, strict byte comparison, drift detection, existing-file protection, .mcp.json manual merge); production-repository adoption and cross-OS portability not yet verified",
+  "template_version": "0.2.0",
+  "generated_from": "Approved generic Outcome Improvement Cycle design and one bounded refinement round, strict versioned JSON App Profile and external Evidence contracts, a standard-library-only read-only deterministic Gatekeeper, source-repository adoption, unittest coverage, and the existing template verifier/manual-adoption/source-integrity/strict-byte/Windows disposable portability evidence; same-model bootstrap only, heterogeneous independent review and cross-OS portability remain pending",
   "files": [
     {
       "path": ".claude/agents/claude-architect.md",
@@ -53,6 +53,16 @@
       "target_path": ".claude/skills/{{DESIGN_SKILL_NAME}}/SKILL.md"
     },
     {
+      "path": ".claude/skills/outcome-improvement-cycle/SKILL.md",
+      "classification": "SKILL",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Generic opt-in Outcome Improvement Cycle skill; preserves the existing design-only skill and separates control flow from App Profile and Gatekeeper responsibilities",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": ".claude/skills/outcome-improvement-cycle/SKILL.md",
+      "sha256": "955e4a68e87f88678c4b7b6a7f8a43ff1e03ba541252bd91a42a0ad9472e0244"
+    },
+    {
       "path": ".gitattributes",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
@@ -76,61 +86,21 @@
       "path": "CHANGELOG.md",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
-      "sha256": "7cf4def646c758ad04a751d4e168609d7deff65429975e4750a572970abc2c0e",
+      "sha256": "0a5bef4298f10c55a8964d338818f1e139294fe979c2212ad871210e9bcbd2b2",
       "required": true,
       "notes": "Package version history",
       "adoption_mode": "PACKAGE_METADATA",
       "target_path": null
     },
     {
-      "path": "PLACEHOLDERS.md",
-      "classification": "PACKAGE_METADATA",
-      "content_mode": "NEW",
-      "sha256": "1c0a82cd14c46d2417e15a0babf37f4d1ff60eddaf88f11bdd98bc633064986b",
-      "required": true,
-      "notes": "Placeholder reference table",
-      "adoption_mode": "PACKAGE_METADATA",
-      "target_path": null
-    },
-    {
-      "path": "PROJECT_RULES_SNIPPET.md",
-      "classification": "RULE_SNIPPET",
-      "content_mode": "NEW",
-      "sha256": "23725126af87353d9dd24468bed6a265965ee77ac8aa2d7b4df2440bd3c361fd",
-      "required": true,
-      "notes": "Manual-paste-only reference snippet; explicitly not for automatic insertion into any existing rules file",
-      "adoption_mode": "REFERENCE_ONLY",
-      "target_path": null
-    },
-    {
-      "path": "README.md",
-      "classification": "PACKAGE_METADATA",
-      "content_mode": "NEW",
-      "sha256": "f61c4cc8c04b043f237fe99c23695dbaf6d1a4d5658dcd254ec1cee85b5b0687",
-      "required": true,
-      "notes": "Package-level README; not an installer, no apply/update/uninstall in this version",
-      "adoption_mode": "PACKAGE_METADATA",
-      "target_path": null
-    },
-    {
-      "path": "VERSION",
-      "classification": "PACKAGE_METADATA",
-      "content_mode": "NEW",
-      "sha256": "80447316529fc62014fbaa047fb67c51ac30e32830cda370405349d8d66d196c",
-      "required": true,
-      "notes": "Semantic Versioning marker for this package",
-      "adoption_mode": "PACKAGE_METADATA",
-      "target_path": null
-    },
-    {
-      "path": "docs/agent-workflow/README.md",
+      "path": "docs/agent-workflow/app-profile.md",
       "classification": "WORKFLOW_DOC",
-      "content_mode": "GENERIFIED",
-      "sha256": "8f7c6466c361c941e658ab291a8bbca6db4e5672e96bdbb24b9713c123040e5e",
+      "content_mode": "NEW",
       "required": true,
-      "notes": "Heavily generified: rollout-history table, role-nickname table, and project-specific doc pointers removed/blanked; logical-role table and basic flow retained",
+      "notes": "Strict versioned JSON App Profile and external Evidence Bundle contract, including five metric directions, bounded permissions, and fail-closed verdict semantics",
       "adoption_mode": "COPY_IF_ABSENT",
-      "target_path": "docs/agent-workflow/README.md"
+      "target_path": "docs/agent-workflow/app-profile.md",
+      "sha256": "462bf5535b953d388afc5ecfbe27698c8b405bb90bcc4da18e5c15888ca2d968"
     },
     {
       "path": "docs/agent-workflow/git-safety.md",
@@ -163,6 +133,16 @@
       "target_path": "docs/agent-workflow/multi-agent-design-skill.md"
     },
     {
+      "path": "docs/agent-workflow/outcome-improvement-cycle.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Generic bounded design, implementation, external screening/confirmation, deterministic gating, and final-audit workflow",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/outcome-improvement-cycle.md",
+      "sha256": "73b4e449a1a23d258c34f15b2366e17cf13f7fe4c2921333e30fdeb891a6b509"
+    },
+    {
       "path": "docs/agent-workflow/quality-first-token-policy.md",
       "classification": "WORKFLOW_DOC",
       "content_mode": "GENERIFIED",
@@ -171,6 +151,16 @@
       "notes": "Source-repo project-specific rollout reference removed; rest unchanged from source",
       "adoption_mode": "COPY_IF_ABSENT",
       "target_path": "docs/agent-workflow/quality-first-token-policy.md"
+    },
+    {
+      "path": "docs/agent-workflow/README.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "GENERIFIED",
+      "sha256": "8f7c6466c361c941e658ab291a8bbca6db4e5672e96bdbb24b9713c123040e5e",
+      "required": true,
+      "notes": "Heavily generified: rollout-history table, role-nickname table, and project-specific doc pointers removed/blanked; logical-role table and basic flow retained",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/README.md"
     },
     {
       "path": "docs/agent-workflow/repository-audit-template.md",
@@ -233,6 +223,26 @@
       "target_path": "docs/decisions/{{ADR_NUMBER}}-multi-agent-workflow-boundary.md"
     },
     {
+      "path": "examples/app-profiles/pokemon-ai.example.json",
+      "classification": "CONFIG",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Example-only Pokemon AI Profile fixture; illustrative values are not production defaults and evaluation is blocked",
+      "adoption_mode": "REFERENCE_ONLY",
+      "target_path": null,
+      "sha256": "ec3eb16f2c9265768ad1ff57f7a5504a8d40c6e55a81ada174fcadc98b535994"
+    },
+    {
+      "path": "examples/app-profiles/rag-quality.example.json",
+      "classification": "CONFIG",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Example-only non-Pokemon RAG Profile fixture demonstrating target, minimize, threshold, range, segments, and guardrails",
+      "adoption_mode": "REFERENCE_ONLY",
+      "target_path": null,
+      "sha256": "bab0559c879963efb3a44a9c2662d2f55a09a71c0b4dad2f941702e85b7aeb61"
+    },
+    {
       "path": "manifest.json",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
@@ -243,6 +253,46 @@
       "target_path": null
     },
     {
+      "path": "PLACEHOLDERS.md",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "1c0a82cd14c46d2417e15a0babf37f4d1ff60eddaf88f11bdd98bc633064986b",
+      "required": true,
+      "notes": "Placeholder reference table",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
+    },
+    {
+      "path": "PROJECT_RULES_SNIPPET.md",
+      "classification": "RULE_SNIPPET",
+      "content_mode": "NEW",
+      "sha256": "2fd1cd9f04be518cc0fd52a7ac5ce1fcce5e671c72bce591f59d38ec8a549be4",
+      "required": true,
+      "notes": "Manual-paste-only reference snippet; explicitly not for automatic insertion into any existing rules file",
+      "adoption_mode": "REFERENCE_ONLY",
+      "target_path": null
+    },
+    {
+      "path": "README.md",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "446c1ea4dc00b631f1d0c157668217024ac5f0ff6e5b6f49aebfbb542961ff3b",
+      "required": true,
+      "notes": "Package-level README; not an installer, no apply/update/uninstall in this version",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
+    },
+    {
+      "path": "tools/outcome_gatekeeper.py",
+      "classification": "PACKAGE_TOOL",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Adoptable standard-library-only read-only App Profile validator and deterministic external-Evidence Gatekeeper; no evaluator, command execution, network, Git, or file writes",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "tools/outcome_gatekeeper.py",
+      "sha256": "4f50c5170bb73eb445cea112c0bf99efb3193ea91206951869a20bd80dc2ba58"
+    },
+    {
       "path": "tools/verify_workflow_template.py",
       "classification": "PACKAGE_TOOL",
       "content_mode": "NEW",
@@ -251,6 +301,16 @@
       "notes": "Bundled read-only verifier; run from the package and do not copy automatically into the target repository.",
       "target_path": null,
       "adoption_mode": "REFERENCE_ONLY"
+    },
+    {
+      "path": "VERSION",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "1f930dd1f133c1f97a94fe3acb8db34372cf4c01ffdb2b3ff4ca72f9494121e9",
+      "required": true,
+      "notes": "Semantic Versioning marker for this package",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
     }
   ],
   "exclusions": [

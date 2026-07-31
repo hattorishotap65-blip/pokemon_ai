@@ -2,6 +2,13 @@
 
 このファイルは `template/multi-agent-workflow/` パッケージ自体のバージョン履歴を記録する。パッケージを導入したプロジェクト側の変更履歴ではない。
 
+## 0.1.1
+
+- package-localな `.gitattributes`（`* -text`）を追加し、`core.autocrlf=true` のWindows環境でのfresh checkoutでも、このパッケージ配下のファイルのワーキングツリーbytesがGit blobと一致するよう修正した。
+- `manifest.json` に記録していた5件（`.mcp.json` および `.claude/agents/` の4ファイル）のSHA-256を、実際のGit blob（LF）のbytesを基準とした値へ訂正した。これら5ファイルの本文（Git blobの内容）は変更していない。
+- verifierのstrict byte comparison（改行コードを正規化しない設計）は変更していない。
+- 導入先リポジトリ側の改行コード方針の自動設定は、このバージョンの対象外である。
+
 ## 0.1.0
 
 - reusable multi-agent workflow packageとして、`template/multi-agent-workflow/` 配下のテンプレート内容と静的 `manifest.json` を追加した。

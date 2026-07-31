@@ -96,7 +96,7 @@
       "path": "README.md",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
-      "sha256": "6ba2ef97c7373b8145d6017763182fda46ef9f4b8cded9d8afecf444a80b62c1",
+      "sha256": "f75f6f1cd4bc0bc02e999f7fd3ef00aa86d719a23dbf0e6d0f2f69af8c0081e5",
       "required": true,
       "notes": "Package-level README; not an installer, no apply/update/uninstall in this version",
       "adoption_mode": "PACKAGE_METADATA",

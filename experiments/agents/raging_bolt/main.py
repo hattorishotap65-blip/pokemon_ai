@@ -43,6 +43,20 @@ _TELEMETRY = {
     "rollout_error_count": 0,
     "cache_hit_count": 0,
     "cache_miss_count": 0,
+    # Candidate-coverage injection (PR3 Branch A: attack-critical candidate
+    # guarantee) -- counts decisions/injections where a lethal ATTACK,
+    # lethal-completing ATTACH, or attacker-enabling RETREAT was added to the
+    # engine-search candidate set because it fell outside the heuristic
+    # top-k. See _engine_search_choose(). Mechanism-verification telemetry,
+    # not a win-rate metric by itself.
+    "candidate_injection_decision_count": 0,
+    "candidate_injection_attack_count": 0,
+    "candidate_injection_attach_lethal_count": 0,
+    "candidate_injection_retreat_count": 0,
+    # Count of rollouts whose evaluated afterstate was a confirmed terminal
+    # win (_eval_search_state returning exactly +1,000,000) -- observational
+    # only, does not affect selection (no hard terminal-priority override).
+    "terminal_win_rollout_count": 0,
     # Fixed-size runtime aggregate -- NOT an unbounded per-decision list.
     # Scoped to the actual decision (RagingBoltPolicy construction through
     # choose()/choose_with_search() returning) only -- does NOT include
@@ -1807,6 +1821,87 @@ class RagingBoltPolicy:
             if attach_idxs:
                 candidates.append(attach_idxs[0])
 
+        # Attack-critical candidate coverage: _score_option() caps ATTACK at
+        # min(base,700) and ATTACH at min(base,1100) whenever a competing
+        # PLAY/ABILITY/supporter is legal, so a lethal attack, the specific
+        # attach that completes Bellowing Thunder's lethal energy count, or a
+        # retreat that swaps in a ready attacker can rank below top_k and
+        # never reach engine search at all -- the same failure mode HANDOFF
+        # documented for a prior (reverted) attack-score-capping attempt
+        # ("介入は候補セット注入で行うこと" -- fix via candidate injection,
+        # not by changing scores). This only guarantees these options are
+        # *considered*; scoring and selection below are unchanged. Capped at
+        # +2 candidates beyond top_k (with de-dup against what's already
+        # present) to bound how much the extra UCB1/flat-allocation rollout
+        # budget gets spread across more arms -- the fixed 8/12 *extra*
+        # budget itself is untouched, but each injected candidate still
+        # consumes one of the one-rollout-per-candidate UCB1 seed round, so
+        # uncapped injection would dilute that seed round across more arms.
+        if self.p("rule_tactical_candidate_guarantees", 1):
+            injected_this_decision = False
+            injection_budget = 2
+
+            if injection_budget > 0 and not any(
+                    self.select.option[i].type == OptionType.ATTACK for i in candidates):
+                attack_idxs = [i for i in ranked
+                               if self.select.option[i].type == OptionType.ATTACK]
+                if attack_idxs:
+                    candidates.append(attack_idxs[0])
+                    injection_budget -= 1
+                    injected_this_decision = True
+                    if _TELEMETRY_ENABLED:
+                        _TELEMETRY["candidate_injection_attack_count"] += 1
+
+            # The specific ATTACH that completes Bellowing Thunder's lethal
+            # energy requirement, not just "highest-ranked ATTACH" -- after
+            # the min(base,1100) cap this can tie with a lower-priority
+            # attach, and rank()'s stable sort breaks ties by option-array
+            # order rather than by which attach is actually correct.
+            if (injection_budget > 0
+                    and self.p("rule_attach_for_lethal", 1)
+                    and self.active_id == C.RAGING_BOLT_EX and self.bolt_ready
+                    and self.opp_active and not self.can_ko_with_bt
+                    and (self.bt_total_energy + 1) * 70 >= self.opp_active_hp):
+                lethal_attach_idx = None
+                for i, opt in enumerate(self.select.option):
+                    if opt.type != OptionType.ATTACH:
+                        continue
+                    if getattr(opt, 'inPlayArea', None) != AreaType.ACTIVE:
+                        continue
+                    target = get_card(self.obs, AreaType.ACTIVE,
+                                      getattr(opt, 'inPlayIndex', None), self.my_index)
+                    if target is not None and target.id == C.RAGING_BOLT_EX:
+                        lethal_attach_idx = i
+                        break
+                if lethal_attach_idx is not None and lethal_attach_idx not in candidates:
+                    candidates.append(lethal_attach_idx)
+                    injection_budget -= 1
+                    injected_this_decision = True
+                    if _TELEMETRY_ENABLED:
+                        _TELEMETRY["candidate_injection_attach_lethal_count"] += 1
+
+            # A retreat that swaps in a ready bench attacker when the active
+            # Pokemon can't currently attack -- same coverage gap as above.
+            ready_bench_bolt = any(
+                p and p.id == C.RAGING_BOLT_EX
+                and any(e == 4 for e in p.energies) and any(e == 6 for e in p.energies)
+                for p in (self.me.bench or [])
+            )
+            active_already_ready = self.active_id == C.RAGING_BOLT_EX and self.bolt_ready
+            if (injection_budget > 0 and ready_bench_bolt and not active_already_ready
+                    and not any(self.select.option[i].type == OptionType.RETREAT for i in candidates)):
+                retreat_idxs = [i for i in ranked
+                                if self.select.option[i].type == OptionType.RETREAT]
+                if retreat_idxs:
+                    candidates.append(retreat_idxs[0])
+                    injection_budget -= 1
+                    injected_this_decision = True
+                    if _TELEMETRY_ENABLED:
+                        _TELEMETRY["candidate_injection_retreat_count"] += 1
+
+            if injected_this_decision and _TELEMETRY_ENABLED:
+                _TELEMETRY["candidate_injection_decision_count"] += 1
+
         # Endgame deepening: when either side is within 2 prizes of winning,
         # one mistake decides the game and the board is simple enough that a
         # 2-turn lookahead (incl. opponent's strongest response) is meaningful.
@@ -1826,6 +1921,8 @@ class RagingBoltPolicy:
                 value = self._eval_search_state(final_state, self.my_index)
                 if _TELEMETRY_ENABLED:
                     _TELEMETRY["rollout_success_count"] += 1
+                    if value >= 1_000_000.0:
+                        _TELEMETRY["terminal_win_rollout_count"] += 1
                 return value
             except Exception:
                 if _TELEMETRY_ENABLED:

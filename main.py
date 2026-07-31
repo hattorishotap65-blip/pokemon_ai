@@ -1141,14 +1141,11 @@ class RagingBoltPolicy:
         if not opp_data:
             return 200
         opp_energy = _count_energy(self.opp_active)
-        try:
-            from cg.api import all_attack
-            AT_local = {a.attackId: a for a in all_attack()}
-        except Exception:
+        if not attack_table:
             return 200
         max_dmg = 0
         for aid in (opp_data.attacks or []):
-            a = AT_local.get(aid)
+            a = attack_table.get(aid)
             if not a:
                 continue
             cost = len(a.energies) if a.energies else 0

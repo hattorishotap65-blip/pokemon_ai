@@ -485,6 +485,35 @@ class DeterministicEvaluationTests(unittest.TestCase):
         self.assertEqual(malformed_result["verdict"], "BLOCKED")
         self.assertIn("EVIDENCE_FIELDS_INVALID", malformed_result["reasons"])
 
+    def test_fallback_not_authorized_when_primary_screening_only_fails_guardrail(self):
+        primary_guardrail_failure = copy.deepcopy(self.screening)
+        set_candidate(primary_guardrail_failure, "error_rate", "0.02")
+        fallback_screening = make_evidence(self.profile, "screening", role="fallback")
+        result = gate.evaluate(
+            self.profile,
+            fallback_screening,
+            primary_screening_evidence=primary_guardrail_failure,
+        )
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("FALLBACK_NOT_AUTHORIZED", result["reasons"])
+
+    def test_fallback_not_authorized_when_primary_screening_only_fails_catastrophic(self):
+        primary_catastrophic_failure = copy.deepcopy(self.screening)
+        set_candidate(
+            primary_catastrophic_failure,
+            "external_league_win_rate",
+            "0.2",
+            segment_id="opponent-lucario",
+        )
+        fallback_screening = make_evidence(self.profile, "screening", role="fallback")
+        result = gate.evaluate(
+            self.profile,
+            fallback_screening,
+            primary_screening_evidence=primary_catastrophic_failure,
+        )
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("FALLBACK_NOT_AUTHORIZED", result["reasons"])
+
     def test_fallback_end_to_end_confirmation_pass_releases_non_merge_actions(self):
         primary_failure, fallback_screening, fallback_confirmation = self.fallback_evidence()
 

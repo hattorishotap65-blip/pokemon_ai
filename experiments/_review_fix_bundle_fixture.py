@@ -20,18 +20,25 @@ difference, not a silent gap in what CI verified.
 
 Stability notes (see the failure observed in PR#215's CI run 30862433859):
 the underlying game has no seed control, so a single attempt can
-legitimately finish with zero MAIN/engine-search decisions by chance. To
-avoid weakening what this fixture verifies, that specific outcome (child
-process exited with return code 0, but produced no qualifying decisions)
-gets a small, bounded number of independent retries -- never a lowered
-min_main_records, never a silent skip in CI, and never treated the same as
-a genuine subprocess crash. A non-zero/abnormal child return code is never
+legitimately finish with fewer than min_main_records qualifying decisions
+by chance (including exactly zero). Success is a threshold check --
+len(main_records) >= min_main_records -- not a mere non-empty check, since
+a non-empty-but-insufficient result (e.g. 1 record captured when the
+caller asked for 2, as test_raging_bolt_review_fixes_integration.py's
+capture_bundle(min_main_records=2) does) is not success either. To avoid
+weakening what this fixture verifies, that specific outcome (child process
+exited with return code 0, but produced fewer than min_main_records
+qualifying decisions) gets a small, bounded number of independent retries
+-- never a lowered min_main_records, never a silent skip in CI, and never
+treated the same as a genuine subprocess crash. A non-zero/abnormal child
+return code is never
 retried: it is raised/skipped immediately, with the child's own stdout and
-stderr attached, so the real cause is visible instead of only "0 records
-captured". A max_wait_s timeout is not treated as a child crash even though
+stderr attached and the number of records captured before the abnormal
+exit, so the real cause is visible instead of only "captured 0/N records".
+A max_wait_s timeout is not treated as a child crash even though
 terminating the child can itself leave a non-zero/signal return code on
 Linux -- a fixture-initiated termination is retried like any other clean,
-zero-record attempt, and is called out explicitly in the diagnostic
+below-threshold attempt, and is called out explicitly in the diagnostic
 message. The bundle file is also always re-read exactly once more after
 the child has fully stopped (whether it exited on its own or was
 terminated for a timeout), regardless of which loop-exit path was taken,
@@ -182,23 +189,27 @@ def _run_capture_attempt(env, attempt_dir, min_main_records, max_wait_s, poll_in
 
 def capture_bundle(min_main_records=1, max_wait_s=240.0, poll_interval_s=2.0, max_attempts=2):
     """Returns (tmpdir, bundle_path, main_records) for the first attempt
-    that captures at least `min_main_records` MAIN/engine-search decisions.
-    Caller owns tmpdir cleanup (shutil.rmtree). Raises (CI) or skips
-    (local) if main.py/its deck are missing, or if no attempt captured a
-    qualifying decision.
+    that captures *at least* `min_main_records` MAIN/engine-search
+    decisions -- a threshold check (len(main_records) >= min_main_records),
+    not merely a non-empty check, so a 1-record result never satisfies a
+    caller that asked for 2 (test_raging_bolt_review_fixes_integration.py
+    calls capture_bundle(min_main_records=2)). Caller owns tmpdir cleanup
+    (shutil.rmtree). Raises (CI) or skips (local) if main.py/its deck are
+    missing, or if no attempt reached the threshold.
 
     A subprocess that exits abnormally *on its own* (non-zero or
     signal-terminated return code, with timed_out False) is never retried
     -- that is a real failure, raised or skipped immediately with the
-    subprocess's own stdout/stderr tail attached. A subprocess that exits
+    subprocess's own stdout/stderr tail attached and the number of records
+    it had captured before the abnormal exit. A subprocess that exits
     cleanly (return code 0), or that hits the max_wait_s timeout and is
     terminated by this function itself (timed_out True, even if that
-    leaves a non-zero/signal return code), but happens to capture zero
-    MAIN/engine-search decisions -- possible because the underlying game
-    has no seed control -- gets up to `max_attempts` independent tries
-    before this raises/skips, since that specific outcome is a property of
-    an unseeded random game (or simply a slow attempt), not by itself
-    evidence of a defect.
+    leaves a non-zero/signal return code), but happens to capture fewer
+    than `min_main_records` MAIN/engine-search decisions -- possible
+    because the underlying game has no seed control -- gets up to
+    `max_attempts` independent tries before this raises/skips, since that
+    specific outcome is a property of an unseeded random game (or simply a
+    slow attempt), not by itself evidence of a defect.
     """
     if not (os.path.exists(AGENT_PATH) and os.path.exists(DECK_A)):
         _fail_or_skip("experiments/agents/raging_bolt/main.py or its deck is missing")
@@ -213,8 +224,14 @@ def capture_bundle(min_main_records=1, max_wait_s=240.0, poll_interval_s=2.0, ma
             attempt_dir = os.path.join(tmpdir, f"attempt-{attempt}")
             os.makedirs(attempt_dir, exist_ok=True)
             result = _run_capture_attempt(env, attempt_dir, min_main_records, max_wait_s, poll_interval_s)
+            captured_count = len(result["main_records"])
 
-            if result["main_records"]:
+            # Threshold check, not a truthiness check: a non-empty result
+            # that is still below min_main_records (e.g. 1 record captured
+            # when the caller asked for 2) is not success and must not be
+            # returned early -- it goes through the same
+            # crash/timeout/retry classification as a zero-record attempt.
+            if captured_count >= min_main_records:
                 return tmpdir, result["bundle_path"], result["main_records"]
 
             # A non-zero/signal return code is only a genuine subprocess
@@ -225,9 +242,10 @@ def capture_bundle(min_main_records=1, max_wait_s=240.0, poll_interval_s=2.0, ma
             # misclassified as the child crashing by itself.
             if result["returncode"] != 0 and not result["timed_out"]:
                 _fail_or_skip(
-                    "captured bundle had no MAIN/engine-search decisions to test against -- "
-                    f"subprocess exited abnormally on attempt {attempt}/{max_attempts} "
-                    f"(return code {result['returncode']}).\n"
+                    "captured bundle had insufficient MAIN/engine-search decisions to test "
+                    f"against -- subprocess exited abnormally on attempt {attempt}/{max_attempts} "
+                    f"(return code {result['returncode']}), captured {captured_count}/{min_main_records} "
+                    "MAIN/engine-search records before the abnormal exit.\n"
                     f"stdout tail:\n{result['stdout_text']}\n"
                     f"stderr tail:\n{result['stderr_text']}"
                 )
@@ -236,20 +254,21 @@ def capture_bundle(min_main_records=1, max_wait_s=240.0, poll_interval_s=2.0, ma
                 attempt_summaries.append(
                     f"attempt {attempt}/{max_attempts}: hit max_wait_s timeout and was "
                     f"terminated by the fixture (return code {result['returncode']}), "
-                    "0 MAIN/engine-search records"
+                    f"captured {captured_count}/{min_main_records} MAIN/engine-search records"
                 )
             else:
                 attempt_summaries.append(
-                    f"attempt {attempt}/{max_attempts}: return code 0, 0 MAIN/engine-search records"
+                    f"attempt {attempt}/{max_attempts}: return code 0, "
+                    f"captured {captured_count}/{min_main_records} MAIN/engine-search records"
                 )
 
         _fail_or_skip(
-            "captured bundle had no MAIN/engine-search decisions to test against after "
-            f"{max_attempts} attempt(s); no abnormal exit detected on any attempt (a "
+            "captured bundle had insufficient MAIN/engine-search decisions to test against "
+            f"after {max_attempts} attempt(s); no abnormal exit detected on any attempt (a "
             "fixture-initiated timeout termination is not treated as an abnormal exit) -- "
-            "consistent with an unseeded game trajectory that never reached a "
-            "MAIN/engine-search decision within max_wait_s, not a subprocess crash. "
-            + " | ".join(attempt_summaries)
+            "consistent with an unseeded game trajectory that never reached "
+            f"{min_main_records} MAIN/engine-search decision(s) within max_wait_s, not a "
+            "subprocess crash. " + " | ".join(attempt_summaries)
         )
     except BaseException:
         shutil.rmtree(tmpdir, ignore_errors=True)

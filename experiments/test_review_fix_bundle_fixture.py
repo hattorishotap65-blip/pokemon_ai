@@ -165,6 +165,49 @@ class CaptureBundleTests(unittest.TestCase):
             import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_below_threshold_attempt_is_retried_not_accepted_as_success(self):
+        # min_main_records=2: attempt 1 captures a non-empty but still
+        # insufficient result (1 record) -- this must NOT be returned as
+        # success (a bare truthiness check on main_records would wrongly
+        # accept it, exactly the bug test_raging_bolt_review_fixes_
+        # integration.py's capture_bundle(min_main_records=2) call would
+        # have hit). Attempt 2 captures 2 records and succeeds.
+        (tmpdir, bundle_path, main_records), calls = self._capture(
+            [
+                {"poll_sequence": [0], "bundle_write": _main_record_line()},
+                {"poll_sequence": [0], "bundle_write": _main_record_line() + _main_record_line()},
+            ],
+            min_main_records=2,
+            max_attempts=2,
+        )
+        try:
+            self.assertEqual(len(calls), 2, "a 1/2 result must be retried, not accepted as success")
+            self.assertEqual(len(main_records), 2)
+        finally:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_diagnostic_shows_captured_count_over_threshold_when_insufficient(self):
+        # Both attempts capture exactly 1 record against a threshold of 2
+        # and never crash -- the final diagnostic must show the actual
+        # captured/threshold counts (e.g. "captured 1/2 MAIN/engine-search
+        # records"), not a hardcoded "0 records" that would misrepresent
+        # what was actually captured.
+        with mock.patch.object(fixture, "IS_CI", True):
+            with self.assertRaises(RuntimeError) as caught:
+                self._capture(
+                    [
+                        {"poll_sequence": [0], "bundle_write": _main_record_line()},
+                        {"poll_sequence": [0], "bundle_write": _main_record_line()},
+                    ],
+                    min_main_records=2,
+                    max_attempts=2,
+                )
+        message = str(caught.exception)
+        self.assertIn("captured 1/2 MAIN/engine-search records", message)
+        self.assertIn("attempt 1/2: return code 0, captured 1/2", message)
+        self.assertIn("attempt 2/2: return code 0, captured 1/2", message)
+
     def test_all_attempts_clean_but_empty_raises_after_exact_attempt_count(self):
         with mock.patch.object(fixture, "IS_CI", True):
             with self.assertRaises(RuntimeError) as caught:
@@ -176,8 +219,8 @@ class CaptureBundleTests(unittest.TestCase):
         message = str(caught.exception)
         self.assertIn("2 attempt(s)", message)
         self.assertIn("no abnormal exit detected", message)
-        self.assertIn("attempt 1/2: return code 0", message)
-        self.assertIn("attempt 2/2: return code 0", message)
+        self.assertIn("attempt 1/2: return code 0, captured 0/1", message)
+        self.assertIn("attempt 2/2: return code 0, captured 0/1", message)
 
     def test_all_attempts_clean_but_empty_calls_popen_exactly_max_attempts_times(self):
         call_log = []

@@ -4,6 +4,8 @@ Claude CodeとCodexを併用してこのリポジトリを開発するための�
 
 このディレクトリの文書は**役割分担・進め方・レビュー手順**だけを扱う。アプリケーションの性能改善案やデッキ戦略は複製しない（それらは `experiments/agents/raging_bolt/HANDOFF.md` や `docs/pokemon_ai_performance_improvement_memo_v4_1.md` 等の既存文書を参照）。
 
+設計後の実装、外部screening/confirmation、決定論的な採否判定までを扱う場合は、汎用の [`outcome-improvement-cycle.md`](outcome-improvement-cycle.md) と [`app-profile.md`](app-profile.md) を参照する。既存`multi-agent-design` Skillはdesign-only/read-onlyのままである。
+
 ## 目的
 
 - Claude CodeとCodexを、役割を分離して利用する
@@ -92,11 +94,14 @@ Sonnet は「統合設計の作成」担当ではない。統合設計は Design
 | Step 6（multi-agent-design Skill） | 完了 |
 | Step 7（design-only trial） | 完了 |
 | Step 8（small implementation trial） | 完了 |
-| Step 9（reusable template extraction） | 未実施 |
+| Step 9（reusable template extraction） | 完了 |
+| Step 10（Outcome Improvement Cycle bootstrap） | 完了（same-model bootstrap、heterogeneous review待ち） |
 
 Step 4のCodex MCP接続（プロジェクトスコープの `.mcp.json`、サーバー名 `codex-reviewer`）を追加し、`codex`・`codex-reply` ツールの実機での読み取り専用呼び出しを確認済み。詳細は [`mcp-connection.md`](mcp-connection.md) を参照。Step 5のClaude project subagents（`requirements-auditor` / `simplifier` / `claude-architect` / `design-judge`）も追加済みで、Agentツールによる明示的な直接起動での実機確認を完了している。詳細は [`subagents.md`](subagents.md) を参照。Step 6のmulti-agent-design Skill（`.claude/skills/multi-agent-design/SKILL.md`）も追加済みで、ユーザーの明示起動による8フェーズ実行の実機確認を完了している。詳細は [`multi-agent-design-skill.md`](multi-agent-design-skill.md) を参照。Step 7では実案件（開発元と提出用ファイルの同期・差分検証ワークフローの設計）を用いた設計専用・read-onlyトライアルを実施し、統合設計は提示されたが未承認・未実装である。詳細は [`design-only-trial.md`](design-only-trial.md) を参照。
 
-Step 8では、Step 7の統合設計のうち安全性が高い**read-only check-only v1**だけを実際に実装した。実装ファイルは `tools/submission_sync.py`、テストファイルは `experiments/test_submission_sync.py`。最終テストは**76件（74 pass、2 skip、0 fail）**。Codex Final Auditは2回実施している。(1) 実装本体: 初回`CHANGES_REQUIRED`→修正→`codex-reply`で同一threadを再監査→`APPROVE`。(2) マージ前hardening（PR #209マージ前修正）: 新規read-only threadで再監査→`APPROVE`（Blocker 0 / Major 0 / Minor 0）。hardeningは次の3件: repo内の別位置を指すsymlink redirectの拒否、deck.csvの物理行単位strict CSV解析、不正なdeck値をreasonやstdoutへ表示しない対応。自動同期・apply・正本決定機能は実装していない。詳細は [`small-implementation-trial.md`](small-implementation-trial.md) を参照。Step 9は未実施。
+Step 8では、Step 7の統合設計のうち安全性が高い**read-only check-only v1**だけを実際に実装した。実装ファイルは `tools/submission_sync.py`、テストファイルは `experiments/test_submission_sync.py`。最終テストは**76件（74 pass、2 skip、0 fail）**。Codex Final Auditは2回実施している。(1) 実装本体: 初回`CHANGES_REQUIRED`→修正→`codex-reply`で同一threadを再監査→`APPROVE`。(2) マージ前hardening（PR #209マージ前修正）: 新規read-only threadで再監査→`APPROVE`（Blocker 0 / Major 0 / Minor 0）。hardeningは次の3件: repo内の別位置を指すsymlink redirectの拒否、deck.csvの物理行単位strict CSV解析、不正なdeck値をreasonやstdoutへ表示しない対応。自動同期・apply・正本決定機能は実装していない。詳細は [`small-implementation-trial.md`](small-implementation-trial.md) を参照。
+
+Step 9では`template/multi-agent-workflow/`を作成し、manifest、source-integrity、strict byte comparison、既存ファイル非上書きのmanual adoption planを実装・検証した。Step 10では、この配布物をOutcome Improvement Cycle、App Profile、外部Evidence専用のread-only Gatekeeperへ拡張し、現在のPokemon AI repoから次回参照できる短いルールと`example_only` Profileを追加した。Step 10はClaude利用上限中のsame-model bootstrapであり、heterogeneous independent review完了まではDraft解除・mergeを行わない。
 
 ## 関連文書
 
@@ -107,6 +112,8 @@ Step 8では、Step 7の統合設計のうち安全性が高い**read-only check
 - [small-implementation-trial.md](small-implementation-trial.md) — read-only差分確認CLIの小規模実装トライアルと監査結果（Step 8）
 - [quality-first-token-policy.md](quality-first-token-policy.md) — 判断品質を維持しながら重複コンテキストを削減する共通方針
 - [review-protocol.md](review-protocol.md) — 設計討論・レビューの具体的手順
+- [outcome-improvement-cycle.md](outcome-improvement-cycle.md) — 設計から外部評価・決定論的採否までの汎用サイクル
+- [app-profile.md](app-profile.md) — アプリ固有目標、Evidence、Gatekeeperのstrict JSON契約
 - [../decisions/0001-multi-agent-workflow-boundary.md](../decisions/0001-multi-agent-workflow-boundary.md) — この方式の意思決定記録（ADR）
 - [step1_repository_audit.md](step1_repository_audit.md) — 導入前のリポジトリ現状監査（Step 1）
 - [../../CLAUDE.md](../../CLAUDE.md) — Claude Code向けプロジェクトルール

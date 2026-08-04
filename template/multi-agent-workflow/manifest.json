@@ -1,6 +1,6 @@
 {
-  "template_version": "0.1.1",
-  "generated_from": "Approved reusable-workflow design, template implementation, and read-only verifier validation via unittest, together with disposable portability evidence gathered on a fresh non-Git target and a pre-existing dirty Git target in one Windows environment (manual adoption flow, strict byte comparison, drift detection, existing-file protection, .mcp.json manual merge); production-repository adoption and cross-OS portability not yet verified",
+  "template_version": "0.3.0",
+  "generated_from": "Approved generic Outcome Improvement Cycle with App Profile/Evidence schema v1.1, fixed Cycle and Primary/Fallback identities, immutable artifact bindings, external delta_stats, fail-closed permission/path conflict checks, one bounded refinement round, a standard-library-only read-only deterministic Gatekeeper, source-repository adoption and CI coverage, and the existing template verifier/manual-adoption/source-integrity/strict-byte/Windows disposable portability evidence; same-model bootstrap only, heterogeneous independent review and cross-OS portability remain pending",
   "files": [
     {
       "path": ".claude/agents/claude-architect.md",
@@ -53,6 +53,16 @@
       "target_path": ".claude/skills/{{DESIGN_SKILL_NAME}}/SKILL.md"
     },
     {
+      "path": ".claude/skills/outcome-improvement-cycle/SKILL.md",
+      "classification": "SKILL",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Generic opt-in Outcome Improvement Cycle skill; preserves the existing design-only skill and separates control flow from App Profile and Gatekeeper responsibilities",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": ".claude/skills/outcome-improvement-cycle/SKILL.md",
+      "sha256": "e99f4f4cec921a118aa167423790a84c0746810b55386766b2c959cbb1b06768"
+    },
+    {
       "path": ".gitattributes",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
@@ -76,61 +86,21 @@
       "path": "CHANGELOG.md",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
-      "sha256": "7cf4def646c758ad04a751d4e168609d7deff65429975e4750a572970abc2c0e",
+      "sha256": "d39ef589f387da3285e1821f784eba140a7272e06fcb68a4bc36c1c93dcbdd7c",
       "required": true,
       "notes": "Package version history",
       "adoption_mode": "PACKAGE_METADATA",
       "target_path": null
     },
     {
-      "path": "PLACEHOLDERS.md",
-      "classification": "PACKAGE_METADATA",
-      "content_mode": "NEW",
-      "sha256": "1c0a82cd14c46d2417e15a0babf37f4d1ff60eddaf88f11bdd98bc633064986b",
-      "required": true,
-      "notes": "Placeholder reference table",
-      "adoption_mode": "PACKAGE_METADATA",
-      "target_path": null
-    },
-    {
-      "path": "PROJECT_RULES_SNIPPET.md",
-      "classification": "RULE_SNIPPET",
-      "content_mode": "NEW",
-      "sha256": "23725126af87353d9dd24468bed6a265965ee77ac8aa2d7b4df2440bd3c361fd",
-      "required": true,
-      "notes": "Manual-paste-only reference snippet; explicitly not for automatic insertion into any existing rules file",
-      "adoption_mode": "REFERENCE_ONLY",
-      "target_path": null
-    },
-    {
-      "path": "README.md",
-      "classification": "PACKAGE_METADATA",
-      "content_mode": "NEW",
-      "sha256": "f61c4cc8c04b043f237fe99c23695dbaf6d1a4d5658dcd254ec1cee85b5b0687",
-      "required": true,
-      "notes": "Package-level README; not an installer, no apply/update/uninstall in this version",
-      "adoption_mode": "PACKAGE_METADATA",
-      "target_path": null
-    },
-    {
-      "path": "VERSION",
-      "classification": "PACKAGE_METADATA",
-      "content_mode": "NEW",
-      "sha256": "80447316529fc62014fbaa047fb67c51ac30e32830cda370405349d8d66d196c",
-      "required": true,
-      "notes": "Semantic Versioning marker for this package",
-      "adoption_mode": "PACKAGE_METADATA",
-      "target_path": null
-    },
-    {
-      "path": "docs/agent-workflow/README.md",
+      "path": "docs/agent-workflow/app-profile.md",
       "classification": "WORKFLOW_DOC",
-      "content_mode": "GENERIFIED",
-      "sha256": "8f7c6466c361c941e658ab291a8bbca6db4e5672e96bdbb24b9713c123040e5e",
+      "content_mode": "NEW",
       "required": true,
-      "notes": "Heavily generified: rollout-history table, role-nickname table, and project-specific doc pointers removed/blanked; logical-role table and basic flow retained",
+      "notes": "Strict App Profile/Evidence schema v1.1 with five metric directions, immutable artifact bindings, fixed Cycle/candidate/round identities, external delta_stats, bounded permissions, and fail-closed conflict/verdict semantics",
       "adoption_mode": "COPY_IF_ABSENT",
-      "target_path": "docs/agent-workflow/README.md"
+      "target_path": "docs/agent-workflow/app-profile.md",
+      "sha256": "2bc7adca9e0a3a9179c045338fa5b4d82b4dcf280645b076d7fecb191455a47e"
     },
     {
       "path": "docs/agent-workflow/git-safety.md",
@@ -163,6 +133,16 @@
       "target_path": "docs/agent-workflow/multi-agent-design-skill.md"
     },
     {
+      "path": "docs/agent-workflow/outcome-improvement-cycle.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Generic bounded design, implementation, external screening/confirmation, deterministic gating, and final-audit workflow",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/outcome-improvement-cycle.md",
+      "sha256": "e6691c0ec9a0d674e1ec8d4b7e9ce40671433918e04c5d99a8806e4ed65fe0c1"
+    },
+    {
       "path": "docs/agent-workflow/quality-first-token-policy.md",
       "classification": "WORKFLOW_DOC",
       "content_mode": "GENERIFIED",
@@ -171,6 +151,16 @@
       "notes": "Source-repo project-specific rollout reference removed; rest unchanged from source",
       "adoption_mode": "COPY_IF_ABSENT",
       "target_path": "docs/agent-workflow/quality-first-token-policy.md"
+    },
+    {
+      "path": "docs/agent-workflow/README.md",
+      "classification": "WORKFLOW_DOC",
+      "content_mode": "GENERIFIED",
+      "sha256": "8f7c6466c361c941e658ab291a8bbca6db4e5672e96bdbb24b9713c123040e5e",
+      "required": true,
+      "notes": "Heavily generified: rollout-history table, role-nickname table, and project-specific doc pointers removed/blanked; logical-role table and basic flow retained",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "docs/agent-workflow/README.md"
     },
     {
       "path": "docs/agent-workflow/repository-audit-template.md",
@@ -233,6 +223,26 @@
       "target_path": "docs/decisions/{{ADR_NUMBER}}-multi-agent-workflow-boundary.md"
     },
     {
+      "path": "examples/app-profiles/pokemon-ai.example.json",
+      "classification": "CONFIG",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Example-only Pokemon AI Profile fixture; illustrative values are not production defaults and evaluation is blocked",
+      "adoption_mode": "REFERENCE_ONLY",
+      "target_path": null,
+      "sha256": "4337511232304ef52ec2d700f539ebfd0f53c903dca760663912087e4cc9eab3"
+    },
+    {
+      "path": "examples/app-profiles/rag-quality.example.json",
+      "classification": "CONFIG",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Example-only non-Pokemon RAG Profile fixture demonstrating target, minimize, threshold, range, segments, and guardrails",
+      "adoption_mode": "REFERENCE_ONLY",
+      "target_path": null,
+      "sha256": "1466d015cd82ab447b7fc13231608dae9ef09e4d9ee848b0fcfe39cb12983384"
+    },
+    {
       "path": "manifest.json",
       "classification": "PACKAGE_METADATA",
       "content_mode": "NEW",
@@ -243,6 +253,46 @@
       "target_path": null
     },
     {
+      "path": "PLACEHOLDERS.md",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "1c0a82cd14c46d2417e15a0babf37f4d1ff60eddaf88f11bdd98bc633064986b",
+      "required": true,
+      "notes": "Placeholder reference table",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
+    },
+    {
+      "path": "PROJECT_RULES_SNIPPET.md",
+      "classification": "RULE_SNIPPET",
+      "content_mode": "NEW",
+      "sha256": "4f32c1feb3bc6e1326f9ff8bea296dc567bf8e53dbf2b6551669cc3a2609647e",
+      "required": true,
+      "notes": "Manual-paste-only reference snippet; explicitly not for automatic insertion into any existing rules file",
+      "adoption_mode": "REFERENCE_ONLY",
+      "target_path": null
+    },
+    {
+      "path": "README.md",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "2aa87fdaf6b441e0a513c19d193603b3f1f3a8ffdb5091766166a2109106a5ef",
+      "required": true,
+      "notes": "Package-level README; not an installer, no apply/update/uninstall in this version",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
+    },
+    {
+      "path": "tools/outcome_gatekeeper.py",
+      "classification": "PACKAGE_TOOL",
+      "content_mode": "NEW",
+      "required": true,
+      "notes": "Adoptable standard-library-only read-only schema v1.1 validator and deterministic external-Evidence Gatekeeper; validates immutable bindings, fixed Cycle/candidate/round identities and external delta_stats without evaluator, command execution, network, Git, or file writes",
+      "adoption_mode": "COPY_IF_ABSENT",
+      "target_path": "tools/outcome_gatekeeper.py",
+      "sha256": "beeda341ea145f1240ad608c48aef219ddc0244edd093b0f669fea1cb4aab8e2"
+    },
+    {
       "path": "tools/verify_workflow_template.py",
       "classification": "PACKAGE_TOOL",
       "content_mode": "NEW",
@@ -251,6 +301,16 @@
       "notes": "Bundled read-only verifier; run from the package and do not copy automatically into the target repository.",
       "target_path": null,
       "adoption_mode": "REFERENCE_ONLY"
+    },
+    {
+      "path": "VERSION",
+      "classification": "PACKAGE_METADATA",
+      "content_mode": "NEW",
+      "sha256": "d915cc95d6ca8f47ae297713ed46d4e5c5d99ddd29fc3c61e263bdf305f2b5b0",
+      "required": true,
+      "notes": "Semantic Versioning marker for this package",
+      "adoption_mode": "PACKAGE_METADATA",
+      "target_path": null
     }
   ],
   "exclusions": [

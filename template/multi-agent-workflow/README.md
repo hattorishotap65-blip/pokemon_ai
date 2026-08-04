@@ -4,9 +4,9 @@ Claude Code を Implementation Owner とし、Claude Code project subagents に�
 
 このファイルおよびパッケージ内の各文書本文は日本語で記述する。ただし、ファイル名・ディレクトリ名・JSONキー・CLI名・プレースホルダー名・論理ロール名は英語のまま使用する。全文を英訳する方針ではない。
 
-## このバージョン（0.1.1）の位置づけ
+## このバージョン（0.3.0）の位置づけ
 
-**このパッケージは、design-onlyの統合設計を基に作成された。** テンプレート内容と静的 `manifest.json`、および read-only verifier（`tools/verify_workflow_template.py`）を実装し、source repository内のunittestで検証している。次は、このバージョンにまだ含まれていない。
+**このパッケージは、既存のdesign-only統合設計に、汎用Outcome Improvement Cycleをopt-inで追加した。** テンプレート内容と静的 `manifest.json`、read-only verifier（`tools/verify_workflow_template.py`）、および外部Evidence専用の決定論的read-only Gatekeeper（`tools/outcome_gatekeeper.py`）をsource repository内のunittestで検証する。既存`multi-agent-design` Skillとverifierの責務は変更していない。次は、このバージョンに含まれない。
 
 - 自動インストーラー — このパッケージ自体は、ファイルを自動生成・自動配置するプログラムではない
 - apply / update / uninstall 機能 — 導入・更新・削除を自動化する機能は存在しない
@@ -14,6 +14,9 @@ Claude Code を Implementation Owner とし、Claude Code project subagents に�
 - `.mcp.json` の自動 merge — 導入先に既存の `.mcp.json` がある場合、自動的な構造的マージは行わない。手動で内容を確認し、必要な設定を手動で反映する
 - プロジェクトルール文書（`CLAUDE.md` / `AGENTS.md` 相当のファイル）への自動挿入 — `PROJECT_RULES_SNIPPET.md` は手動で参照・貼り付けする参考断片であり、既存ファイルへの自動追記は行わない
 - 実際のproduction repositoryへの本番導入実績 — 使い捨てのdisposable sample targetによるportability trial（詳細は「Portability validation」節を参照）は実施済みだが、実際の別プロジェクト・production repositoryへ本番導入した実績は、このバージョンの時点では存在しない（未検証）。cross-OS portability（Windows以外の環境）も未検証
+- 外部evaluatorまたはアプリ本体 — Gatekeeperは既に生成されたEvidenceを比較するだけで、測定を実行しない
+- example Profileの本番基準化 — Pokemon AIとRAGの例は`example_only`であり、実運用defaultではない
+- heterogeneous independent review — 0.3.0はsame-model bootstrapであり、異種モデル監査は未完了
 
 `tools/verify_workflow_template.py`（read-only verifier）を同梱している。verifierは**状態を報告するだけ**であり、コピー・マージ・書き込みは一切行わない（詳細は「検証CLI（verifier）」節を参照）。**手動導入の前に、導入先プロジェクトの既存ファイルとの競合を、利用者自身が `git status` / `git diff`、および必要に応じてverifierの `plan` 出力で確認する必要がある。**
 
@@ -36,8 +39,17 @@ template/multi-agent-workflow/
 │   │   ├── claude-architect.md            (verbatim)
 │   │   └── design-judge.md                (verbatim)
 │   └── skills/
-│       └── {{DESIGN_SKILL_NAME}}/
-│           └── SKILL.md                   (generified)
+│       ├── {{DESIGN_SKILL_NAME}}/
+│       │   └── SKILL.md                   (generified)
+│       └── outcome-improvement-cycle/
+│           └── SKILL.md                   (generic, opt-in)
+├── examples/
+│   └── app-profiles/
+│       ├── pokemon-ai.example.json        (example_only)
+│       └── rag-quality.example.json       (example_only)
+├── tools/
+│   ├── verify_workflow_template.py        (package read-only verifier)
+│   └── outcome_gatekeeper.py              (adoptable read-only gate)
 └── docs/
     ├── agent-workflow/
     │   ├── README.md                      (generified)
@@ -46,6 +58,8 @@ template/multi-agent-workflow/
     │   ├── mcp-connection.md              (generified)
     │   ├── subagents.md                   (generified)
     │   ├── multi-agent-design-skill.md    (generified)
+    │   ├── outcome-improvement-cycle.md   (generic)
+    │   ├── app-profile.md                 (generic JSON contract)
     │   ├── git-safety.md                  (new)
     │   ├── troubleshooting.md             (new)
     │   ├── repository-audit-template.md   (new, empty skeleton)
@@ -54,11 +68,11 @@ template/multi-agent-workflow/
         └── {{ADR_NUMBER}}-multi-agent-workflow-boundary.template.md  (generified)
 ```
 
-上記のツリーには含めていないが、`tools/verify_workflow_template.py`（read-only verifier）もこのパッケージの一部である。`adoption_mode` は `REFERENCE_ONLY` であり、パッケージ内から実行するツールであって、導入先リポジトリへコピーする対象ではない（詳細は「検証CLI（verifier）」節を参照）。
+`tools/verify_workflow_template.py`（package verifier）の`adoption_mode`は`REFERENCE_ONLY`であり、パッケージ内から実行する。`tools/outcome_gatekeeper.py`は導入先に同名ファイルがない場合だけ手動コピー候補となる`COPY_IF_ABSENT`である。どちらも書込み機能を持たない。
 
 `.gitattributes`（内容は `* -text` の1行のみ）は、このパッケージを配布している**このリポジトリ内**で、`core.autocrlf` の設定やOSにかかわらず、fresh clone / fresh checkout後のワーキングツリーのバイト列がGit blobのバイト列（および `manifest.json` に記録されたSHA-256）と一致するよう保護するためのpackage-localな設定である。`adoption_mode` は `PACKAGE_METADATA` であり、導入先リポジトリへコピーする対象ではない。導入先リポジトリへ手動配置されたファイルには、導入先リポジトリ自身のGit attributes・`core.autocrlf` 設定が適用され得る。導入先でcommit後にfresh checkoutした場合の厳密なバイト一致は、導入先リポジトリの改行コード方針に依存する。**adopter側の改行コード方針を自動的に設定することは、このバージョンの対象外である。** 詳細は今後のproduction-likeな導入試験で別途確認する。
 
-`manifest.json` の `files` は25件であり、うち `manifest.json` 自身（自己参照のため `sha256: null`）を除く24件がSHA-256比較の対象である。
+`manifest.json` の `files` は31件であり、うち `manifest.json` 自身（自己参照のため `sha256: null`）を除く30件がSHA-256比較の対象である。
 
 `{{DESIGN_SKILL_NAME}}` と `{{ADR_NUMBER}}` は、実際のディレクトリ名・ファイル名そのものに使われているプレースホルダーである。導入時に、実際の値へリネームする必要がある（詳細は `PLACEHOLDERS.md` を参照）。
 
@@ -305,6 +319,31 @@ def adopt_file(
 
 このバージョンの時点では、上記のいずれも確認されていない。「Portability validation」節のdisposable sample targetでの試験は、手動導入フロー・verifierの挙動確認を目的としたものであり、上記の「実際に異なるプロジェクトへの実導入試験」には該当しない。
 
+## Outcome Gatekeeper
+
+`tools/outcome_gatekeeper.py`は、導入先でversioned App Profileと外部Evidence Bundleを比較するPython標準ライブラリだけのread-only CLIである。Profile形式と制御フローは次を参照する。
+
+- [`docs/agent-workflow/app-profile.md`](docs/agent-workflow/app-profile.md)
+- [`docs/agent-workflow/outcome-improvement-cycle.md`](docs/agent-workflow/outcome-improvement-cycle.md)
+- [`.claude/skills/outcome-improvement-cycle/SKILL.md`](.claude/skills/outcome-improvement-cycle/SKILL.md)
+
+Gatekeeperは評価command、Profile文字列、module、URLを実行しない。subprocess、network、Git、write APIを持たず、stdoutへ判定JSONを返すだけである。Schema v1.1ではpermission依存矛盾とallowed/prohibited path競合をfail-closedにし、Cycle ID、固定Primary/Fallback、Evidence round、immutable artifact bindingを検証する。delta CIは合成せず、外部Evaluator生成の`delta_stats`だけを使用する。`example_only` Profileはvalidate/digestできるがevaluateは`BLOCKED`になる。
+
+```bash
+python -B tools/outcome_gatekeeper.py validate-profile examples/app-profiles/rag-quality.example.json
+python -B tools/outcome_gatekeeper.py digest-profile examples/app-profiles/rag-quality.example.json
+```
+
+外部evaluatorはパッケージに含まれない。実運用Profileのbaseline、dataset、protocol、threshold、Evidence量をサンプルから推測してはならない。
+
+source repositoryでの回帰検証は次を個別に実行する。配布先では、採用したProfileとproject固有testを別途追加する。
+
+```bash
+python -B -m unittest experiments.test_outcome_gatekeeper -v
+python -B -m unittest discover -s experiments -p "test_verify_workflow_template.py" -v
+python -B template/multi-agent-workflow/tools/verify_workflow_template.py source-integrity
+```
+
 ## 検証CLI（verifier）
 
 `tools/verify_workflow_template.py` は、Python標準ライブラリのみを使用した**完全read-only**の診断ツールである。パッケージルートは、このスクリプト自身の場所（`Path(__file__).resolve().parents[1]`）から解決するため、実行時のカレントディレクトリに依存しない。
@@ -429,7 +468,7 @@ python -B template/multi-agent-workflow/tools/verify_workflow_template.py plan \
 | `unlisted_package_files` | manifestの `files` に登録されていない通常ファイルの件数（`UNLISTED_PACKAGE_FILE` reasonで報告された件数、`invalid` の内訳の一部）。symlink/reparse由来の未登録エントリはこの件数には含まれず、`[BLOCKING_ERROR]`（`blocking_errors`、exit 8）として別途報告される |
 | `final_exit` | このコマンド呼び出し全体のexit code |
 
-正常なパッケージ実行時の期待値: `compared: 24` / `identical: 24` / `invalid: 0` / `blocking_errors: 0` / `hash_compared: 24` / `hash_matched: 24` / `hash_mismatched: 0` / `self_hash_omitted: 1` / `manifest_valid: 1` / `unlisted_package_files: 0` / `final_exit: 0`。
+正常なパッケージ実行時の期待値: `compared: 30` / `identical: 30` / `invalid: 0` / `blocking_errors: 0` / `hash_compared: 30` / `hash_matched: 30` / `hash_mismatched: 0` / `self_hash_omitted: 1` / `manifest_valid: 1` / `unlisted_package_files: 0` / `final_exit: 0`。
 
 ### パス安全性
 
@@ -494,3 +533,7 @@ verifierは、コピー・apply・install・update・uninstall・merge・backup�
 - [docs/agent-workflow/README.md](docs/agent-workflow/README.md) — ワークフロー本体の入口文書
 - [docs/agent-workflow/git-safety.md](docs/agent-workflow/git-safety.md) — Git安全チェックリスト
 - [docs/agent-workflow/troubleshooting.md](docs/agent-workflow/troubleshooting.md) — トラブルシューティング
+- [docs/agent-workflow/outcome-improvement-cycle.md](docs/agent-workflow/outcome-improvement-cycle.md) — 汎用の設計・実装・評価・採否サイクル
+- [docs/agent-workflow/app-profile.md](docs/agent-workflow/app-profile.md) — App ProfileとEvidence Bundleのstrict JSON契約
+- [examples/app-profiles/pokemon-ai.example.json](examples/app-profiles/pokemon-ai.example.json) — Pokemon AIのexample-only Profile
+- [examples/app-profiles/rag-quality.example.json](examples/app-profiles/rag-quality.example.json) — RAG品質のexample-only Profile

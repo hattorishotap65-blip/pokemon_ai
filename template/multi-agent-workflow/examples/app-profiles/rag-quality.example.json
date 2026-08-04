@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.1",
+  "profile_id": "rag.quality.example",
+  "profile_version": "1.1.0",
+  "status": "example_only",
+  "applicability": {
+    "description": "Illustrative RAG quality profile; it does not implement a RAG application or evaluator.",
+    "change_kinds": ["retrieval", "ranking", "prompting", "citation", "latency"],
+    "exclusions": ["docs_only", "comments_only", "behavior_neutral_ci", "behavior_neutral_formatting"]
+  },
+  "objective": {"description": "Keep answer correctness in an accepted target band while controlling hallucination, citation mismatch, and p95 latency.", "primary_metric_id": "answer_correctness"},
+  "baseline": {"artifact_id": "rag-baseline-required", "immutable_ref": "SET_IMMUTABLE_RAG_BASELINE_BEFORE_ACTIVE_USE"},
+  "cycle": {"cycle_id": "rag-quality-cycle-example", "primary_candidate_id": "rag-primary-example", "fallback_candidate_id": "rag-fallback-example"},
+  "evaluation_targets": [
+    {"id": "rag-screening", "dataset_id": "rag-screening-set", "dataset_version": "example-v1", "dataset_sha256": "2222222222222222222222222222222222222222222222222222222222222222", "protocol_id": "rag-external-screening-example"},
+    {"id": "rag-confirmation", "dataset_id": "rag-confirmation-set", "dataset_version": "example-v1", "dataset_sha256": "3333333333333333333333333333333333333333333333333333333333333333", "protocol_id": "rag-external-confirmation-example"}
+  ],
+  "segments": [
+    {"id": "overall", "description": "All evaluation questions"},
+    {"id": "factual", "description": "Fact-seeking questions"},
+    {"id": "multilingual", "description": "Non-English questions"}
+  ],
+  "metrics": [
+    {"id": "answer_correctness", "role": "primary", "direction": "target", "unit": "ratio", "required_segments": ["overall", "factual", "multilingual"]},
+    {"id": "hallucination_rate", "role": "guardrail", "direction": "minimize", "unit": "ratio", "required_segments": ["overall", "factual", "multilingual"]},
+    {"id": "citation_mismatch_rate", "role": "guardrail", "direction": "threshold", "unit": "ratio", "required_segments": ["overall", "factual", "multilingual"]},
+    {"id": "p95_latency", "role": "guardrail", "direction": "range", "unit": "seconds", "required_segments": ["overall"]}
+  ],
+  "stages": {
+    "screening": {
+      "evaluation_target_id": "rag-screening", "min_total_observations": 100, "min_observations_per_segment": 20,
+      "uncertainty": {"required": true, "method": "external-confidence-interval", "confidence_level": "0.95"},
+      "criteria": [
+        {"metric_id": "answer_correctness", "segment_id": "overall", "basis": "candidate", "statistic": "interval", "parameters": {"target": "0.8", "tolerance": "0.2"}},
+        {"metric_id": "answer_correctness", "segment_id": "factual", "basis": "candidate", "statistic": "interval", "parameters": {"target": "0.8", "tolerance": "0.2"}},
+        {"metric_id": "answer_correctness", "segment_id": "multilingual", "basis": "candidate", "statistic": "interval", "parameters": {"target": "0.75", "tolerance": "0.25"}},
+        {"metric_id": "hallucination_rate", "segment_id": "overall", "basis": "candidate", "statistic": "upper", "parameters": {"limit": "0.1"}},
+        {"metric_id": "hallucination_rate", "segment_id": "factual", "basis": "candidate", "statistic": "upper", "parameters": {"limit": "0.1"}},
+        {"metric_id": "hallucination_rate", "segment_id": "multilingual", "basis": "candidate", "statistic": "upper", "parameters": {"limit": "0.15"}},
+        {"metric_id": "citation_mismatch_rate", "segment_id": "overall", "basis": "candidate", "statistic": "upper", "parameters": {"operator": "lte", "limit": "0.05"}},
+        {"metric_id": "citation_mismatch_rate", "segment_id": "factual", "basis": "candidate", "statistic": "upper", "parameters": {"operator": "lte", "limit": "0.05"}},
+        {"metric_id": "citation_mismatch_rate", "segment_id": "multilingual", "basis": "candidate", "statistic": "upper", "parameters": {"operator": "lte", "limit": "0.1"}},
+        {"metric_id": "p95_latency", "segment_id": "overall", "basis": "candidate", "statistic": "interval", "parameters": {"lower": "0", "upper": "2"}}
+      ],
+      "catastrophic_criteria": []
+    },
+    "confirmation": {
+      "evaluation_target_id": "rag-confirmation", "min_total_observations": 500, "min_observations_per_segment": 100,
+      "uncertainty": {"required": true, "method": "external-confidence-interval", "confidence_level": "0.95"},
+      "criteria": [
+        {"metric_id": "answer_correctness", "segment_id": "overall", "basis": "candidate", "statistic": "interval", "parameters": {"target": "0.8", "tolerance": "0.2"}},
+        {"metric_id": "answer_correctness", "segment_id": "factual", "basis": "candidate", "statistic": "interval", "parameters": {"target": "0.8", "tolerance": "0.2"}},
+        {"metric_id": "answer_correctness", "segment_id": "multilingual", "basis": "candidate", "statistic": "interval", "parameters": {"target": "0.75", "tolerance": "0.25"}},
+        {"metric_id": "hallucination_rate", "segment_id": "overall", "basis": "candidate", "statistic": "upper", "parameters": {"limit": "0.1"}},
+        {"metric_id": "hallucination_rate", "segment_id": "factual", "basis": "candidate", "statistic": "upper", "parameters": {"limit": "0.1"}},
+        {"metric_id": "hallucination_rate", "segment_id": "multilingual", "basis": "candidate", "statistic": "upper", "parameters": {"limit": "0.15"}},
+        {"metric_id": "citation_mismatch_rate", "segment_id": "overall", "basis": "candidate", "statistic": "upper", "parameters": {"operator": "lte", "limit": "0.05"}},
+        {"metric_id": "citation_mismatch_rate", "segment_id": "factual", "basis": "candidate", "statistic": "upper", "parameters": {"operator": "lte", "limit": "0.05"}},
+        {"metric_id": "citation_mismatch_rate", "segment_id": "multilingual", "basis": "candidate", "statistic": "upper", "parameters": {"operator": "lte", "limit": "0.1"}},
+        {"metric_id": "p95_latency", "segment_id": "overall", "basis": "candidate", "statistic": "interval", "parameters": {"lower": "0", "upper": "2"}}
+      ],
+      "catastrophic_criteria": []
+    }
+  },
+  "tournament": {"independent_proposals": 2, "primary_candidates": 1, "fallback_candidates": 1, "refinement_rounds": 1, "additional_evidence_rounds": 1, "max_design_minutes": 120, "max_evaluation_minutes": 1440},
+  "change_scope": {"allowed_paths": ["src/retrieval", "src/ranking", "src/prompts", "tests/evaluation"], "prohibited_paths": ["secrets", ".env", "production/data"]},
+  "permissions": {"implementation": "after_alignment_approve", "commit": "after_confirmation_pass", "push": "after_confirmation_pass", "pull_request": "after_confirmation_pass", "merge": "explicit_user_approval_after_heterogeneous_review"},
+  "reporting": {"required_fields": ["baseline", "candidate", "segments", "metrics", "tests", "unknowns", "gate_verdict"], "evidence_registry_required": true},
+  "rejected_hypothesis_memory": [],
+  "unresolved_unknowns": [
+    {"field": "production_thresholds", "impact": "Illustrative thresholds must be replaced before active use.", "blocking": true},
+    {"field": "production_datasets", "impact": "Production dataset identities and digests are not specified.", "blocking": true}
+  ]
+}

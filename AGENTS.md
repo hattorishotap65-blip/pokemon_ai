@@ -34,6 +34,12 @@ Do not change `deck.csv` unless explicitly instructed.
 Do not change policy, scores, parameters, or submission files (`main.py`/`deck.csv`/`params.json`) beyond what was explicitly requested.
 For investigation, audit, or design-only requests, do not change code.
 
+## Outcome Improvement Cycle
+
+成果へ影響する変更（policy / scoring / search / rollout / evaluation function / parameter / deck / opponent prediction / decision feature）には、ユーザーが別の進め方を明示しない限り、[`docs/agent-workflow/outcome-improvement-cycle.md`](docs/agent-workflow/outcome-improvement-cycle.md) を参照する。Pokemon AI用の導入例は [`profiles/outcome/pokemon-ai.example.json`](profiles/outcome/pokemon-ai.example.json)、Profile契約は [`docs/agent-workflow/app-profile.md`](docs/agent-workflow/app-profile.md) を参照する。
+
+このPokemon Profileは`example_only`であり、本番の閾値・baseline・datasetを規定しない。必須値を推測で補わず、active Profileが確定するまでは評価・採用をBLOCKEDとする。docs/comment/挙動非影響CI/挙動非影響formattingだけの変更には、フルサイクルを強制しない。
+
 ## Git安全ルール（必須）
 
 - `git add .` は使用しない。対象ファイルだけを個別に `git add <file>` でstageする。

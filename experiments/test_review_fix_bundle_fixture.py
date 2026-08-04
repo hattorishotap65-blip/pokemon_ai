@@ -63,6 +63,10 @@ class _FakeProcess:
 
     def wait(self, timeout=None):
         self.returncode = self._returncode_value
+        if self._write_on_exit and not self._exit_write_done and self._bundle_path:
+            with open(self._bundle_path, "a", encoding="utf-8") as f:
+                f.write(self._write_on_exit)
+            self._exit_write_done = True
         return self._returncode_value
 
     def terminate(self):
@@ -223,13 +227,17 @@ class CaptureBundleTests(unittest.TestCase):
                 )
 
     def test_timeout_without_records_is_treated_as_clean_and_retried(self):
-        # Never exits (poll() always None) and never reaches min_main_records
-        # before max_wait_s -- the loop's timeout branch fires, the process
-        # is terminated (returncode 0, as if it shut down cleanly), and this
-        # must be retried rather than misreported as a crash.
+        # Never exits on its own (poll() always None) and never reaches
+        # min_main_records before max_wait_s -- the loop's timeout branch
+        # fires and the fixture terminates the child itself. On a real
+        # Linux subprocess.Popen, terminate() routinely leaves a negative,
+        # signal-based returncode (e.g. -15 for SIGTERM) even though
+        # nothing the child did was actually abnormal -- returncode=-15
+        # here mirrors that, and this attempt must still be retried, not
+        # misreported as a subprocess crash.
         (tmpdir, bundle_path, main_records), calls = self._capture(
             [
-                {"poll_sequence": [None]},  # never exits on its own -> timeout path
+                {"poll_sequence": [None], "returncode": -15},  # timeout path, SIGTERM-like returncode
                 {"poll_sequence": [0], "bundle_write": _main_record_line()},
             ],
             min_main_records=1,
@@ -243,6 +251,71 @@ class CaptureBundleTests(unittest.TestCase):
         finally:
             import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_timeout_attempt_succeeds_if_final_reread_finds_enough_records(self):
+        # The child never signals "done" via poll() before max_wait_s, so
+        # the fixture terminates it itself (again with a SIGTERM-like
+        # negative returncode) -- but the child had already flushed a
+        # qualifying record right as it was killed. The unconditional final
+        # re-read after termination must still see it and treat this
+        # attempt as a success, never even needing a second attempt.
+        (tmpdir, bundle_path, main_records), calls = self._capture(
+            [{"poll_sequence": [None], "returncode": -15, "bundle_write": _main_record_line()}],
+            min_main_records=1,
+            max_wait_s=0.02,
+            poll_interval_s=0.01,
+            max_attempts=2,
+        )
+        try:
+            self.assertEqual(len(calls), 1, "must succeed on the first (timed-out) attempt via the final re-read")
+            self.assertEqual(len(main_records), 1)
+        finally:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_timeout_exhausting_all_attempts_is_not_misreported_as_crash(self):
+        with mock.patch.object(fixture, "IS_CI", True):
+            with self.assertRaises(RuntimeError) as caught:
+                self._capture(
+                    [
+                        {"poll_sequence": [None], "returncode": -15},
+                        {"poll_sequence": [None], "returncode": -15},
+                    ],
+                    min_main_records=1,
+                    max_wait_s=0.02,
+                    poll_interval_s=0.01,
+                    max_attempts=2,
+                )
+        message = str(caught.exception)
+        self.assertIn("2 attempt(s)", message)
+        self.assertIn("no abnormal exit detected", message)
+        self.assertIn("timeout", message)
+        self.assertNotIn("exited abnormally", message)
+
+    def test_genuine_self_exit_non_zero_is_never_retried_even_with_short_max_wait(self):
+        # Distinguishes the timeout case above from a real crash: the
+        # child exits *on its own* (detected via poll() on the very first
+        # check, well before any timeout deadline) with a non-zero return
+        # code. timed_out must stay False here, so this must still raise
+        # immediately without retrying, exactly like the no-timeout
+        # abnormal-exit case.
+        call_log = []
+        with mock.patch.object(fixture, "IS_CI", True), mock.patch.object(
+            fixture.subprocess,
+            "Popen",
+            side_effect=_popen_side_effect(
+                [
+                    {"poll_sequence": [3], "returncode": 3, "stderr_write": "boom"},
+                    {"poll_sequence": [0], "bundle_write": _main_record_line()},
+                ],
+                call_log,
+            ),
+        ):
+            with self.assertRaises(RuntimeError) as caught:
+                fixture.capture_bundle(min_main_records=1, max_wait_s=0.02, max_attempts=2)
+        self.assertEqual(len(call_log), 1, "a genuine self-inflicted non-zero exit must never be retried")
+        self.assertIn("exited abnormally", str(caught.exception))
+        self.assertIn("return code 3", str(caught.exception))
 
 
 class DiagnosticHelperTests(unittest.TestCase):

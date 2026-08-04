@@ -162,6 +162,9 @@ jobs:
       - name: Run parameter contract audit tests
         run: python experiments/test_audit_parameter_contract.py
 
+      - name: Run review-fix bundle fixture tests
+        run: python -B -m unittest experiments.test_review_fix_bundle_fixture -v
+
       - name: Run raging bolt review-fix regression tests (fast)
         run: python -m unittest experiments.test_raging_bolt_review_fixes -v
 

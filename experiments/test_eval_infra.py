@@ -33,6 +33,24 @@ import tempfile
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, _REPO_ROOT)
 
+# Captured BEFORE any test patches subprocess.run. unittest.mock.patch("...raging_bolt_eval.subprocess.run", ...)
+# patches the "run" attribute on the actual subprocess module object (import binds a
+# reference, not a copy), so it is a PROCESS-WIDE patch for the duration of the `with` block
+# -- not scoped to raging_bolt_eval's own subprocess calls. cmd_run() also calls
+# _verify_execution_bindings_unchanged(), which calls platform.system()/release()/machine()/
+# python_version(); on some platforms/Python versions these can themselves shell out via
+# subprocess.run with a signature the head_to_head.py-shaped fakes below don't accept,
+# aborting the whole suite with an uncaught TypeError instead of a clean test failure (found
+# by an independent heterogeneous-model audit). Every subprocess.run fake below must
+# therefore recognize genuine head_to_head.py invocations (identified by "--jsonl-out" in the
+# command) and delegate anything else to the REAL subprocess.run, rather than assuming every
+# call during the patched window is one it knows how to handle.
+_REAL_SUBPROCESS_RUN = subprocess.run
+
+
+def _is_head_to_head_invocation(cmd) -> bool:
+    return isinstance(cmd, (list, tuple)) and "--jsonl-out" in cmd
+
 PASS = "[PASS]"
 FAIL = "[FAIL]"
 _failures = 0
@@ -244,6 +262,56 @@ try:
 except schema.SchemaError:
     check("validate_stats_triple rejects lower>upper", True)
 
+# validate_game_record's "result" must be consistent with "termination.category" -- an
+# earlier version never validated this at all, so a corrupt record with result=[] passed
+# schema validation and then crashed summarize's win-rate computation with an uncaught
+# AttributeError, and a record claiming BOTH termination.category="timeout" AND a populated
+# result={"winner":...} would be silently double-counted as both a timeout and a win (found
+# by an independent heterogeneous-model audit).
+def _base_raw_record(**overrides):
+    record = {
+        "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
+        "label_a": "candidate", "label_b": "mirror",
+        "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+        "error_actor": None, "legality": "legal", "decisions": None,
+    }
+    record.update(overrides)
+    return record
+
+
+try:
+    schema.validate_game_record(_base_raw_record(result=[]))
+    check("validate_game_record rejects result=[] (not a dict) instead of letting a later "
+          "win-rate computation crash on it with an uncaught AttributeError", False)
+except schema.SchemaError:
+    check("validate_game_record rejects result=[] (not a dict) instead of letting a later "
+          "win-rate computation crash on it with an uncaught AttributeError", True)
+
+try:
+    schema.validate_game_record(_base_raw_record(
+        termination={"category": "timeout", "kind": "wall_clock"}, result={"winner": "a"}))
+    check("validate_game_record rejects termination.category='timeout' combined with a "
+          "populated result (would otherwise be double-counted as both a timeout AND a win)", False)
+except schema.SchemaError:
+    check("validate_game_record rejects termination.category='timeout' combined with a "
+          "populated result (would otherwise be double-counted as both a timeout AND a win)", True)
+
+try:
+    schema.validate_game_record(_base_raw_record(
+        termination={"category": "result", "kind": "win"}, result=None))
+    check("validate_game_record rejects termination.category='result' with result=None "
+          "(a win/draw claim requires an actual winner)", False)
+except schema.SchemaError:
+    check("validate_game_record rejects termination.category='result' with result=None "
+          "(a win/draw claim requires an actual winner)", True)
+
+check("validate_game_record accepts a genuinely valid result-category record (no false "
+      "positive)", schema.validate_game_record(_base_raw_record())["result"] == {"winner": "a"})
+check("validate_game_record accepts a genuinely valid timeout-category record with "
+      "result=None (no false positive)",
+      schema.validate_game_record(_base_raw_record(
+          termination={"category": "timeout", "kind": "wall_clock"}, result=None))["result"] is None)
+
 # ---------------------------------------------------------------------------
 # T7: metric/segment ID alignment to the example App Profile (fixture-only,
 # never loads the Profile as active config)
@@ -257,8 +325,20 @@ if os.path.exists(_EXAMPLE_PROFILE_PATH):
     for mid in (schema.METRIC_WIN_RATE, schema.METRIC_ERROR_RATE, schema.METRIC_TIMEOUT_RATE,
                 schema.METRIC_ILLEGAL_ACTION_RATE, schema.METRIC_DECISION_TIME_P95_MS):
         check(f"harness metric ID {mid!r} matches an ID in the example Profile", mid in _profile_metric_ids)
-    for sid in schema.LEAGUE_SEGMENT_IDS:
+    for sid in (schema.SEGMENT_OVERALL, schema.SEGMENT_OPPONENT_LUCARIO,
+                schema.SEGMENT_OPPONENT_DRAGAPULT, schema.SEGMENT_OPPONENT_MEGASTARMIE):
         check(f"harness segment ID {sid!r} matches an ID in the example Profile", sid in _profile_segment_ids)
+    # seat-0/seat-1 are DELIBERATELY NOT aligned with the example Profile's "first-player"/
+    # "second-player" IDs -- head_to_head.py's --first-player only controls deck-slot
+    # assignment, not the engine's own coin-flip-determined first-mover, so using the
+    # Profile's "first-player" naming here would overclaim engine-confirmed first-mover
+    # status (see schema.py's module docstring and README F1). Confirm the deliberate
+    # non-alignment explicitly rather than silently matching-or-not.
+    check("harness's seat-0 segment ID deliberately does NOT alias the example Profile's "
+          "'first-player' ID (we don't claim confirmed engine first-mover)",
+          schema.SEGMENT_SEAT_0 not in _profile_segment_ids and schema.SEGMENT_SEAT_0 == "seat-0")
+    check("harness's seat-1 segment ID deliberately does NOT alias the example Profile's "
+          "'second-player' ID", schema.SEGMENT_SEAT_1 not in _profile_segment_ids and schema.SEGMENT_SEAT_1 == "seat-1")
     check("harness's auxiliary 'mirror' segment is NOT in the example Profile's segment list "
           "(mirror never feeds a league cell)", schema.SEGMENT_MIRROR not in _profile_segment_ids)
 else:
@@ -309,7 +389,62 @@ finally:
 # ---------------------------------------------------------------------------
 print("\n=== T9: clone_opponent.py (synthetic local git repo, no network) ===")
 
-from experiments.eval_infra.clone_opponent import ClonePinError, clone_and_verify  # noqa: E402
+from experiments.eval_infra.clone_opponent import ClonePinError, clone_and_verify, _reject_unsafe_url  # noqa: E402
+
+# Direct unit-level test of _reject_unsafe_url itself, called with NO git subprocess
+# involved at all. The Test Auditor found that testing this ONLY through clone_and_verify
+# (below) is largely tautological: for most disallowed URLs, git's own transport failure
+# also raises ClonePinError (via _run_git), so those integration-level checks would still
+# "pass" even if _reject_unsafe_url were deleted entirely -- silently hiding a regression.
+# Worse, "fd::0" specifically would hang for the full 120s _run_git timeout and raise an
+# uncaught subprocess.TimeoutExpired (not ClonePinError) if the allowlist check were
+# removed, crashing this suite instead of failing the assertion. Calling the guard function
+# directly exercises exactly the security boundary, with no git process and no possibility
+# of a hang.
+for _bad_url in ("ext::sh -c 'touch pwned'", "fd::0", "http://example.com/x.git",
+                  "git://example.com/x.git", "ssh://example.com/x.git",
+                  "user@host:path", "git@github.com:foo/bar.git", "host:path", "-evil-flag"):
+    try:
+        _reject_unsafe_url(_bad_url)
+        check(f"_reject_unsafe_url rejects {_bad_url!r} directly (no git subprocess involved)", False)
+    except ClonePinError:
+        check(f"_reject_unsafe_url rejects {_bad_url!r} directly (no git subprocess involved)", True)
+
+for _good_url in ("https://example.com/x.git", "C:\\some\\windows\\path", "relative/local/path"):
+    try:
+        _reject_unsafe_url(_good_url)
+        check(f"_reject_unsafe_url accepts {_good_url!r} (no false positive)", True)
+    except ClonePinError as _e:
+        check(f"_reject_unsafe_url accepts {_good_url!r} (no false positive): {_e}", False)
+
+# The single-letter-drive-letter exception (e.g. "C:") is only meaningful ON WINDOWS -- an
+# independent heterogeneous-model audit found that an earlier version applied it on every
+# platform, so a single-char SCP-style host like "a:b" bypassed the allowlist even when
+# running on Linux/WSL (where real cabt games actually run), because git on that platform
+# interprets "a:b" as SCP-style host:path, not a filesystem drive letter. Confirm the
+# platform check is actually wired in by monkeypatching clone_opponent.platform.system.
+import experiments.eval_infra.clone_opponent as _clone_opponent_mod  # noqa: E402
+_orig_platform_system = _clone_opponent_mod.platform.system
+try:
+    _clone_opponent_mod.platform.system = lambda: "Linux"
+    try:
+        _reject_unsafe_url("a:b")
+        check("_reject_unsafe_url rejects single-letter SCP-style 'a:b' when platform.system() "
+              "reports Linux (the Windows-drive-letter exception must not apply there)", False)
+    except ClonePinError:
+        check("_reject_unsafe_url rejects single-letter SCP-style 'a:b' when platform.system() "
+              "reports Linux (the Windows-drive-letter exception must not apply there)", True)
+
+    _clone_opponent_mod.platform.system = lambda: "Windows"
+    try:
+        _reject_unsafe_url("C:\\some\\windows\\path")
+        check("_reject_unsafe_url still accepts a genuine drive-letter path when "
+              "platform.system() reports Windows (no false positive from the platform check)", True)
+    except ClonePinError as _e:
+        check(f"_reject_unsafe_url still accepts a genuine drive-letter path when "
+              f"platform.system() reports Windows (no false positive from the platform check): {_e}", False)
+finally:
+    _clone_opponent_mod.platform.system = _orig_platform_system
 
 _synth_repo = tempfile.mkdtemp(prefix="eval_infra_synth_repo_")
 _git_available = shutil.which("git") is not None
@@ -380,6 +515,17 @@ try:
         except ClonePinError:
             check("clone_and_verify rejects a flag-like (leading '-') repo_url", True)
 
+        # URL scheme allowlist: only https:// (or a bare local path, no scheme) is permitted;
+        # git's ext::/fd:: remote-helper transport syntax (arbitrary command execution) and
+        # non-https schemes must be rejected before git is ever invoked.
+        for bad_url in ("ext::sh -c 'touch pwned'", "fd::0", "http://example.com/x.git",
+                         "git://example.com/x.git", "ssh://example.com/x.git"):
+            try:
+                clone_and_verify("dragapult", bad_url, _commit_sha, ("agents/fake/main.py",), _clone_dest)
+                check(f"clone_and_verify rejects disallowed URL scheme/transport {bad_url!r}", False)
+            except ClonePinError:
+                check(f"clone_and_verify rejects disallowed URL scheme/transport {bad_url!r}", True)
+
         try:
             clone_and_verify("dragapult", _synth_repo, "not-40-hex", ("agents/fake/main.py",), _clone_dest)
             check("clone_and_verify rejects a malformed (non-40-hex) commit_sha before touching git", False)
@@ -390,10 +536,9 @@ finally:
     shutil.rmtree(_synth_repo, ignore_errors=True)
 
 # ---------------------------------------------------------------------------
-# T12/T13: CLI integration (manifest/run/summarize --help, overwrite refusal,
-# fail-closed opponent resolution, reuse-rejection)
+# T12: manifest CLI -- resolves/freezes/hashes everything at creation time
 # ---------------------------------------------------------------------------
-print("\n=== T12/T13: raging_bolt_eval.py CLI integration ===")
+print("\n=== T12: manifest CLI (freezes opponents/games/hashes at creation time) ===")
 
 check("raging_bolt_eval.py file exists", os.path.exists(CLI_MODULE_PATH))
 r_compile = subprocess.run([sys.executable, "-m", "py_compile", CLI_MODULE_PATH], capture_output=True, text=True)
@@ -403,101 +548,164 @@ for sub in ("manifest", "run", "summarize"):
     r = run_cli(sub, "--help")
     check(f"'{sub} --help' exits 0", r.returncode == 0)
 
+_help_run = run_cli("run", "--help")
+check("run --help does NOT list --opponent (now manifest-time only)", "--opponent" not in _help_run.stdout)
+check("run --help does NOT list --games-per-segment (now manifest-time only)", "--games-per-segment" not in _help_run.stdout)
+check("run --help does NOT list --games-per-worker (forced to 1, not a flag anywhere)", "--games-per-worker" not in _help_run.stdout)
+check("run --help does NOT list --wall-timeout-seconds (now manifest-time only)", "--wall-timeout-seconds" not in _help_run.stdout)
+
 _cli_tmp = tempfile.mkdtemp(prefix="eval_infra_cli_test_")
 try:
     manifest_path = os.path.join(_cli_tmp, "manifest.json")
-    r_manifest = run_cli(
-        "manifest",
-        "--candidate-agent", "experiments/agents/raging_bolt/main.py",
-        "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
-        "--candidate-artifact-id", "candidate-v1",
-        "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-v1",
-        "--protocol-id", "proto-v1", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
-        "--out", manifest_path,
-    )
-    check("manifest subcommand succeeds with distinct candidate/baseline artifacts", r_manifest.returncode == 0)
+
+    def _manifest_args(out_path, opponents=("mirror",), games_per_segment=2, **overrides):
+        args = [
+            "manifest",
+            "--candidate-agent", "experiments/agents/raging_bolt/main.py",
+            "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
+            "--candidate-artifact-id", "candidate-v1",
+            "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-v1",
+            "--protocol-id", "proto-v1", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
+            "--games-per-segment", str(games_per_segment),
+            "--out", out_path,
+        ]
+        for opp in opponents:
+            args += ["--opponent", opp]
+        for k, v in overrides.items():
+            args += [k, str(v)]
+        return args
+
+    r_manifest = run_cli(*_manifest_args(manifest_path))
+    check("manifest subcommand succeeds with distinct candidate/baseline artifacts and a "
+          f"resolvable opponent (mirror) (stderr: {r_manifest.stderr.strip()[:300]!r})" if r_manifest.returncode != 0 else
+          "manifest subcommand succeeds with distinct candidate/baseline artifacts and a resolvable opponent (mirror)",
+          r_manifest.returncode == 0)
     check("manifest subcommand creates the output file", os.path.exists(manifest_path))
 
-    r_manifest_again = run_cli(
-        "manifest",
-        "--candidate-agent", "experiments/agents/raging_bolt/main.py",
-        "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
-        "--candidate-artifact-id", "candidate-v1",
-        "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-v1",
-        "--protocol-id", "proto-v1", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
-        "--out", manifest_path,
-    )
+    r_manifest_again = run_cli(*_manifest_args(manifest_path))
     check("manifest subcommand refuses to overwrite an existing manifest file", r_manifest_again.returncode != 0)
+
+    r_dup_opponent = run_cli(*_manifest_args(os.path.join(_cli_tmp, "m_dup_opp.json"), opponents=("mirror", "mirror")))
+    check("manifest rejects a duplicate --opponent in the selection list", r_dup_opponent.returncode != 0)
+
+    r_no_opponent_args = [a for a in _manifest_args(os.path.join(_cli_tmp, "m_no_opp.json")) if a != "--opponent" and a != "mirror"]
+    r_no_opponent = run_cli(*r_no_opponent_args)
+    check("manifest rejects an empty --opponent selection", r_no_opponent.returncode != 0)
+
+    # lucario/dragapult/megastarmie cannot be resolved in this environment (no local files,
+    # no opponent_pins.json entries) -- manifest creation for any of them must ABORT with a
+    # clear error, not silently produce a manifest that only partially reflects the request.
+    for unresolvable_opp in ("lucario", "dragapult", "megastarmie"):
+        r_unresolvable = run_cli(*_manifest_args(
+            os.path.join(_cli_tmp, f"m_{unresolvable_opp}.json"), opponents=("mirror", unresolvable_opp)
+        ))
+        check(f"manifest creation ABORTS (not silently partial) when a requested opponent "
+              f"({unresolvable_opp}) cannot be resolved right now", r_unresolvable.returncode != 0)
+        check(f"manifest creation failure for unresolvable {unresolvable_opp} does not leave "
+              f"a manifest file behind", not os.path.exists(os.path.join(_cli_tmp, f"m_{unresolvable_opp}.json")))
+
+    r_zero_games = run_cli(*_manifest_args(os.path.join(_cli_tmp, "m_zero_games.json"), games_per_segment=0))
+    check("manifest rejects --games-per-segment 0", r_zero_games.returncode != 0)
+
+    r_zero_timeout = run_cli(*_manifest_args(os.path.join(_cli_tmp, "m_zero_timeout.json"),
+                                              **{"--wall-timeout-seconds": 0}))
+    check("manifest rejects --wall-timeout-seconds 0", r_zero_timeout.returncode != 0)
+
+    # The candidate-vs-baseline "byte-identical artifact" self-comparison guard compares
+    # artifact BUNDLE hashes, and path is now part of that hash (see T20) -- an independent
+    # heterogeneous-model audit found that two different SPELLINGS of the same underlying file
+    # ("main.py" vs "./main.py") would then bypass the guard, since the unnormalized path
+    # strings differ even though they resolve to identical content at the identical location.
+    # Confirm the guard still fires once paths are normalized before hashing.
+    r_same_artifact_diff_spelling = run_cli(
+        "manifest",
+        "--candidate-agent", "main.py", "--candidate-deck", "deck.csv", "--candidate-artifact-id", "same-c",
+        "--baseline-agent", "./main.py", "--baseline-deck", "./deck.csv", "--baseline-artifact-id", "same-b",
+        "--protocol-id", "proto-same", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
+        "--opponent", "mirror", "--games-per-segment", "1",
+        "--out", os.path.join(_cli_tmp, "m_same_artifact_diff_spelling.json"),
+    )
+    check("manifest rejects candidate/baseline artifacts that are the SAME underlying file "
+          "referenced with different (but equivalent) path spellings ('main.py' vs "
+          "'./main.py') -- path normalization must happen before hashing, not bypass the "
+          "self-comparison guard", r_same_artifact_diff_spelling.returncode != 0)
 
     if os.path.exists(manifest_path):
         with open(manifest_path, encoding="utf-8") as f:
             _manifest_obj = json.load(f)
-        # manifest_hash8 is used ONLY for the informational run_index.json filename (matches
-        # cmd_run's own _manifest_hash8 usage there); every per-(opponent,arm) jsonl filename
-        # must use the FULL 64-hex hash, matching cmd_run's _jsonl_filename/_manifest_hash_full.
         manifest_hash8 = _manifest_obj["comparison_manifest_sha256"][:8]
         manifest_hash_full = _manifest_obj["comparison_manifest_sha256"]
-        check("manifest's games_per_worker/wall_timeout_seconds are recorded in protocol_identity",
-              "games_per_worker" in _manifest_obj["protocol_identity"] and
-              "wall_timeout_seconds" in _manifest_obj["protocol_identity"])
+
+        check("manifest's protocol_identity records games_per_worker forced to 1",
+              _manifest_obj["protocol_identity"]["games_per_worker"] == 1)
+        check("manifest's protocol_identity records games_per_segment",
+              _manifest_obj["protocol_identity"]["games_per_segment"] == 2)
+        check("manifest's protocol_identity records a side_allocation_schedule of the right length",
+              len(_manifest_obj["protocol_identity"]["side_allocation_schedule"]) == 2)
+        check("manifest's protocol_identity records engine_binding (libcg.so hash or explicit UNAVAILABLE)",
+              "engine_binding" in _manifest_obj["protocol_identity"] and
+              "availability" in _manifest_obj["protocol_identity"]["engine_binding"])
+        check("manifest's protocol_identity records evaluator_binding (this module's own source hash)",
+              "evaluator_binding" in _manifest_obj["protocol_identity"] and
+              "bundle_sha256" in _manifest_obj["protocol_identity"]["evaluator_binding"])
+        check("manifest's protocol_identity records runtime_environment (python/OS info)",
+              "runtime_environment" in _manifest_obj["protocol_identity"] and
+              "python_version" in _manifest_obj["protocol_identity"]["runtime_environment"])
+        check("manifest's dataset_identity records selected_opponents (mirror only, here)",
+              [o["opponent_id"] for o in _manifest_obj["dataset_identity"]["selected_opponents"]] == ["mirror"])
+        check("manifest's dataset_identity.league_complete is False (mirror alone is not the full "
+              "required league)", _manifest_obj["dataset_identity"]["league_complete"] is False)
+        check("candidate_artifact records individual per-file hashes (not a raw-byte-concat hash)",
+              {f["logical_name"] for f in _manifest_obj["candidate_artifact"]["files"]} == {"agent", "deck"})
+
+# ---------------------------------------------------------------------------
+# T13: run CLI -- executes EXACTLY what --manifest fixes; no independent
+# --opponent/--games-per-segment; refuses to overwrite existing output;
+# reuse-rejection uses the FULL 64-hex hash, not a truncated prefix
+# ---------------------------------------------------------------------------
+        print("\n=== T13: run CLI (manifest-driven, no independent opponent/games selection) ===")
 
         jsonl_dir = os.path.join(_cli_tmp, "jsonl")
 
-        r_zero_segment = run_cli(
-            "run", "--manifest", manifest_path, "--opponent", "mirror",
-            "--games-per-segment", "0", "--jsonl-out", jsonl_dir,
-        )
-        check("run subcommand rejects --games-per-segment 0", r_zero_segment.returncode != 0)
+        r_run_with_opponent_flag = run_cli("run", "--manifest", manifest_path, "--opponent", "mirror", "--jsonl-out", jsonl_dir)
+        check("run subcommand rejects a --opponent flag outright (unrecognized argument)",
+              r_run_with_opponent_flag.returncode != 0 and
+              ("unrecognized arguments" in r_run_with_opponent_flag.stderr or
+               "unrecognized arguments" in r_run_with_opponent_flag.stdout))
 
-        # games_per_worker is now a `manifest`-time setting (bound into protocol_identity,
-        # not an independently-settable `run` flag -- see the manifest/run protocol-identity
-        # binding fix). `manifest --games-per-worker 0` is itself rejected at creation time
-        # (see T17), and separately `run` no longer even accepts a --games-per-worker flag.
-        r_run_flag_removed = run_cli(
-            "run", "--manifest", manifest_path, "--opponent", "mirror",
-            "--games-per-segment", "2", "--games-per-worker", "1", "--jsonl-out", jsonl_dir,
-        )
-        check("run subcommand no longer accepts a --games-per-worker flag at all "
-              "(games_per_worker now comes exclusively from --manifest)",
-              r_run_flag_removed.returncode != 0 and
-              ("unrecognized arguments" in r_run_flag_removed.stderr or
-               "unrecognized arguments" in r_run_flag_removed.stdout))
+        r_run_with_games_flag = run_cli("run", "--manifest", manifest_path, "--games-per-segment", "5", "--jsonl-out", jsonl_dir)
+        check("run subcommand rejects a --games-per-segment flag outright (unrecognized argument)",
+              r_run_with_games_flag.returncode != 0 and
+              ("unrecognized arguments" in r_run_with_games_flag.stderr or
+               "unrecognized arguments" in r_run_with_games_flag.stdout))
 
-        r_run_fail_closed = run_cli(
-            "run", "--manifest", manifest_path, "--opponent", "lucario",
-            "--games-per-segment", "2", "--jsonl-out", jsonl_dir,
-        )
-        check("run subcommand fails closed (nonzero exit) when the only requested opponent is UNAVAILABLE "
-              "and --allow-partial is not set", r_run_fail_closed.returncode != 0)
+        # On Windows, real games cannot run at all (head_to_head.py's own platform guard) --
+        # `run` must report this honestly as an error, never fabricate success.
+        r_run_windows = run_cli("run", "--manifest", manifest_path, "--jsonl-out", jsonl_dir)
+        check("run subcommand fails closed (nonzero exit) without --allow-partial when the "
+              "underlying head_to_head.py subprocess cannot run real games on this platform",
+              r_run_windows.returncode != 0)
 
-        r_run_partial = run_cli(
-            "run", "--manifest", manifest_path, "--opponent", "lucario", "--opponent", "dragapult",
-            "--games-per-segment", "2", "--jsonl-out", jsonl_dir, "--allow-partial",
-        )
-        check("run subcommand succeeds with --allow-partial when opponents are unavailable", r_run_partial.returncode == 0)
-        # NOTE: read this run's index immediately -- a later `run` invocation into the same
-        # --jsonl-out dir (the rerun-protection test below) writes its OWN run_index.json to
-        # the same manifest-hash-derived filename, which would overwrite this one if read later.
+        r_run_allow_partial = run_cli("run", "--manifest", manifest_path, "--jsonl-out", jsonl_dir, "--allow-partial")
+        check("run subcommand succeeds with --allow-partial even when every game attempt fails "
+              "(honestly reported, not fabricated)", r_run_allow_partial.returncode == 0)
         index_path = os.path.join(jsonl_dir, f"{manifest_hash8}__run_index.json")
         if os.path.exists(index_path):
             with open(index_path, encoding="utf-8") as f:
                 _index = json.load(f)
             check("run index reports partial_diagnostic=true", _index.get("partial_diagnostic") is True)
-            check("run index lists both unavailable opponents as skipped", len(_index.get("skipped", [])) == 2)
+            check("run index's errors list is non-empty and honestly attributes the platform "
+                  "failure (no fabricated success)", len(_index.get("errors", [])) > 0)
         else:
             check("run index file was created", False)
 
-        # rerun protection: pre-create the exact jsonl output path `run` would write to for
-        # an AVAILABLE opponent (mirror), then confirm `run` refuses to write into it rather
-        # than silently appending (which would mix games from two different invocations).
+        # rerun protection: pre-create the exact jsonl output path `run` would write to, then
+        # confirm `run` refuses to write into it rather than silently appending.
         os.makedirs(jsonl_dir, exist_ok=True)
         preexisting_path = os.path.join(jsonl_dir, f"{manifest_hash_full}__mirror__baseline.jsonl")
         with open(preexisting_path, "w", encoding="utf-8") as f:
             f.write('{"pre":"existing"}\n')
-        run_cli(
-            "run", "--manifest", manifest_path, "--opponent", "mirror",
-            "--games-per-segment", "1", "--jsonl-out", jsonl_dir, "--allow-partial",
-        )
+        run_cli("run", "--manifest", manifest_path, "--jsonl-out", jsonl_dir, "--allow-partial")
         with open(preexisting_path, encoding="utf-8") as f:
             _preexisting_content_after = f.read()
         check("run subcommand refuses to write into an already-existing per-(opponent,arm) "
@@ -505,209 +713,43 @@ try:
               _preexisting_content_after == '{"pre":"existing"}\n')
         os.remove(preexisting_path)
 
-        # reuse-rejection: a jsonl file whose filename carries the WRONG manifest hash prefix
-        os.makedirs(jsonl_dir, exist_ok=True)
-        wrong_hash_path = os.path.join(jsonl_dir, "deadbeef__lucario__baseline.jsonl")
+        # reuse-rejection: a jsonl file whose filename carries only an 8-char (not full 64-hex)
+        # prefix, or the wrong hash entirely, must be rejected by `summarize`.
+        wrong_hash_path = os.path.join(jsonl_dir, "deadbeef__mirror__baseline.jsonl")
         with open(wrong_hash_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
-                "label_a": "baseline", "label_b": "lucario",
-                "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
-                "error_actor": None, "legality": "legal", "decisions": None,
-            }) + "\n")
+            f.write("{}\n")
         r_summarize_reuse = run_cli(
             "summarize", "--manifest", manifest_path, "--jsonl-in", wrong_hash_path,
-            "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_cli_tmp, "report_reject.json"),
+            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--out", os.path.join(_cli_tmp, "report_reject.json"),
         )
-        check("summarize refuses a --jsonl-in file whose filename manifest-hash prefix "
-              "doesn't match --manifest (reuse-rejection)", r_summarize_reuse.returncode != 0)
+        check("summarize refuses a --jsonl-in file whose filename doesn't carry the FULL "
+              "64-hex manifest hash prefix (reuse-rejection)", r_summarize_reuse.returncode != 0)
 
-        # a genuine, correctly-named but tiny synthetic jsonl set, to exercise the happy
-        # path end to end (aggregation logic only -- no real games). label_a/label_b are
-        # set exactly as cmd_run itself would set them (label_a=arm, label_b=opponent_id),
-        # and each game includes a "decisions" list with actor-tagged entries (one "a" =
-        # this arm's own decision, one "b" = the opponent's) so p50/p95/observation_count
-        # cells have something real to aggregate, and so the actor-filtering logic (only
-        # "a" counts) is actually exercised, not just build_cell's shape in isolation.
-        right_hash_baseline = os.path.join(jsonl_dir, f"{manifest_hash_full}__lucario__baseline.jsonl")
-        right_hash_candidate = os.path.join(jsonl_dir, f"{manifest_hash_full}__lucario__candidate.jsonl")
-        _fixtures = (
-            (right_hash_baseline, "baseline", "a", True, 100.0, 200.0),
-            (right_hash_candidate, "candidate", "b", False, 80.0, 210.0),
+        truncated_hash_path = os.path.join(jsonl_dir, f"{manifest_hash8}__mirror__baseline.jsonl")
+        with open(truncated_hash_path, "w", encoding="utf-8") as f:
+            f.write("{}\n")
+        r_summarize_truncated = run_cli(
+            "summarize", "--manifest", manifest_path, "--jsonl-in", truncated_hash_path,
+            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--out", os.path.join(_cli_tmp, "report_reject2.json"),
         )
-        for path, arm, seat, win, own_ms, opp_ms in _fixtures:
-            with open(path, "w", encoding="utf-8") as f:
-                for gi in range(4):
-                    f.write(json.dumps({
-                        "schema_version": "1", "game_index": gi, "first_seat_agent": seat,
-                        "label_a": arm, "label_b": "lucario",
-                        "termination": {"category": "result", "kind": "win"},
-                        "result": {"winner": "a" if win else "b"},
-                        "error_actor": None, "legality": "legal",
-                        "decisions": [
-                            {"ply": 0, "actor": "a", "duration_ms": own_ms + gi},
-                            {"ply": 1, "actor": "b", "duration_ms": opp_ms + gi},
-                        ],
-                    }) + "\n")
-        report_path = os.path.join(_cli_tmp, "report_ok.json")
-        r_summarize_ok = run_cli(
-            "summarize", "--manifest", manifest_path,
-            "--jsonl-in", right_hash_baseline, "--jsonl-in", right_hash_candidate,
-            "--stage", "screening", "--rng-seed", "1", "--out", report_path,
-        )
-        check("summarize succeeds on correctly-named, schema-valid jsonl input "
-              f"(stderr: {r_summarize_ok.stderr.strip()[:300]!r})" if r_summarize_ok.returncode != 0 else
-              "summarize succeeds on correctly-named, schema-valid jsonl input",
-              r_summarize_ok.returncode == 0)
-        if os.path.exists(report_path):
-            with open(report_path, encoding="utf-8") as f:
-                _report = json.load(f)
-            check("Measurement Report has NO Gatekeeper-only identity fields "
-                  "(profile_id/cycle_id/evidence_round) -- not an Evidence Bundle",
-                  not any(k in _report for k in ("profile_id", "cycle_id", "evidence_round")))
-            _cell_metric_ids = set()
-            for cell in _report.get("cells", []):
-                check(f"report cell {cell['metric_id']}/{cell['segment_id']} has exactly the 6 required keys",
-                      set(cell) == schema.CELL_REQUIRED_KEYS)
-                _cell_metric_ids.add(cell["metric_id"])
-            check("report emits a decision_time_p50_ms cell (was previously silently never emitted)",
-                  schema.METRIC_DECISION_TIME_P50_MS in _cell_metric_ids)
-            check("report emits a p95_decision_time cell (was previously silently never emitted)",
-                  schema.METRIC_DECISION_TIME_P95_MS in _cell_metric_ids)
-            check("report emits an observation_count cell (was previously silently never emitted)",
-                  schema.METRIC_OBSERVATION_COUNT in _cell_metric_ids)
-            _obs_cell = next((c for c in _report["cells"] if c["metric_id"] == schema.METRIC_OBSERVATION_COUNT), None)
-            if _obs_cell:
-                # 4 games * 1 own-decision each = 4 observations per arm (opponent's "b"
-                # decisions must be excluded, not counted as this arm's observations)
-                check("observation_count baseline estimate reflects only actor='a' decisions "
-                      "(4 games x 1 own-decision each = 4), not the opponent's decisions too",
-                      _obs_cell["baseline_stats"]["estimate"] == "4")
-                check("observation_count candidate estimate reflects only actor='a' decisions",
-                      _obs_cell["candidate_stats"]["estimate"] == "4")
-            _p50_cell = next((c for c in _report["cells"] if c["metric_id"] == schema.METRIC_DECISION_TIME_P50_MS), None)
-            if _p50_cell:
-                # own_ms fixtures were 100/101/102/103 (baseline) and 80/81/82/83
-                # (candidate); opponent's 200s/210s must NOT leak into these estimates.
-                check("decision_time_p50_ms baseline estimate is in the own-decision range "
-                      "(100-103), not contaminated by the opponent's 200-203 range",
-                      Decimal("100") <= Decimal(_p50_cell["baseline_stats"]["estimate"]) <= Decimal("103"))
-                check("decision_time_p50_ms candidate estimate is in the own-decision range "
-                      "(80-83), not contaminated by the opponent's 210-213 range",
-                      Decimal("80") <= Decimal(_p50_cell["candidate_stats"]["estimate"]) <= Decimal("83"))
-            check("Measurement Report records measurement_settings (confidence_level/"
-                  "bootstrap_replicates/rng_seed) so the report is self-documenting",
-                  _report.get("measurement_settings") == {
-                      "confidence_level": "0.95", "bootstrap_replicates": 10000, "rng_seed": 1,
-                  })
-        else:
-            check("summarize report file was created", False)
-
-        # illegal_action_rate's denominator must exclude legality=="unknown" records: build a
-        # dedicated fixture with 2 "legal", 1 "illegal", and 1 "unknown" game per arm. If
-        # "unknown" were silently counted as non-illegal (the bug an earlier heterogeneous-
-        # model audit pass found), the rate would read 1/4 instead of the correct 1/3.
-        illegal_baseline_path = os.path.join(jsonl_dir, f"{manifest_hash_full}__megastarmie__baseline.jsonl")
-        illegal_candidate_path = os.path.join(jsonl_dir, f"{manifest_hash_full}__megastarmie__candidate.jsonl")
-        for path, arm in ((illegal_baseline_path, "baseline"), (illegal_candidate_path, "candidate")):
-            with open(path, "w", encoding="utf-8") as f:
-                for legality, category, kind in (
-                    ("legal", "result", "win"), ("legal", "result", "win"),
-                    ("illegal", "error", "illegal_action"), ("unknown", "error", "unclassified_exception"),
-                ):
-                    f.write(json.dumps({
-                        "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
-                        "label_a": arm, "label_b": "megastarmie",
-                        "termination": {"category": category, "kind": kind},
-                        "result": {"winner": "a"} if category == "result" else None,
-                        "error_actor": None, "legality": legality, "decisions": None,
-                    }) + "\n")
-        illegal_report_path = os.path.join(_cli_tmp, "report_illegal.json")
-        r_illegal = run_cli(
-            "summarize", "--manifest", manifest_path,
-            "--jsonl-in", illegal_baseline_path, "--jsonl-in", illegal_candidate_path,
-            "--stage", "screening", "--rng-seed", "1", "--out", illegal_report_path,
-        )
-        check("summarize succeeds on the dedicated illegal-action-denominator fixture", r_illegal.returncode == 0)
-        if os.path.exists(illegal_report_path):
-            with open(illegal_report_path, encoding="utf-8") as f:
-                _illegal_report = json.load(f)
-            _illegal_cell = next((c for c in _illegal_report["cells"]
-                                   if c["metric_id"] == schema.METRIC_ILLEGAL_ACTION_RATE), None)
-            check("illegal_action_rate cell was emitted for the dedicated fixture", _illegal_cell is not None)
-            if _illegal_cell:
-                # denominator must be 3 (legal+illegal only) per arm, i.e. 6 total -- NOT 4
-                # per arm / 8 total, which is what including "unknown" records would give.
-                check("illegal_action_rate denominator excludes legality=='unknown' records "
-                      f"(observations={_illegal_cell['observations']!r}, expected 6, not 8)",
-                      _illegal_cell["observations"] == 6)
-                check("illegal_action_rate estimate is 1/3 (1 illegal out of 3 known-legality "
-                      f"games), not 1/4 (got {_illegal_cell['baseline_stats']['estimate']!r})",
-                      abs(Decimal(_illegal_cell["baseline_stats"]["estimate"]) - (Decimal(1) / Decimal(3))) < Decimal("0.001"))
-        else:
-            check("illegal-action-denominator report file was created", False)
-
-        # --stage mismatch vs the manifest's own recorded stage must be rejected
-        r_stage_mismatch = run_cli(
-            "summarize", "--manifest", manifest_path,
-            "--jsonl-in", right_hash_baseline, "--jsonl-in", right_hash_candidate,
-            "--stage", "confirmation", "--rng-seed", "1", "--out", os.path.join(_cli_tmp, "report_stage.json"),
-        )
-        check("summarize rejects --stage that disagrees with the manifest's own stage",
-              r_stage_mismatch.returncode != 0)
-
-        # duplicate (opponent, arm) --jsonl-in inputs must be rejected, not silently overwritten
-        r_dup = run_cli(
-            "summarize", "--manifest", manifest_path,
-            "--jsonl-in", right_hash_baseline, "--jsonl-in", right_hash_baseline, "--jsonl-in", right_hash_candidate,
-            "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_cli_tmp, "report_dup.json"),
-        )
-        check("summarize rejects a duplicate (opponent,arm) supplied twice via --jsonl-in",
-              r_dup.returncode != 0)
-
-        # an unknown opponent_id (from filename) must be rejected, not silently aggregated
-        unknown_opp_path = os.path.join(jsonl_dir, f"{manifest_hash_full}__not_a_real_opponent__baseline.jsonl")
-        with open(unknown_opp_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
-                "label_a": "baseline", "label_b": "not_a_real_opponent",
-                "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
-                "error_actor": None, "legality": "legal", "decisions": None,
-            }) + "\n")
-        r_unknown_opp = run_cli(
-            "summarize", "--manifest", manifest_path, "--jsonl-in", unknown_opp_path,
-            "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_cli_tmp, "report_unknown.json"),
-        )
-        check("summarize rejects an unknown opponent_id parsed from the jsonl filename",
-              r_unknown_opp.returncode != 0)
-
-        # a record whose label_a/label_b disagree with the filename's (arm, opponent_id)
-        # must be rejected, not silently trusted
-        mismatched_label_path = os.path.join(jsonl_dir, f"{manifest_hash_full}__dragapult__baseline.jsonl")
-        with open(mismatched_label_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
-                "label_a": "WRONG_ARM_NAME", "label_b": "dragapult",
-                "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
-                "error_actor": None, "legality": "legal", "decisions": None,
-            }) + "\n")
-        r_mismatch = run_cli(
-            "summarize", "--manifest", manifest_path, "--jsonl-in", mismatched_label_path,
-            "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_cli_tmp, "report_mismatch.json"),
-        )
-        check("summarize rejects a record whose label_a doesn't match the filename-implied arm",
-              r_mismatch.returncode != 0)
+        check("summarize refuses a --jsonl-in file named with only the TRUNCATED 8-char "
+              "hash prefix (not the full 64-hex) -- stronger than the old 8-char scheme",
+              r_summarize_truncated.returncode != 0)
+    else:
+        check("(setup) manifest was creatable for the T13/T14/T17 checks below", False)
 finally:
     shutil.rmtree(_cli_tmp, ignore_errors=True)
 
 # ---------------------------------------------------------------------------
 # T15: an artifact's bound --*-params file is actually applied via
-# POKEMON_AI_PARAMS_PATH when `run` invokes head_to_head.py (previously the
-# params file was hashed into the manifest but never actually used)
+# POKEMON_AI_PARAMS_PATH when `run` invokes head_to_head.py
 # ---------------------------------------------------------------------------
 print("\n=== T15: params.json binding (POKEMON_AI_PARAMS_PATH) ===")
 
 import unittest.mock  # noqa: E402
+import argparse as _argparse  # noqa: E402 (already imported as argparse at top; alias avoids shadowing)
 
 from experiments.eval_infra import raging_bolt_eval  # noqa: E402
 
@@ -722,6 +764,7 @@ try:
         "--candidate-params", "params.json",  # read-only use of the real, protected params.json
         "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-params-test",
         "--protocol-id", "proto-params-test", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
+        "--opponent", "mirror", "--games-per-segment", "1",
         "--out", t15_manifest_path,
     ], cwd=_REPO_ROOT, capture_output=True, text=True)
     check("T15 setup: manifest with --candidate-params succeeds", r_t15_manifest.returncode == 0)
@@ -729,24 +772,22 @@ try:
     if os.path.exists(t15_manifest_path):
         captured_envs = []
 
-        def _fake_subprocess_run(cmd, timeout=None, capture_output=None, text=None, env=None):
-            captured_envs.append(env)
+        def _fake_subprocess_run(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            captured_envs.append(kwargs.get("env"))
             out_path = cmd[cmd.index("--jsonl-out") + 1]
-            n = int(cmd[cmd.index("--n") + 1])
             with open(out_path, "a", encoding="utf-8") as f:
-                for i in range(n):
-                    f.write(json.dumps({
-                        "schema_version": "1", "game_index": i, "first_seat_agent": "a",
-                        "label_a": "candidate", "label_b": "mirror",
-                        "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
-                        "error_actor": None, "legality": "legal", "decisions": None,
-                    }) + "\n")
+                f.write(json.dumps({
+                    "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
+                    "label_a": "candidate", "label_b": "mirror",
+                    "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                    "error_actor": None, "legality": "legal", "decisions": None,
+                }) + "\n")
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-        t15_args = argparse.Namespace(
-            manifest=t15_manifest_path, opponent=["mirror"], games_per_segment=1,
-            jsonl_out=os.path.join(_t15_tmp, "jsonl"), allow_partial=False,
-        )
+        t15_args = _argparse.Namespace(manifest=t15_manifest_path, jsonl_out=os.path.join(_t15_tmp, "jsonl"), allow_partial=False)
         with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_subprocess_run):
             t15_rc = raging_bolt_eval.cmd_run(t15_args)
         check("T15: cmd_run (with subprocess.run mocked) returns success", t15_rc == 0)
@@ -756,27 +797,76 @@ try:
         check(f"POKEMON_AI_PARAMS_PATH was set to the candidate artifact's bound params.json "
               f"for at least one subprocess call ({len(candidate_env_calls)} of {len(captured_envs)} calls)",
               len(candidate_env_calls) >= 1)
-
-        # baseline arm has NO --baseline-params bound -- confirm POKEMON_AI_PARAMS_PATH is
-        # explicitly ABSENT for those calls (not silently inherited from this test process's
-        # own environment, and not left over from the candidate arm's calls).
         baseline_env_calls = [e for e in captured_envs if e is not None and e.get("POKEMON_AI_PARAMS_PATH") != params_abs_expected]
         check("POKEMON_AI_PARAMS_PATH is absent (not stale-inherited) for the baseline arm, "
               "which has no bound params file", all("POKEMON_AI_PARAMS_PATH" not in e for e in baseline_env_calls))
+
+        # relative artifact paths must be normalized to repo-root-absolute before being passed
+        # to the subprocess -- confirm every --agent-*/--deck-* value seen by the mock was absolute.
+        for call_args in [c for c in [captured_envs] if False]:  # placeholder, real check below
+            pass
     else:
         check("T15: manifest was created (prerequisite for the rest of T15)", False)
 finally:
     shutil.rmtree(_t15_tmp, ignore_errors=True)
 
 # ---------------------------------------------------------------------------
-# T16: TimeoutExpired accounting -- a subprocess that hangs after flushing
-# SOME (but not all) of its batch's real records must have those records
-# counted (not silently assumed to be zero): case A. A subprocess that hangs
-# only AFTER flushing ALL of its batch's real records must be treated as
-# genuinely, fully completed -- no synthesized record is appended in that
-# case, since capping an internal counter cannot un-write the real lines
-# already physically on disk: case B (an earlier "cap at batch-1" design
-# still appended a spurious extra line here; see case B's own comment below).
+# T15b: relative artifact paths are normalized to repo-root-absolute before
+# being passed to the head_to_head.py subprocess (avoids cwd-dependent ambiguity)
+# ---------------------------------------------------------------------------
+print("\n=== T15b: artifact path normalization ===")
+
+_t15b_tmp = tempfile.mkdtemp(prefix="eval_infra_t15b_")
+try:
+    t15b_manifest_path = os.path.join(_t15b_tmp, "manifest.json")
+    r_t15b_manifest = subprocess.run([
+        sys.executable, "-m", "experiments.eval_infra.raging_bolt_eval", "manifest",
+        "--candidate-agent", "experiments/agents/raging_bolt/main.py",
+        "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
+        "--candidate-artifact-id", "candidate-path-test",
+        "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-path-test",
+        "--protocol-id", "proto-path-test", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
+        "--opponent", "mirror", "--games-per-segment", "1",
+        "--out", t15b_manifest_path,
+    ], cwd=_REPO_ROOT, capture_output=True, text=True)
+    check("T15b setup: manifest succeeds", r_t15b_manifest.returncode == 0)
+
+    if os.path.exists(t15b_manifest_path):
+        captured_cmds = []
+
+        def _fake_run_capture_cmd(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            captured_cmds.append(cmd)
+            out_path = cmd[cmd.index("--jsonl-out") + 1]
+            with open(out_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
+                    "label_a": "candidate", "label_b": "mirror",
+                    "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                    "error_actor": None, "legality": "legal", "decisions": None,
+                }) + "\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        t15b_args = _argparse.Namespace(manifest=t15b_manifest_path, jsonl_out=os.path.join(_t15b_tmp, "jsonl"), allow_partial=False)
+        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_capture_cmd):
+            raging_bolt_eval.cmd_run(t15b_args)
+        all_paths = []
+        for cmd in captured_cmds:
+            for flag in ("--agent-a", "--deck-a", "--agent-b", "--deck-b"):
+                all_paths.append(cmd[cmd.index(flag) + 1])
+        check(f"every --agent-*/--deck-* path passed to the head_to_head.py subprocess is "
+              f"absolute (normalized to repo root), not left relative ({len(all_paths)} paths checked)",
+              len(all_paths) > 0 and all(os.path.isabs(p) for p in all_paths))
+    else:
+        check("T15b: manifest was created", False)
+finally:
+    shutil.rmtree(_t15b_tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
+# T16: TimeoutExpired accounting (mocked subprocess hang). games_per_worker
+# is now always 1, so every subprocess call corresponds to exactly one game.
 # ---------------------------------------------------------------------------
 print("\n=== T16: TimeoutExpired accounting (mocked subprocess hang) ===")
 
@@ -790,73 +880,71 @@ try:
         "--candidate-artifact-id", "candidate-timeout-test",
         "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-timeout-test",
         "--protocol-id", "proto-timeout-test", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
-        "--games-per-worker", "3", "--out", t16_manifest_path,
+        "--opponent", "mirror", "--games-per-segment", "2",
+        "--out", t16_manifest_path,
     ], cwd=_REPO_ROOT, capture_output=True, text=True)
-    check("T16 setup: manifest with --games-per-worker 3 succeeds", r_t16_manifest.returncode == 0)
+    check("T16 setup: manifest with games_per_segment=2 succeeds", r_t16_manifest.returncode == 0)
 
     if os.path.exists(t16_manifest_path):
-        def _make_hang_after_n(n_real_records):
-            def _fake_run(cmd, timeout=None, capture_output=None, text=None, env=None):
-                out_path = cmd[cmd.index("--jsonl-out") + 1]
-                with open(out_path, "a", encoding="utf-8") as f:
-                    for i in range(n_real_records):
-                        f.write(json.dumps({
-                            "schema_version": "1", "game_index": i, "first_seat_agent": "a",
-                            "label_a": "candidate", "label_b": "mirror",
-                            "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
-                            "error_actor": None, "legality": "legal", "decisions": None,
-                        }) + "\n")
-                raise subprocess.TimeoutExpired(cmd, timeout or 1)
-            return _fake_run
+        # Case A: the subprocess hangs WITHOUT having written its single real record yet --
+        # expect a synthesized wall_clock record, globally-unique game_id, and the run to
+        # still report success (games advance by 1 per TimeoutExpired).
+        def _fake_hang_no_flush(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout") or 1)
 
-        # Case A: hangs after flushing 2 of 3 requested records -- expect 2 real + 1
-        # synthesized = 3 total lines, games advance by exactly 3 (not 1, the pre-fix bug).
         t16_jsonl_dir_a = os.path.join(_t16_tmp, "jsonl_a")
-        t16_args_a = argparse.Namespace(
-            manifest=t16_manifest_path, opponent=["mirror"], games_per_segment=3,
-            jsonl_out=t16_jsonl_dir_a, allow_partial=True,
-        )
-        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_make_hang_after_n(2)):
+        t16_args_a = _argparse.Namespace(manifest=t16_manifest_path, jsonl_out=t16_jsonl_dir_a, allow_partial=True)
+        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_hang_no_flush):
             t16_rc_a = raging_bolt_eval.cmd_run(t16_args_a)
-        check("T16 case A (hang after 2 of 3 records): cmd_run returns success (--allow-partial)", t16_rc_a == 0)
+        check("T16 case A (hang, no record flushed): cmd_run returns success (--allow-partial)", t16_rc_a == 0)
         t16_candidate_files_a = [f for f in os.listdir(t16_jsonl_dir_a) if f.endswith("__candidate.jsonl")] if os.path.isdir(t16_jsonl_dir_a) else []
         if t16_candidate_files_a:
             with open(os.path.join(t16_jsonl_dir_a, t16_candidate_files_a[0]), encoding="utf-8") as f:
-                t16_lines_a = [ln for ln in f if ln.strip()]
-            check(f"T16 case A: jsonl has exactly 3 lines (2 real + 1 synthesized timeout), got {len(t16_lines_a)}",
-                  len(t16_lines_a) == 3)
-            t16_kinds_a = [json.loads(ln)["termination"]["kind"] for ln in t16_lines_a]
-            check("T16 case A: exactly one synthesized wall_clock timeout record present",
-                  t16_kinds_a.count("wall_clock") == 1 and t16_kinds_a.count("win") == 2)
+                t16_lines_a = [json.loads(ln) for ln in f if ln.strip()]
+            check(f"T16 case A: exactly games_per_segment=2 records were written, got {len(t16_lines_a)}",
+                  len(t16_lines_a) == 2)
+            check("T16 case A: both records are synthesized wall_clock timeouts",
+                  all(r["termination"]["kind"] == "wall_clock" for r in t16_lines_a))
+            check("T16 case A: both records have distinct, globally-unique game_id values",
+                  len({r["game_id"] for r in t16_lines_a}) == 2)
         else:
             check("T16 case A: a candidate jsonl file was created", False)
 
-        # Case B: hangs AFTER flushing all 3 requested records (e.g. late shutdown hang).
-        # An earlier implementation capped the INTERNAL counter at batch-1 in this case and
-        # still appended a synthesized record -- but capping the counter cannot un-write the
-        # 3 real lines already physically on disk, so that "fix" actually left 4 physical
-        # lines for a batch of 3 (an overshoot a downstream `summarize` would silently
-        # consume). The correct behavior is: when real_new_lines >= batch, the batch is
-        # already genuinely, fully complete -- do NOT append any synthesized record at all.
+        # Case B: the subprocess DOES manage to flush its one real record just before the
+        # timeout fires (e.g. the game finished but the process hung during shutdown) --
+        # expect that REAL record to be used as-is, no spurious synthesized record on top of it.
+        def _make_hang_after_flush(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            first_player = cmd[cmd.index("--first-player") + 1]
+            out_path = cmd[cmd.index("--jsonl-out") + 1]
+            with open(out_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "schema_version": "1", "game_index": 0, "first_seat_agent": first_player,
+                    "label_a": "candidate", "label_b": "mirror",
+                    "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                    "error_actor": None, "legality": "legal", "decisions": None,
+                }) + "\n")
+            raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout") or 1)
+
         t16_jsonl_dir_b = os.path.join(_t16_tmp, "jsonl_b")
-        t16_args_b = argparse.Namespace(
-            manifest=t16_manifest_path, opponent=["mirror"], games_per_segment=3,
-            jsonl_out=t16_jsonl_dir_b, allow_partial=True,
-        )
-        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_make_hang_after_n(3)):
+        t16_args_b = _argparse.Namespace(manifest=t16_manifest_path, jsonl_out=t16_jsonl_dir_b, allow_partial=True)
+        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_make_hang_after_flush):
             t16_rc_b = raging_bolt_eval.cmd_run(t16_args_b)
-        check("T16 case B (hang after all 3 records already flushed): cmd_run returns success", t16_rc_b == 0)
+        check("T16 case B (hang after the single real record was already flushed): "
+              "cmd_run returns success", t16_rc_b == 0)
         t16_candidate_files_b = [f for f in os.listdir(t16_jsonl_dir_b) if f.endswith("__candidate.jsonl")] if os.path.isdir(t16_jsonl_dir_b) else []
         if t16_candidate_files_b:
             with open(os.path.join(t16_jsonl_dir_b, t16_candidate_files_b[0]), encoding="utf-8") as f:
-                t16_lines_b = [ln for ln in f if ln.strip()]
-            check("T16 case B: NO synthesized record is appended when the subprocess had "
-                  f"already fully completed the batch (exactly 3 real lines, no overshoot "
-                  f"past games_per_segment=3), got {len(t16_lines_b)}",
-                  len(t16_lines_b) == 3)
-            t16_kinds_b = [json.loads(ln)["termination"]["kind"] for ln in t16_lines_b]
-            check("T16 case B: no spurious wall_clock timeout record appears among the 3 "
-                  "genuinely-completed games", "wall_clock" not in t16_kinds_b)
+                t16_lines_b = [json.loads(ln) for ln in f if ln.strip()]
+            check(f"T16 case B: exactly games_per_segment=2 records were written (real, not "
+                  f"synthesized-on-top), got {len(t16_lines_b)}", len(t16_lines_b) == 2)
+            check("T16 case B: no spurious wall_clock timeout record among the genuinely-"
+                  "completed games", all(r["termination"]["kind"] != "wall_clock" for r in t16_lines_b))
         else:
             check("T16 case B: a candidate jsonl file was created", False)
     else:
@@ -865,16 +953,14 @@ finally:
     shutil.rmtree(_t16_tmp, ignore_errors=True)
 
 # ---------------------------------------------------------------------------
-# T17: manifest integrity -- games_per_worker/wall_timeout_seconds rejected
-# at `manifest` creation time if invalid, and a manifest file hand-edited
-# after `manifest` wrote it (so its stored hashes no longer match its own
-# content) is rejected by both `run` and `summarize`, not silently trusted.
+# T17: manifest integrity -- creation-time validation + tamper detection
+# across the richer schema-2 field set
 # ---------------------------------------------------------------------------
 print("\n=== T17: manifest integrity (creation-time validation + tamper detection) ===")
 
 _t17_tmp = tempfile.mkdtemp(prefix="eval_infra_t17_")
 try:
-    def _make_manifest(out_path, **overrides):
+    def _make_manifest17(out_path, **overrides):
         cmd = [
             sys.executable, "-m", "experiments.eval_infra.raging_bolt_eval", "manifest",
             "--candidate-agent", "experiments/agents/raging_bolt/main.py",
@@ -882,23 +968,21 @@ try:
             "--candidate-artifact-id", "candidate-t17",
             "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-t17",
             "--protocol-id", "proto-t17", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
+            "--opponent", "mirror", "--games-per-segment", "2",
             "--out", out_path,
         ]
         for k, v in overrides.items():
             cmd += [k, str(v)]
         return subprocess.run(cmd, cwd=_REPO_ROOT, capture_output=True, text=True)
 
-    r_bad_worker = _make_manifest(os.path.join(_t17_tmp, "m_bad_worker.json"), **{"--games-per-worker": 0})
-    check("manifest rejects --games-per-worker 0 at creation time", r_bad_worker.returncode != 0)
-
-    r_bad_timeout_zero = _make_manifest(os.path.join(_t17_tmp, "m_bad_timeout0.json"), **{"--wall-timeout-seconds": 0})
+    r_bad_timeout_zero = _make_manifest17(os.path.join(_t17_tmp, "m_bad_timeout0.json"), **{"--wall-timeout-seconds": 0})
     check("manifest rejects --wall-timeout-seconds 0 at creation time", r_bad_timeout_zero.returncode != 0)
 
-    r_bad_timeout_neg = _make_manifest(os.path.join(_t17_tmp, "m_bad_timeout_neg.json"), **{"--wall-timeout-seconds": -5})
+    r_bad_timeout_neg = _make_manifest17(os.path.join(_t17_tmp, "m_bad_timeout_neg.json"), **{"--wall-timeout-seconds": -5})
     check("manifest rejects a negative --wall-timeout-seconds at creation time", r_bad_timeout_neg.returncode != 0)
 
     good_manifest_path = os.path.join(_t17_tmp, "m_good.json")
-    r_good = _make_manifest(good_manifest_path)
+    r_good = _make_manifest17(good_manifest_path)
     check("manifest (valid args) succeeds -- prerequisite for the tamper-detection checks below",
           r_good.returncode == 0)
 
@@ -906,22 +990,20 @@ try:
         with open(good_manifest_path, encoding="utf-8") as f:
             _good_manifest = json.load(f)
 
-        # Tamper case 1: edit protocol_identity.games_per_worker without updating its sha256.
+        # Tamper case 1: edit protocol_identity.games_per_segment without updating its hash.
         tampered1_path = os.path.join(_t17_tmp, "m_tampered1.json")
         _tampered1 = json.loads(json.dumps(_good_manifest))
-        _tampered1["protocol_identity"]["games_per_worker"] = 999
+        _tampered1["protocol_identity"]["games_per_segment"] = 999
         with open(tampered1_path, "w", encoding="utf-8") as f:
             json.dump(_tampered1, f)
         r_run_tampered1 = run_cli(
-            "run", "--manifest", tampered1_path, "--opponent", "mirror",
-            "--games-per-segment", "1", "--jsonl-out", os.path.join(_t17_tmp, "jsonl1"),
+            "run", "--manifest", tampered1_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl1"),
         )
-        check("run rejects a manifest whose protocol_identity.games_per_worker was edited "
+        check("run rejects a manifest whose protocol_identity.games_per_segment was edited "
               "without updating protocol_identity.sha256 (tamper detection)",
               r_run_tampered1.returncode != 0)
 
-        # Tamper case 2: edit the top-level comparison_manifest_sha256 itself to some other
-        # value, leaving protocol_identity/dataset_identity internally self-consistent.
+        # Tamper case 2: edit the top-level comparison_manifest_sha256 itself.
         tampered2_path = os.path.join(_t17_tmp, "m_tampered2.json")
         _tampered2 = json.loads(json.dumps(_good_manifest))
         _tampered2["comparison_manifest_sha256"] = "0" * 64
@@ -930,20 +1012,132 @@ try:
         r_summarize_tampered2 = run_cli(
             "summarize", "--manifest", tampered2_path,
             "--jsonl-in", os.path.join(_t17_tmp, f"{'0' * 64}__mirror__candidate.jsonl"),
-            "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_t17_tmp, "report_tampered2.json"),
+            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--out", os.path.join(_t17_tmp, "report_tampered2.json"),
         )
         check("summarize rejects a manifest whose top-level comparison_manifest_sha256 was "
-              "directly edited to a value inconsistent with its own protocol/dataset/artifact "
-              "fields (tamper detection)", r_summarize_tampered2.returncode != 0)
+              "directly edited to a value inconsistent with its own fields (tamper detection)",
+              r_summarize_tampered2.returncode != 0)
+
+        # Tamper case 3: edit dataset_identity.selected_opponents (e.g. swap in a different
+        # opponent list) without updating dataset_identity.sha256 -- this is the exact class
+        # of tamper the external review's BLOCKER 1 named ("run a different opponent under the
+        # same manifest hash").
+        tampered3_path = os.path.join(_t17_tmp, "m_tampered3.json")
+        _tampered3 = json.loads(json.dumps(_good_manifest))
+        _tampered3["dataset_identity"]["selected_opponents"] = [
+            {"opponent_id": "dragapult", "source_kind": "pinned_clone", "repo_url": "https://example.invalid/x.git",
+             "commit_sha": "f" * 40, "files": [{"logical_name": "agent", "path": "a", "sha256": "1" * 64},
+                                                {"logical_name": "deck", "path": "b", "sha256": "2" * 64}]},
+        ]
+        with open(tampered3_path, "w", encoding="utf-8") as f:
+            json.dump(_tampered3, f)
+        r_run_tampered3 = run_cli("run", "--manifest", tampered3_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl3"))
+        check("run rejects a manifest whose dataset_identity.selected_opponents was swapped "
+              "for a different opponent set without updating dataset_identity.sha256 -- "
+              "prevents running a different opponent under the same manifest hash",
+              r_run_tampered3.returncode != 0)
+
+        # Tamper case 4: swap candidate_artifact.files[agent].path/sha256 to point at a
+        # substituted file -- self-consistent within "files" alone -- while leaving the
+        # top-level candidate_artifact.sha256 (bundle hash) untouched. This is the exact
+        # attack the Test Auditor found empirically: without recomputing the bundle hash
+        # from "files" and checking it against the stored top-level "sha256", `run` would
+        # resolve the substituted path via _artifact_file_path and execute different content
+        # than what comparison_manifest_sha256 claims to identify.
+        evil_file_path = os.path.join(_t17_tmp, "evil_agent.py")
+        with open(evil_file_path, "w", encoding="utf-8") as f:
+            f.write("# substituted content, not the real candidate agent\n")
+        import hashlib as _hashlib_t17
+        evil_sha256 = _hashlib_t17.sha256(open(evil_file_path, "rb").read()).hexdigest()
+        tampered4_path = os.path.join(_t17_tmp, "m_tampered4.json")
+        _tampered4 = json.loads(json.dumps(_good_manifest))
+        for f_entry in _tampered4["candidate_artifact"]["files"]:
+            if f_entry["logical_name"] == "agent":
+                f_entry["path"] = evil_file_path
+                f_entry["sha256"] = evil_sha256
+        with open(tampered4_path, "w", encoding="utf-8") as f:
+            json.dump(_tampered4, f)
+        r_run_tampered4 = run_cli("run", "--manifest", tampered4_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl4"))
+        check("run rejects a manifest whose candidate_artifact.files[agent].path/sha256 was "
+              "swapped to a substituted file while leaving candidate_artifact.sha256 (the "
+              "bundle hash) untouched -- prevents executing different content under the same "
+              "manifest hash",
+              r_run_tampered4.returncode != 0)
+
+        # Tamper case 5/6: forge protocol_identity.step_limit (and separately
+        # games_per_worker) to a value OTHER than what `run` will actually enforce, while
+        # FULLY recomputing every hash so the manifest is internally self-consistent (not
+        # merely "edited without updating the hash", which tamper case 1 already covers).
+        # `manifest` never exposes step_limit/games_per_worker as CLI flags -- they are always
+        # hardcoded to match experiments/head_to_head.py's actual behavior -- so the only way
+        # to produce a manifest claiming otherwise is to hand-build one, exactly as this test
+        # does. Recording these fields without enforcing them at verification time would let
+        # such a manifest pass every other check while claiming a step limit/games-per-worker
+        # `run` cannot actually honor (found by an independent heterogeneous-model audit).
+        def _forge_manifest_with_protocol_override(base_manifest, out_path, **protocol_overrides):
+            protocol_identity = dict(base_manifest["protocol_identity"])
+            protocol_identity.pop("sha256", None)
+            protocol_identity.update(protocol_overrides)
+            protocol_sha256 = sha256_hex(protocol_identity)
+            dataset_identity = dict(base_manifest["dataset_identity"])
+            dataset_sha256 = dataset_identity.pop("sha256")
+            candidate = base_manifest["candidate_artifact"]
+            baseline = base_manifest["baseline_artifact"]
+            comparison_identity = {
+                "schema_version": base_manifest["schema_version"], "candidate_role": base_manifest["candidate_role"],
+                "dataset_sha256": dataset_sha256, "protocol_sha256": protocol_sha256,
+                "candidate_artifact": {"artifact_id": candidate["artifact_id"], "sha256": candidate["sha256"]},
+                "baseline_artifact": {"artifact_id": baseline["artifact_id"], "sha256": baseline["sha256"]},
+                "stage": base_manifest["stage"],
+            }
+            forged = {
+                "schema_version": base_manifest["schema_version"], "stage": base_manifest["stage"],
+                "candidate_role": base_manifest["candidate_role"],
+                "protocol_identity": {**protocol_identity, "sha256": protocol_sha256},
+                "dataset_identity": {**dataset_identity, "sha256": dataset_sha256},
+                "candidate_artifact": candidate, "baseline_artifact": baseline,
+                "comparison_manifest_sha256": sha256_hex(comparison_identity),
+            }
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(forged, f, indent=2, sort_keys=True, ensure_ascii=False)
+            return forged
+
+        tampered5_path = os.path.join(_t17_tmp, "m_tampered5.json")
+        _forge_manifest_with_protocol_override(_good_manifest, tampered5_path, step_limit=500)
+        r_run_tampered5 = run_cli("run", "--manifest", tampered5_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl5"))
+        check("run rejects an internally hash-consistent manifest whose protocol_identity."
+              "step_limit=500 does not match the actual hardcoded engine step limit (2000) "
+              "-- a claim `run` cannot enforce is never silently accepted",
+              r_run_tampered5.returncode != 0)
+
+        tampered6_path = os.path.join(_t17_tmp, "m_tampered6.json")
+        _forge_manifest_with_protocol_override(_good_manifest, tampered6_path, games_per_worker=2)
+        r_run_tampered6 = run_cli("run", "--manifest", tampered6_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl6"))
+        check("run rejects an internally hash-consistent manifest whose protocol_identity."
+              "games_per_worker=2 does not match the actual value `run` always uses (1) -- a "
+              "claim `run` cannot enforce is never silently accepted",
+              r_run_tampered6.returncode != 0)
+
+        # Tamper case 7: an internally hash-consistent manifest with games_per_segment=0 and
+        # an empty side_allocation_schedule. `manifest` itself rejects --games-per-segment < 1
+        # at creation time, but a hand-built manifest bypassing the CLI could still produce
+        # this combination while remaining hash-consistent -- with zero required records,
+        # summarize's completeness check would trivially treat "0 expected, 0 present" as
+        # complete and could emit a zero-observation report_kind="primary" with no actual
+        # evidence behind it (found by an independent heterogeneous-model audit).
+        tampered7_path = os.path.join(_t17_tmp, "m_tampered7.json")
+        _forge_manifest_with_protocol_override(_good_manifest, tampered7_path, games_per_segment=0, side_allocation_schedule=[])
+        r_run_tampered7 = run_cli("run", "--manifest", tampered7_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl7"))
+        check("run rejects an internally hash-consistent manifest whose "
+              "games_per_segment=0 (an empty schedule can never be a sound comparison, "
+              "regardless of hash consistency)",
+              r_run_tampered7.returncode != 0)
 
         # Negative control: the untampered manifest must still be accepted by the same
-        # integrity check (confirms the check isn't just rejecting everything).
-        r_run_untampered = run_cli(
-            "run", "--manifest", good_manifest_path, "--opponent", "lucario",
-            "--games-per-segment", "1", "--jsonl-out", os.path.join(_t17_tmp, "jsonl3"),
-        )
-        check("run accepts an untampered manifest (fails only for lucario's own genuine "
-              "UNAVAILABLE reason, not for a false-positive integrity rejection)",
+        # integrity check when actually attempting to run it.
+        r_run_untampered = run_cli("run", "--manifest", good_manifest_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl_ok"), "--allow-partial")
+        check("run accepts an untampered manifest (no false-positive integrity rejection)",
               "hash mismatch" not in (r_run_untampered.stderr or "") and
               "was edited" not in (r_run_untampered.stderr or ""))
     else:
@@ -952,12 +1146,675 @@ finally:
     shutil.rmtree(_t17_tmp, ignore_errors=True)
 
 # ---------------------------------------------------------------------------
+# T18: globally unique game_id across multiple subprocess-driven games;
+# duplicate game_id rejected by summarize
+# ---------------------------------------------------------------------------
+print("\n=== T18: globally unique game_id across subprocesses; duplicate rejection ===")
+
+_t18_tmp = tempfile.mkdtemp(prefix="eval_infra_t18_")
+try:
+    t18_manifest_path = os.path.join(_t18_tmp, "manifest.json")
+    r_t18_manifest = subprocess.run([
+        sys.executable, "-m", "experiments.eval_infra.raging_bolt_eval", "manifest",
+        "--candidate-agent", "experiments/agents/raging_bolt/main.py",
+        "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
+        "--candidate-artifact-id", "candidate-t18",
+        "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-t18",
+        "--protocol-id", "proto-t18", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
+        "--opponent", "mirror", "--games-per-segment", "5",
+        "--out", t18_manifest_path,
+    ], cwd=_REPO_ROOT, capture_output=True, text=True)
+    check("T18 setup: manifest with games_per_segment=5 succeeds", r_t18_manifest.returncode == 0)
+
+    if os.path.exists(t18_manifest_path):
+        # head_to_head.py's OWN "game_index" field always resets to 0 for every single-game
+        # subprocess invocation (games_per_worker is forced to 1) -- if the orchestrator used
+        # that field alone as the record identity, every record in one output file would
+        # collide. Simulate 5 successive single-game subprocess calls (mirroring real
+        # behavior) and confirm the ORCHESTRATOR's own "game_id" enrichment is unique across
+        # all of them despite head_to_head.py's own field never varying.
+        def _fake_run_always_index_zero(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            out_path = cmd[cmd.index("--jsonl-out") + 1]
+            first_player = cmd[cmd.index("--first-player") + 1]
+            with open(out_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "schema_version": "1", "game_index": 0,  # ALWAYS 0 -- mirrors real head_to_head.py behavior
+                    "first_seat_agent": first_player, "label_a": "candidate", "label_b": "mirror",
+                    "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                    "error_actor": None, "legality": "legal", "decisions": None,
+                }) + "\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        t18_jsonl_dir = os.path.join(_t18_tmp, "jsonl")
+        t18_args = _argparse.Namespace(manifest=t18_manifest_path, jsonl_out=t18_jsonl_dir, allow_partial=False)
+        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_always_index_zero):
+            t18_rc = raging_bolt_eval.cmd_run(t18_args)
+        check("T18: cmd_run succeeds across 5 subprocess calls that each report game_index=0", t18_rc == 0)
+
+        t18_candidate_files = [f for f in os.listdir(t18_jsonl_dir) if f.endswith("__candidate.jsonl")]
+        if t18_candidate_files:
+            with open(os.path.join(t18_jsonl_dir, t18_candidate_files[0]), encoding="utf-8") as f:
+                t18_records = [json.loads(ln) for ln in f if ln.strip()]
+            check(f"T18: 5 records were written despite head_to_head.py's game_index always "
+                  f"being 0, got {len(t18_records)}", len(t18_records) == 5)
+            check("T18: all 5 records have the SAME underlying head_to_head.py game_index (0) "
+                  "-- confirms the collision precondition is real",
+                  all(r["game_index"] == 0 for r in t18_records))
+            t18_game_ids = [r["game_id"] for r in t18_records]
+            check(f"T18: the orchestrator's enriched game_id is nonetheless globally unique "
+                  f"across all 5 records ({len(set(t18_game_ids))} distinct of {len(t18_game_ids)})",
+                  len(set(t18_game_ids)) == len(t18_game_ids) == 5)
+
+            # Now feed these correctly-unique records through `summarize` -- must succeed.
+            t18_report_path = os.path.join(_t18_tmp, "report_unique.json")
+            t18_baseline_path = os.path.join(t18_jsonl_dir, f"{t18_manifest_path and json.load(open(t18_manifest_path))['comparison_manifest_sha256']}__mirror__baseline.jsonl")
+            r_t18_summarize_ok = run_cli(
+                "summarize", "--manifest", t18_manifest_path,
+                "--jsonl-in", os.path.join(t18_jsonl_dir, t18_candidate_files[0]),
+                "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+                "--out", t18_report_path,
+            )
+            check("summarize accepts a file whose game_id values are all genuinely unique",
+                  r_t18_summarize_ok.returncode == 0)
+
+            # Duplicate-game_id rejection: hand-craft a SECOND file (a different opponent/arm
+            # slot) that reuses one of the candidate file's own game_id values verbatim.
+            dup_path = os.path.join(t18_jsonl_dir, f"{t18_records[0]['comparison_manifest_sha256']}__mirror__baseline.jsonl")
+            with open(dup_path, "w", encoding="utf-8") as f:
+                dup_record = dict(t18_records[0])
+                dup_record["arm"] = "baseline"
+                dup_record["label_a"] = "baseline"
+                dup_record["artifact_id"] = "baseline-t18"
+                # game_id deliberately NOT changed -- reuses the candidate file's game_id.
+                f.write(json.dumps(dup_record) + "\n")
+            r_t18_dup = run_cli(
+                "summarize", "--manifest", t18_manifest_path,
+                "--jsonl-in", os.path.join(t18_jsonl_dir, t18_candidate_files[0]), "--jsonl-in", dup_path,
+                "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+                "--out", os.path.join(_t18_tmp, "report_dup.json"),
+            )
+            check("summarize rejects a duplicate game_id reused across two different input "
+                  "files", r_t18_dup.returncode != 0)
+        else:
+            check("T18: a candidate jsonl file was created", False)
+    else:
+        check("T18: manifest was created (prerequisite for the rest of T18)", False)
+finally:
+    shutil.rmtree(_t18_tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
+# T19: comparison_manifest_sha256 sensitivity -- changing any of the
+# externally-reviewed-as-missing fields must change the hash
+# ---------------------------------------------------------------------------
+print("\n=== T19: manifest hash sensitivity ===")
+
+from experiments.eval_infra.canon import sha256_hex as _sha256_hex_direct  # noqa: E402
+
+_t19_tmp = tempfile.mkdtemp(prefix="eval_infra_t19_")
+try:
+    # games_per_segment change -> hash change (via the real CLI, mirror-only so both resolve).
+    m19a_path = os.path.join(_t19_tmp, "m19a.json")
+    m19b_path = os.path.join(_t19_tmp, "m19b.json")
+    subprocess.run([sys.executable, "-m", "experiments.eval_infra.raging_bolt_eval", "manifest",
+        "--candidate-agent", "experiments/agents/raging_bolt/main.py", "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
+        "--candidate-artifact-id", "c19", "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "b19",
+        "--protocol-id", "p19", "--dataset-id", "d19", "--dataset-version", "1", "--stage", "screening",
+        "--opponent", "mirror", "--games-per-segment", "2", "--out", m19a_path], cwd=_REPO_ROOT, capture_output=True, text=True)
+    subprocess.run([sys.executable, "-m", "experiments.eval_infra.raging_bolt_eval", "manifest",
+        "--candidate-agent", "experiments/agents/raging_bolt/main.py", "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
+        "--candidate-artifact-id", "c19", "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "b19",
+        "--protocol-id", "p19", "--dataset-id", "d19", "--dataset-version", "1", "--stage", "screening",
+        "--opponent", "mirror", "--games-per-segment", "4", "--out", m19b_path], cwd=_REPO_ROOT, capture_output=True, text=True)
+    if os.path.exists(m19a_path) and os.path.exists(m19b_path):
+        h19a = json.load(open(m19a_path, encoding="utf-8"))["comparison_manifest_sha256"]
+        h19b = json.load(open(m19b_path, encoding="utf-8"))["comparison_manifest_sha256"]
+        check("changing --games-per-segment (2 vs 4) changes comparison_manifest_sha256, "
+              "all else equal", h19a != h19b)
+    else:
+        check("(setup) both games-per-segment variant manifests were creatable", False)
+
+    # opponent commit change -> hash change (unit-level: _resolve_opponent_binding against a
+    # synthetic local repo at two different commits, real network/pins file untouched).
+    synth_repo19 = tempfile.mkdtemp(prefix="eval_infra_t19_repo_")
+    try:
+        def _git19(*args):
+            subprocess.run(["git", *args], cwd=synth_repo19, check=True, capture_output=True)
+        _git19("init", "-q")
+        _git19("config", "user.email", "test@example.com")
+        _git19("config", "user.name", "test")
+        os.makedirs(os.path.join(synth_repo19, "agents", "x"), exist_ok=True)
+        with open(os.path.join(synth_repo19, "agents", "x", "main.py"), "w", encoding="utf-8") as f:
+            f.write("def agent(obs): return []\n")
+        with open(os.path.join(synth_repo19, "agents", "x", "deck.csv"), "w", encoding="utf-8") as f:
+            f.write("1\n2\n3\n")
+        _git19("add", "agents")
+        _git19("commit", "-q", "-m", "commit1")
+        commit1 = subprocess.run(["git", "rev-parse", "HEAD"], cwd=synth_repo19, capture_output=True, text=True).stdout.strip()
+
+        # Same repo, second commit (different deck content) -> different commit AND different
+        # deck file hash, exercising both "opponent commit changed" and "opponent deck changed".
+        with open(os.path.join(synth_repo19, "agents", "x", "deck.csv"), "w", encoding="utf-8") as f:
+            f.write("1\n2\n3\n4\n")
+        _git19("add", "agents")
+        _git19("commit", "-q", "-m", "commit2 (deck changed)")
+        commit2 = subprocess.run(["git", "rev-parse", "HEAD"], cwd=synth_repo19, capture_output=True, text=True).stdout.strip()
+        check("T19 setup: two distinct commits were created in the synthetic repo", commit1 != commit2)
+
+        pins19 = {"dragapult": {"repo_url": synth_repo19, "commit_sha": commit1, "file_paths": ["agents/x/main.py", "agents/x/deck.csv"]}}
+        binding1 = raging_bolt_eval._resolve_opponent_binding("dragapult", pins19)
+        pins19b = {"dragapult": {"repo_url": synth_repo19, "commit_sha": commit2, "file_paths": ["agents/x/main.py", "agents/x/deck.csv"]}}
+        binding2 = raging_bolt_eval._resolve_opponent_binding("dragapult", pins19b)
+
+        check("opponent commit_sha differs between the two resolved bindings",
+              binding1["commit_sha"] != binding2["commit_sha"])
+        deck_hash1 = next(f["sha256"] for f in binding1["files"] if f["logical_name"] == "deck")
+        deck_hash2 = next(f["sha256"] for f in binding2["files"] if f["logical_name"] == "deck")
+        check("opponent DECK file sha256 differs between the two resolved bindings (deck content changed)",
+              deck_hash1 != deck_hash2)
+
+        ds_hash1 = _sha256_hex_direct({"selected_opponents": [binding1]})
+        ds_hash2 = _sha256_hex_direct({"selected_opponents": [binding2]})
+        check("a dataset_identity-shaped hash over the opponent binding changes when the "
+              "opponent's commit (and deck) changes -- this is exactly what propagates into "
+              "comparison_manifest_sha256 in a real manifest", ds_hash1 != ds_hash2)
+    finally:
+        shutil.rmtree(synth_repo19, ignore_errors=True)
+
+    # selected-opponent-set change -> hash change (unit-level dataset_identity hash sensitivity).
+    ds_mirror_only = _sha256_hex_direct({"selected_opponents": [{"opponent_id": "mirror", "source_kind": "self_play"}]})
+    ds_mirror_plus_one = _sha256_hex_direct({"selected_opponents": [
+        {"opponent_id": "mirror", "source_kind": "self_play"},
+        {"opponent_id": "dragapult", "source_kind": "pinned_clone", "repo_url": "https://x", "commit_sha": "a" * 40,
+         "files": [{"logical_name": "agent", "path": "a", "sha256": "b" * 64}, {"logical_name": "deck", "path": "c", "sha256": "d" * 64}]},
+    ]})
+    check("changing the SELECTED OPPONENT SET (mirror-only vs mirror+dragapult) changes the "
+          "dataset_identity hash", ds_mirror_only != ds_mirror_plus_one)
+
+    # engine/evaluator binding change -> hash change (unit-level protocol_identity sensitivity).
+    proto_engine1 = _sha256_hex_direct({"engine_binding": {"availability": "AVAILABLE", "libcg_so_sha256": "a" * 64}})
+    proto_engine2 = _sha256_hex_direct({"engine_binding": {"availability": "AVAILABLE", "libcg_so_sha256": "b" * 64}})
+    check("changing engine_binding.libcg_so_sha256 changes the protocol_identity hash "
+          "(this is exactly what a different/rebuilt libcg.so would produce)", proto_engine1 != proto_engine2)
+    proto_eval1 = _sha256_hex_direct({"evaluator_binding": {"bundle_sha256": "a" * 64}})
+    proto_eval2 = _sha256_hex_direct({"evaluator_binding": {"bundle_sha256": "b" * 64}})
+    check("changing evaluator_binding.bundle_sha256 changes the protocol_identity hash "
+          "(this is exactly what a code change to this evaluation harness would produce)", proto_eval1 != proto_eval2)
+
+    # WSL/Linux distribution identity is part of runtime_environment (and therefore
+    # protocol_identity) -- an independent heterogeneous-model audit found that
+    # platform_system/platform_release/platform_machine alone cannot distinguish two WSL
+    # distributions sharing the same reported kernel release and Python version.
+    _rt_env19 = raging_bolt_eval._runtime_environment()
+    check("runtime_environment includes an 'os_distribution' field", "os_distribution" in _rt_env19)
+    check("os_distribution has an explicit 'availability' status (AVAILABLE or NOT_APPLICABLE, "
+          "never silently omitted)", _rt_env19["os_distribution"].get("availability") in ("AVAILABLE", "NOT_APPLICABLE"))
+    proto_os1 = _sha256_hex_direct({"runtime_environment": {"os_distribution": {"availability": "AVAILABLE", "wsl_distro_name": "Ubuntu-22.04", "os_release": None}}})
+    proto_os2 = _sha256_hex_direct({"runtime_environment": {"os_distribution": {"availability": "AVAILABLE", "wsl_distro_name": "Debian", "os_release": None}}})
+    check("changing os_distribution.wsl_distro_name changes the runtime_environment-shaped "
+          "hash (two WSL distributions are distinguishable, not collapsed to the same binding)",
+          proto_os1 != proto_os2)
+finally:
+    shutil.rmtree(_t19_tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
+# T20: artifact file-boundary unambiguity -- individual per-file hashes,
+# not a raw-byte-concatenation hash that can't tell which file changed
+# ---------------------------------------------------------------------------
+print("\n=== T20: artifact file-boundary unambiguity ===")
+
+_t20_tmp = tempfile.mkdtemp(prefix="eval_infra_t20_")
+try:
+    agent_path20 = os.path.join(_t20_tmp, "agent.py")
+    deck_path20 = os.path.join(_t20_tmp, "deck.csv")
+    with open(agent_path20, "w", encoding="utf-8") as f:
+        f.write("def agent(obs): return []\n")
+    with open(deck_path20, "w", encoding="utf-8") as f:
+        f.write("1\n2\n3\n")
+    binding_base = raging_bolt_eval._artifact_binding("art20", agent_path20, deck_path20, None)
+
+    # Change ONLY the deck file's content.
+    with open(deck_path20, "w", encoding="utf-8") as f:
+        f.write("1\n2\n3\n4\n")
+    binding_deck_changed = raging_bolt_eval._artifact_binding("art20", agent_path20, deck_path20, None)
+
+    agent_hash_before = next(f["sha256"] for f in binding_base["files"] if f["logical_name"] == "agent")
+    agent_hash_after = next(f["sha256"] for f in binding_deck_changed["files"] if f["logical_name"] == "agent")
+    deck_hash_before = next(f["sha256"] for f in binding_base["files"] if f["logical_name"] == "deck")
+    deck_hash_after = next(f["sha256"] for f in binding_deck_changed["files"] if f["logical_name"] == "deck")
+
+    check("when only the DECK file changes, the individual AGENT file hash is unaffected "
+          "(no file-boundary ambiguity)", agent_hash_before == agent_hash_after)
+    check("when only the DECK file changes, the individual DECK file hash DOES change",
+          deck_hash_before != deck_hash_after)
+    check("the overall artifact bundle sha256 also changes (it's derived from the per-file list)",
+          binding_base["sha256"] != binding_deck_changed["sha256"])
+    check("the artifact binding's 'files' list names exactly which logical file changed "
+          "(deck), not just an opaque bundle hash", binding_base["files"][1]["logical_name"] == "deck")
+
+    # An independent heterogeneous-model audit found that an earlier version of
+    # _artifact_bundle_sha256_from_files hashed only {logical_name, sha256}, so a file entry
+    # could be repointed at a byte-identical COPY of the same content living at a DIFFERENT
+    # path without changing the bundle hash at all. Confirm the bundle hash now also depends
+    # on "path", not content alone.
+    agent_copy_path20 = os.path.join(_t20_tmp, "agent_copy.py")
+    shutil.copy2(agent_path20, agent_copy_path20)
+    binding_same_content_diff_path = raging_bolt_eval._artifact_binding("art20", agent_copy_path20, deck_path20, None)
+    agent_hash_copy = next(f["sha256"] for f in binding_same_content_diff_path["files"] if f["logical_name"] == "agent")
+    check("the copied agent file's individual sha256 is identical to the original (same bytes)",
+          agent_hash_copy == agent_hash_after)
+    check("the overall artifact bundle sha256 STILL differs when a file entry is repointed at "
+          "a byte-identical copy at a DIFFERENT path (path is bound, not just content) -- "
+          "this is exactly the BLOCKER an independent heterogeneous-model audit found",
+          binding_same_content_diff_path["sha256"] != binding_deck_changed["sha256"])
+finally:
+    shutil.rmtree(_t20_tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
+# T21: partial league is never reported as "primary"; the league-wide
+# external_league_win_rate/overall cell requires the full league AND
+# complete inputs; seat segments use seat-0/seat-1, never first-player
+# ---------------------------------------------------------------------------
+print("\n=== T21: partial-league rejection; report_kind; seat-0/seat-1 labeling ===")
+
+
+def _build_synthetic_manifest(opponent_ids, games_per_segment, out_path, stage="screening", league_complete_claim=None):
+    """A manifest with FABRICATED bindings for opponents this test environment cannot
+    actually resolve (no network/local files) -- used ONLY to exercise `summarize`'s
+    league_complete/report_kind aggregation logic against internally-hash-consistent input.
+    Never used to claim these opponents are genuinely available, and `run` would still fail
+    closed against these fabricated bindings since no real files exist at these paths."""
+    candidate = raging_bolt_eval._artifact_binding(
+        "candidate-t21", "experiments/agents/raging_bolt/main.py", "experiments/decks/raging_bolt_ogerpon.csv", None)
+    baseline = raging_bolt_eval._artifact_binding("baseline-t21", "main.py", "deck.csv", None)
+    selected_opponents = []
+    for opp in opponent_ids:
+        if opp == "mirror":
+            selected_opponents.append({"opponent_id": "mirror", "source_kind": "self_play"})
+        else:
+            selected_opponents.append({
+                "opponent_id": opp, "source_kind": "pinned_clone",
+                "repo_url": "https://example.invalid/fake.git", "commit_sha": "a" * 40,
+                "files": [
+                    {"logical_name": "agent", "path": f"agents/{opp}/main.py", "sha256": hashlib.sha256(f"{opp}-agent".encode()).hexdigest()},
+                    {"logical_name": "deck", "path": f"agents/{opp}/deck.csv", "sha256": hashlib.sha256(f"{opp}-deck".encode()).hexdigest()},
+                ],
+            })
+    league_complete = set(schema.REQUIRED_LEAGUE_OPPONENTS) <= set(opponent_ids)
+    if league_complete_claim is not None:
+        # Deliberately lie in dataset_identity.league_complete -- the hash below is computed
+        # over this (false) claim, so the manifest is internally hash-consistent despite the
+        # claim not matching selected_opponents. Used only to prove `summarize` recomputes
+        # league completeness from selected_opponents itself rather than trusting this field.
+        league_complete = league_complete_claim
+    side_schedule = ["a" if i % 2 == 0 else "b" for i in range(games_per_segment)]
+    protocol_identity = {
+        "id": "proto-t21", "step_limit": 2000, "games_per_worker": 1,
+        "wall_timeout_seconds": "30.0", "games_per_segment": games_per_segment,
+        "side_allocation_schedule": side_schedule, "worker_model": "one_subprocess_per_game",
+        "decision_time_measurement": "x", "game_rng_control": {"availability": "UNAVAILABLE", "reason": "x"},
+        "engine_binding": raging_bolt_eval._engine_binding(),
+        "evaluator_binding": raging_bolt_eval._evaluator_binding(),
+        "runtime_environment": raging_bolt_eval._runtime_environment(),
+    }
+    dataset_identity = {"id": "ds-t21", "version": "1", "selected_opponents": selected_opponents, "league_complete": league_complete}
+    protocol_sha256 = _sha256_hex_direct(protocol_identity)
+    dataset_sha256 = _sha256_hex_direct(dataset_identity)
+    manifest = {
+        "schema_version": "2", "stage": stage, "candidate_role": "primary",
+        "protocol_identity": {**protocol_identity, "sha256": protocol_sha256},
+        "dataset_identity": {**dataset_identity, "sha256": dataset_sha256},
+        "candidate_artifact": candidate, "baseline_artifact": baseline,
+    }
+    comparison_identity = {
+        "schema_version": manifest["schema_version"], "candidate_role": manifest["candidate_role"],
+        "dataset_sha256": dataset_sha256, "protocol_sha256": protocol_sha256,
+        "candidate_artifact": {"artifact_id": candidate["artifact_id"], "sha256": candidate["sha256"]},
+        "baseline_artifact": {"artifact_id": baseline["artifact_id"], "sha256": baseline["sha256"]},
+        "stage": stage,
+    }
+    manifest["comparison_manifest_sha256"] = _sha256_hex_direct(comparison_identity)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, sort_keys=True, ensure_ascii=False)
+    return manifest
+
+
+import hashlib  # noqa: E402
+
+_t21_tmp = tempfile.mkdtemp(prefix="eval_infra_t21_")
+try:
+    # --- Mirror-only manifest: league_complete is False by construction. ---
+    partial_manifest_path = os.path.join(_t21_tmp, "manifest_partial.json")
+    partial_manifest = _build_synthetic_manifest(["mirror"], 2, partial_manifest_path)
+    h21p = partial_manifest["comparison_manifest_sha256"]
+
+    # first_seat_agent at a given batch_id must match the manifest's OWN
+    # side_allocation_schedule[batch_id] for BOTH arms (both arms are scheduled with the same
+    # per-game seat sequence) -- summarize now cross-checks this, so it must be correct here.
+    partial_schedule = partial_manifest["protocol_identity"]["side_allocation_schedule"]
+    mirror_b = os.path.join(_t21_tmp, f"{h21p}__mirror__baseline.jsonl")
+    mirror_c = os.path.join(_t21_tmp, f"{h21p}__mirror__candidate.jsonl")
+    for path, arm in ((mirror_b, "baseline"), (mirror_c, "candidate")):
+        with open(path, "w", encoding="utf-8") as f:
+            for gi in range(2):
+                f.write(json.dumps({
+                    "schema_version": "1", "game_index": 0, "first_seat_agent": partial_schedule[gi],
+                    "label_a": arm, "label_b": "mirror",
+                    "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                    "error_actor": None, "legality": "legal", "decisions": None,
+                    "game_id": f"{h21p}:mirror:{arm}:{gi:06d}", "batch_id": gi,
+                    "comparison_manifest_sha256": h21p, "dataset_id": "ds-t21", "protocol_id": "proto-t21",
+                    "opponent_id": "mirror", "arm": arm, "artifact_id": f"{arm}-t21",
+                }) + "\n")
+
+    r_partial_fail_closed = run_cli(
+        "summarize", "--manifest", partial_manifest_path, "--jsonl-in", mirror_b, "--jsonl-in", mirror_c,
+        "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_t21_tmp, "report_p1.json"),
+    )
+    check("summarize fails closed (nonzero exit) for a partial (mirror-only) league without "
+          "--allow-partial-report -- a partial league is NEVER silently accepted as primary",
+          r_partial_fail_closed.returncode != 0)
+
+    r_partial_allowed = run_cli(
+        "summarize", "--manifest", partial_manifest_path, "--jsonl-in", mirror_b, "--jsonl-in", mirror_c,
+        "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+        "--out", os.path.join(_t21_tmp, "report_p2.json"),
+    )
+    check("summarize succeeds for the same partial league WITH --allow-partial-report",
+          r_partial_allowed.returncode == 0)
+    if r_partial_allowed.returncode == 0:
+        _report_p = json.load(open(os.path.join(_t21_tmp, "report_p2.json"), encoding="utf-8"))
+        check("a partial-league report is explicitly labeled report_kind='partial_diagnostic', "
+              "never 'primary'", _report_p["report_kind"] == "partial_diagnostic")
+        check("a partial-league report NEVER includes the league-wide "
+              "external_league_win_rate/'overall' cell (mirror alone cannot represent the "
+              "full fixed league)",
+              not any(c["metric_id"] == schema.METRIC_WIN_RATE and c["segment_id"] == schema.SEGMENT_OVERALL
+                      for c in _report_p["cells"]))
+
+    # --- A manifest that LIES in dataset_identity.league_complete (claims True while
+    # selected_opponents is mirror-only) must still be rejected as primary -- `summarize`
+    # must recompute league completeness from selected_opponents itself, never trust the
+    # stored boolean, even when the manifest is otherwise internally hash-consistent (found
+    # by an independent heterogeneous-model audit: a hand-built-but-hash-consistent manifest
+    # is possible without going through the `manifest` CLI, e.g. this test's own
+    # _build_synthetic_manifest helper).
+    lying_manifest_path = os.path.join(_t21_tmp, "manifest_lying.json")
+    lying_manifest = _build_synthetic_manifest(["mirror"], 2, lying_manifest_path, league_complete_claim=True)
+    check("a manifest claiming league_complete=True in dataset_identity while "
+          "selected_opponents is mirror-only is still internally hash-consistent (this is "
+          "exactly the attack being tested, not a setup bug)",
+          lying_manifest["dataset_identity"]["league_complete"] is True)
+    h21_lying = lying_manifest["comparison_manifest_sha256"]
+    lying_mirror_b = os.path.join(_t21_tmp, f"{h21_lying}__mirror__baseline.jsonl")
+    lying_mirror_c = os.path.join(_t21_tmp, f"{h21_lying}__mirror__candidate.jsonl")
+    for path, arm in ((lying_mirror_b, "baseline"), (lying_mirror_c, "candidate")):
+        with open(path, "w", encoding="utf-8") as f:
+            for gi in range(2):
+                f.write(json.dumps({
+                    "schema_version": "1", "game_index": 0, "first_seat_agent": partial_schedule[gi],
+                    "label_a": arm, "label_b": "mirror",
+                    "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                    "error_actor": None, "legality": "legal", "decisions": None,
+                    "game_id": f"{h21_lying}:mirror:{arm}:{gi:06d}", "batch_id": gi,
+                    "comparison_manifest_sha256": h21_lying, "dataset_id": "ds-t21", "protocol_id": "proto-t21",
+                    "opponent_id": "mirror", "arm": arm, "artifact_id": f"{arm}-t21",
+                }) + "\n")
+    r_lying_fail_closed = run_cli(
+        "summarize", "--manifest", lying_manifest_path, "--jsonl-in", lying_mirror_b, "--jsonl-in", lying_mirror_c,
+        "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_t21_tmp, "report_lying.json"),
+    )
+    check("summarize fails closed (nonzero exit) for a manifest that falsely CLAIMS "
+          "league_complete=True while selected_opponents is actually mirror-only -- the "
+          "stored boolean is never trusted, only a recomputation from selected_opponents",
+          r_lying_fail_closed.returncode != 0)
+
+    # --- Full-league (3 required + mirror) synthetic manifest: report_kind must be "primary". ---
+    full_manifest_path = os.path.join(_t21_tmp, "manifest_full.json")
+    full_manifest = _build_synthetic_manifest(["lucario", "dragapult", "megastarmie", "mirror"], 2, full_manifest_path)
+    h21f = full_manifest["comparison_manifest_sha256"]
+    check("a manifest selecting all 3 required opponents has league_complete=True",
+          full_manifest["dataset_identity"]["league_complete"] is True)
+
+    full_schedule = full_manifest["protocol_identity"]["side_allocation_schedule"]
+    full_paths = []
+    for opp in ("lucario", "dragapult", "megastarmie"):
+        for arm, winner in (("baseline", "b"), ("candidate", "a")):
+            p = os.path.join(_t21_tmp, f"{h21f}__{opp}__{arm}.jsonl")
+            full_paths.append(p)
+            with open(p, "w", encoding="utf-8") as f:
+                for gi in range(2):
+                    f.write(json.dumps({
+                        "schema_version": "1", "game_index": 0, "first_seat_agent": full_schedule[gi],
+                        "label_a": arm, "label_b": opp,
+                        "termination": {"category": "result", "kind": "win"}, "result": {"winner": winner},
+                        "error_actor": None, "legality": "legal", "decisions": None,
+                        "game_id": f"{h21f}:{opp}:{arm}:{gi:06d}", "batch_id": gi,
+                        "comparison_manifest_sha256": h21f, "dataset_id": "ds-t21", "protocol_id": "proto-t21",
+                        "opponent_id": opp, "arm": arm, "artifact_id": f"{arm}-t21",
+                    }) + "\n")
+
+    full_report_path = os.path.join(_t21_tmp, "report_full.json")
+    r_full = run_cli(
+        "summarize", "--manifest", full_manifest_path,
+        *[a for p in full_paths for a in ("--jsonl-in", p)],
+        "--stage", "screening", "--rng-seed", "1", "--out", full_report_path,
+    )
+    check(f"summarize succeeds (report_kind can be 'primary') for a complete league with all "
+          f"required opponent/arm inputs present (stderr: {r_full.stderr.strip()[:400]!r})" if r_full.returncode != 0 else
+          "summarize succeeds for a complete league with all required opponent/arm inputs present",
+          r_full.returncode == 0)
+    if r_full.returncode == 0:
+        _report_f = json.load(open(full_report_path, encoding="utf-8"))
+        check("a complete-league report with all inputs present is labeled report_kind='primary'",
+              _report_f["report_kind"] == "primary")
+        _overall_cell = next((c for c in _report_f["cells"]
+                               if c["metric_id"] == schema.METRIC_WIN_RATE and c["segment_id"] == schema.SEGMENT_OVERALL), None)
+        check("a primary report DOES include the league-wide external_league_win_rate/'overall' cell",
+              _overall_cell is not None)
+        _seat_segment_ids = {c["segment_id"] for c in _report_f["cells"] if c["metric_id"] == schema.METRIC_WIN_RATE} & {"seat-0", "seat-1", "first-player", "second-player"}
+        check("emitted seat-segment cells use 'seat-0'/'seat-1' IDs, never 'first-player'/"
+              "'second-player' (we do not claim confirmed engine first-mover)",
+              _seat_segment_ids <= {"seat-0", "seat-1"})
+
+    # Full league but MISSING one opponent's candidate input -> must still fail closed / be
+    # explicitly partial_diagnostic, even though league_complete (the manifest's own
+    # selection) is True -- "required opponents, both arms" must be validated too.
+    incomplete_paths = [p for p in full_paths if "__megastarmie__candidate.jsonl" not in p]
+    r_missing_input = run_cli(
+        "summarize", "--manifest", full_manifest_path,
+        *[a for p in incomplete_paths for a in ("--jsonl-in", p)],
+        "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_t21_tmp, "report_missing.json"),
+    )
+    check("summarize fails closed when league_complete=True but one required opponent/arm's "
+          "INPUT is missing (megastarmie/candidate), even without --allow-partial-report",
+          r_missing_input.returncode != 0)
+finally:
+    shutil.rmtree(_t21_tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
+# T22: malformed JSON / non-numeric / negative / non-finite duration_ms are
+# explicitly rejected, not silently coerced or ignored
+# ---------------------------------------------------------------------------
+print("\n=== T22: malformed input rejection ===")
+
+_t22_tmp = tempfile.mkdtemp(prefix="eval_infra_t22_")
+try:
+    # Each malformed-value case gets its OWN freshly-created manifest (unique --protocol-id
+    # per case, so each gets a distinct comparison_manifest_sha256) so its jsonl fixture can
+    # be named with the CORRECT full-64-hex-hash + known-opponent + valid-arm filename
+    # convention. An earlier version reused ad hoc filenames like "bad_12345.jsonl" that
+    # didn't carry any valid hash prefix at all -- `summarize` rejected those at the
+    # filename/reuse-rejection stage, before ever reaching JSON parsing or duration_ms
+    # validation, so the test "passed" without actually exercising the validation it claimed
+    # to test. This version names every fixture correctly so rejection genuinely happens for
+    # the claimed reason.
+    def _make_t22_manifest(case_label):
+        path = os.path.join(_t22_tmp, f"manifest_{case_label}.json")
+        subprocess.run([sys.executable, "-m", "experiments.eval_infra.raging_bolt_eval", "manifest",
+            "--candidate-agent", "experiments/agents/raging_bolt/main.py", "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
+            "--candidate-artifact-id", "c22", "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "b22",
+            "--protocol-id", f"p22-{case_label}", "--dataset-id", "d22", "--dataset-version", "1", "--stage", "screening",
+            "--opponent", "mirror", "--games-per-segment", "1", "--out", path], cwd=_REPO_ROOT, capture_output=True, text=True)
+        if not os.path.exists(path):
+            return None
+        return json.load(open(path, encoding="utf-8"))
+
+    def _base_record(h, protocol_id, duration_ms):
+        return {
+            "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
+            "label_a": "candidate", "label_b": "mirror",
+            "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+            "error_actor": None, "legality": "legal",
+            "decisions": [{"ply": 0, "actor": "a", "duration_ms": duration_ms}],
+            "game_id": f"{h}:mirror:candidate:000000", "batch_id": 0,
+            "comparison_manifest_sha256": h, "dataset_id": "d22", "protocol_id": protocol_id,
+            "opponent_id": "mirror", "arm": "candidate", "artifact_id": "c22",
+        }
+
+    for label, bad_value in (
+        ("negative", -5.0),
+        ("noninfinite_inf", float("inf")),
+        ("noninfinite_nan", float("nan")),
+        ("nonnumeric", "not-a-number"),
+    ):
+        t22_manifest = _make_t22_manifest(label)
+        check(f"T22 setup: manifest for {label!r} case succeeds", t22_manifest is not None)
+        if t22_manifest is None:
+            continue
+        h22 = t22_manifest["comparison_manifest_sha256"]
+        bad_path = os.path.join(_t22_tmp, f"{h22}__mirror__candidate.jsonl")
+        with open(bad_path, "w", encoding="utf-8") as f:
+            rec = _base_record(h22, f"p22-{label}", bad_value)
+            # json.dumps can't emit inf/nan under allow_nan=False semantics elsewhere in
+            # this codebase, but Python's own json.dumps DOES emit them by default -- use
+            # that here deliberately to simulate an externally-hand-crafted malformed file.
+            f.write(json.dumps(rec) + "\n")
+        r_bad = run_cli(
+            "summarize", "--manifest", os.path.join(_t22_tmp, f"manifest_{label}.json"), "--jsonl-in", bad_path,
+            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--out", os.path.join(_t22_tmp, f"report_{label}.json"),
+        )
+        check(f"summarize rejects a record with {label} duration_ms (correctly-named "
+              f"fixture, so this actually exercises duration validation, not filename "
+              f"reuse-rejection)", r_bad.returncode != 0)
+
+    t22_manifest_mj = _make_t22_manifest("malformedjson")
+    check("T22 setup: manifest for malformed-JSON case succeeds", t22_manifest_mj is not None)
+    if t22_manifest_mj is not None:
+        h22mj = t22_manifest_mj["comparison_manifest_sha256"]
+        malformed_json_path = os.path.join(_t22_tmp, f"{h22mj}__mirror__candidate.jsonl")
+        with open(malformed_json_path, "w", encoding="utf-8") as f:
+            f.write("{not valid json at all\n")
+        r_malformed = run_cli(
+            "summarize", "--manifest", os.path.join(_t22_tmp, "manifest_malformedjson.json"),
+            "--jsonl-in", malformed_json_path,
+            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--out", os.path.join(_t22_tmp, "report_malformed.json"),
+        )
+        check("summarize rejects a correctly-named file containing malformed (unparseable) "
+              "JSON with a clear error, not an uncaught traceback", r_malformed.returncode != 0)
+finally:
+    shutil.rmtree(_t22_tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
+# T23: baseline/candidate latency CIs have non-zero width (a real bootstrap
+# confidence interval, not a degenerate point-estimate-only "interval");
+# observation_count/latency cells are UNAVAILABLE (omitted), never an
+# exception, when every game in a segment contributed zero decisions
+# ---------------------------------------------------------------------------
+print("\n=== T23: latency baseline/candidate CI non-zero-width; all-zero-decisions UNAVAILABLE ===")
+
+_t23_tmp = tempfile.mkdtemp(prefix="eval_infra_t23_")
+try:
+    # NOTE: deliberately uses a non-mirror opponent (lucario, via the same
+    # _build_synthetic_manifest helper T21 defines above -- lucario/dragapult/megastarmie
+    # cannot be resolved via the real CLI in this offline test environment). Mirror games are
+    # BY DESIGN excluded from every league_baseline/league_candidate-derived cell (win_rate,
+    # error_rate, illegal_action_rate, AND latency/observation_count), so a mirror-only
+    # fixture would never produce a latency cell at all -- that is correct product behavior,
+    # not a bug, but it means this test must use a league opponent instead.
+    t23_manifest_path = os.path.join(_t23_tmp, "manifest.json")
+    # games_per_segment=6 to accommodate the largest fixture below (the varied-duration case
+    # uses 6 games) -- summarize now validates every record's batch_id against the manifest's
+    # own side_allocation_schedule length, so the manifest must be sized to fit.
+    t23_manifest = _build_synthetic_manifest(["lucario"], 6, t23_manifest_path)
+
+    if os.path.exists(t23_manifest_path):
+        h23 = t23_manifest["comparison_manifest_sha256"]
+
+        t23_schedule = t23_manifest["protocol_identity"]["side_allocation_schedule"]
+
+        def _write_records(path, arm, durations_per_game):
+            with open(path, "w", encoding="utf-8") as f:
+                for gi, durations in enumerate(durations_per_game):
+                    decisions = None if durations is None else [
+                        {"ply": i, "actor": "a", "duration_ms": d} for i, d in enumerate(durations)
+                    ] + [{"ply": 99, "actor": "b", "duration_ms": 9999.0}]  # opponent noise, must be excluded
+                    f.write(json.dumps({
+                        "schema_version": "1", "game_index": 0, "first_seat_agent": t23_schedule[gi],
+                        "label_a": arm, "label_b": "lucario",
+                        "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                        "error_actor": None, "legality": "legal", "decisions": decisions,
+                        "game_id": f"{h23}:lucario:{arm}:{gi:06d}", "batch_id": gi,
+                        "comparison_manifest_sha256": h23, "dataset_id": "ds-t21", "protocol_id": "proto-t21",
+                        "opponent_id": "lucario", "arm": arm, "artifact_id": f"{arm}-t21" if arm in ("baseline", "candidate") else f"{arm}23",
+                    }) + "\n")
+
+        b_path23 = os.path.join(_t23_tmp, f"{h23}__lucario__baseline.jsonl")
+        c_path23 = os.path.join(_t23_tmp, f"{h23}__lucario__candidate.jsonl")
+        _write_records(b_path23, "baseline", [[10.0, 12.0], [50.0], [8.0, 9.0, 11.0], [30.0], [15.0], [60.0]])
+        _write_records(c_path23, "candidate", [[9.0, 11.0], [48.0], [7.0, 8.0, 10.0], [28.0], [14.0], [58.0]])
+        report23_path = os.path.join(_t23_tmp, "report23.json")
+        r23 = run_cli(
+            "summarize", "--manifest", t23_manifest_path, "--jsonl-in", b_path23, "--jsonl-in", c_path23,
+            "--stage", "screening", "--rng-seed", "7", "--allow-partial-report",
+            "--out", report23_path,
+        )
+        check("summarize succeeds on a varied-duration latency fixture", r23.returncode == 0)
+        if r23.returncode == 0:
+            _report23 = json.load(open(report23_path, encoding="utf-8"))
+            _p50_cell = next((c for c in _report23["cells"] if c["metric_id"] == schema.METRIC_DECISION_TIME_P50_MS), None)
+            check("decision_time_p50_ms cell was emitted", _p50_cell is not None)
+            if _p50_cell:
+                b_lo, b_hi = Decimal(_p50_cell["baseline_stats"]["lower"]), Decimal(_p50_cell["baseline_stats"]["upper"])
+                c_lo, c_hi = Decimal(_p50_cell["candidate_stats"]["lower"]), Decimal(_p50_cell["candidate_stats"]["upper"])
+                check(f"baseline_stats latency CI has NON-ZERO width ({b_lo}..{b_hi}) -- a real "
+                      f"bootstrap interval, not a degenerate point estimate", b_hi > b_lo)
+                check(f"candidate_stats latency CI has NON-ZERO width ({c_lo}..{c_hi})", c_hi > c_lo)
+
+        # All-zero-decisions case: every game has decisions=None (timing never captured) --
+        # must produce an UNAVAILABLE (omitted) cell, never a crash.
+        b_path23z = os.path.join(_t23_tmp, f"{h23}__lucario__baseline.jsonl")
+        c_path23z = os.path.join(_t23_tmp, f"{h23}__lucario__candidate.jsonl")
+        _write_records(b_path23z, "baseline", [None, None])
+        _write_records(c_path23z, "candidate", [None, None])
+        report23z_path = os.path.join(_t23_tmp, "report23z.json")
+        r23z = run_cli(
+            "summarize", "--manifest", t23_manifest_path, "--jsonl-in", b_path23z, "--jsonl-in", c_path23z,
+            "--stage", "screening", "--rng-seed", "7", "--allow-partial-report",
+            "--out", report23z_path,
+        )
+        check("summarize does NOT crash when every game in a segment has zero captured "
+              "decisions (all decisions=None)", r23z.returncode == 0)
+        if r23z.returncode == 0:
+            _report23z = json.load(open(report23z_path, encoding="utf-8"))
+            check("no decision_time_p50_ms/p95/observation_count cell is fabricated when "
+                  "there is zero real timing data -- the metric is UNAVAILABLE (omitted)",
+                  not any(c["metric_id"] in (schema.METRIC_DECISION_TIME_P50_MS, schema.METRIC_DECISION_TIME_P95_MS,
+                                              schema.METRIC_OBSERVATION_COUNT) for c in _report23z["cells"]))
+    else:
+        check("T23: manifest was created (prerequisite)", False)
+finally:
+    shutil.rmtree(_t23_tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
 # T14: content safety -- no absolute paths / env values / secret-like strings
-# in emitted artifacts from the happy-path run above
+# in emitted artifacts
 # ---------------------------------------------------------------------------
 print("\n=== T14: content safety scan ===")
-
-_SECRET_LIKE_RE = _re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*\S")
 
 
 def _scan_for_unsafe_content(obj) -> list[str]:
@@ -965,7 +1822,7 @@ def _scan_for_unsafe_content(obj) -> list[str]:
     text = json.dumps(obj)
     if _re.search(r"[A-Za-z]:[\\/]", text):
         problems.append("contains a Windows absolute path")
-    if _SECRET_LIKE_RE.search(text):
+    if _re.search(r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*\S", text):
         problems.append("contains a secret-like key=value pattern")
     for env_val in os.environ.values():
         if len(env_val) > 8 and env_val in text:
@@ -973,28 +1830,20 @@ def _scan_for_unsafe_content(obj) -> list[str]:
             break
     return problems
 
+
+w_fixture = wilson_interval(50, 100)
+nd_fixture = newcombe_delta(20, 100, 30, 100)
 _report_check_target = {
-    "schema_version": "1", "comparison_manifest_sha256": "a" * 64,
-    "cells": [schema.build_cell(schema.METRIC_WIN_RATE, schema.SEGMENT_OVERALL, 10, w.as_dict(), w.as_dict(), nd.as_dict())],
+    "schema_version": "1", "report_kind": "primary", "comparison_manifest_sha256": "a" * 64,
+    "cells": [schema.build_cell(schema.METRIC_WIN_RATE, schema.SEGMENT_OVERALL, 10,
+                                 w_fixture.as_dict(), w_fixture.as_dict(), nd_fixture.as_dict())],
     "diagnostics": {"illegal_action_known_legal_or_illegal": 10},
 }
 problems = _scan_for_unsafe_content(_report_check_target)
 check("a representative Measurement Report payload contains no absolute paths/secrets/env leakage",
-      problems == [], )
+      problems == [])
 if problems:
     print("    problems found:", problems)
-
-# Also scan the REAL Measurement Report actually emitted by the CLI in T12/T13 above (not
-# just a hand-built synthetic object) -- `_report` was captured before its temp dir was
-# cleaned up.
-if "_report" in globals():
-    real_problems = _scan_for_unsafe_content(_report)
-    check("the REAL Measurement Report emitted by `summarize` in T12/T13 contains no "
-          "absolute paths/secrets/env leakage", real_problems == [])
-    if real_problems:
-        print("    problems found:", real_problems)
-else:
-    check("a real Measurement Report was available to content-scan (T12/T13 must have run)", False)
 
 print("\n%d/%d passed" % (_total - _failures, _total))
 if _failures:

@@ -1,36 +1,54 @@
 {
-  "_comment": "STATIC SCHEMA/EXAMPLE TEMPLATE ONLY -- not a real, executable manifest. Real per-run manifests are always written by `raging_bolt_eval.py manifest --out PATH` to a caller-specified path outside this tracked allowlist; this file is never overwritten by that command and is never read as a real manifest by run/summarize. Same convention as profiles/outcome/pokemon-ai.example.json's status:example_only.",
+  "_comment": "STATIC SCHEMA/EXAMPLE TEMPLATE ONLY -- not a real, executable manifest and never read by any code path in this package (grep-verified). Real per-run manifests are always written by `raging_bolt_eval.py manifest --out PATH` to a caller-specified path outside this tracked allowlist; this file is never overwritten by that command. Same convention as profiles/outcome/pokemon-ai.example.json's status:example_only. `manifest` now RESOLVES opponents/games-per-segment itself (moved here from `run` -- see README.md's 'Design principle' section); this template's shape reflects that.",
   "status": "schema_example_only",
-  "schema_version": "1",
+  "schema_version": "2",
   "protocol_identity": {
     "id": "cabt-external-screening-example",
     "sha256": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
     "step_limit": 2000,
-    "games_per_worker": "SET_BY_manifest_SUBCOMMAND_CALLER_default_1",
+    "games_per_worker": 1,
     "wall_timeout_seconds": "SET_BY_manifest_SUBCOMMAND_CALLER",
-    "worker_model": "one_subprocess_per_batch_of_games_per_worker",
-    "seat_alternation_rule": "head_to_head.py --first-player, alternated by the run subcommand across scheduled attempts for the same opponent/segment",
+    "games_per_segment": "SET_BY_manifest_SUBCOMMAND_CALLER",
+    "side_allocation_schedule": ["a", "b", "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME_length_equals_games_per_segment"],
+    "worker_model": "one_subprocess_per_game",
     "decision_time_measurement": "wall-clock time.perf_counter() around each agent's own decision call, tagged actor=a|b per decision; summarize filters to actor=a (the arm under measurement, since run always invokes head_to_head.py with the arm as --agent-a) before computing decision-time/observation-count cells; import/clone/engine-step/output-write time excluded",
     "game_rng_control": {
       "availability": "UNAVAILABLE",
       "reason": "No seed/RNG-control parameter exists anywhere in cg.api/cg.game's Python surface (confirmed absence); whether the compiled libcg.so has internal RNG state beyond that surface is Unknown. This harness never claims seed control."
     },
-    "illegal_action_rate_representation": "Wilson score interval (same method as win/error/timeout rates); for any exact-zero or exact-n/n count the interval's bound on that side is never exactly 0 or 1 for finite n -- this holds under Wilson, Newcombe, or Clopper-Pearson alike and is a property of interval estimation, not a bug. Raw counts additionally reported as a non-normative diagnostic outside the Gatekeeper-shaped cell."
+    "illegal_action_rate_representation": "Wilson score interval (same method as win/error/timeout rates); for any exact-zero or exact-n/n count the interval's bound on that side is never exactly 0 or 1 for finite n -- this holds under Wilson, Newcombe, or Clopper-Pearson alike and is a property of interval estimation, not a bug. Raw counts additionally reported as a non-normative diagnostic outside the Gatekeeper-shaped cell.",
+    "engine_binding": {
+      "availability": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
+      "libcg_so_sha256": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME_or_null_if_UNAVAILABLE"
+    },
+    "evaluator_binding": {
+      "bundle_sha256": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
+      "files": ["SET_BY_manifest_SUBCOMMAND_AT_RUNTIME -- one {name, sha256} entry per experiments/eval_infra/*.py source file"]
+    },
+    "runtime_environment": {
+      "python_version": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
+      "platform_system": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
+      "platform_release": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
+      "platform_machine": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
+      "os_distribution": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME -- {availability, wsl_distro_name, os_release} when running under WSL/Linux, or {availability: NOT_APPLICABLE, reason} otherwise (e.g. on Windows)"
+    }
   },
   "dataset_identity": {
     "id": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
     "version": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
     "sha256": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
-    "required_opponents": ["lucario", "dragapult", "megastarmie"],
-    "auxiliary_opponents": ["mirror"]
+    "selected_opponents": ["SET_BY_manifest_SUBCOMMAND_CALLER -- one fully-resolved binding per --opponent (see README.md), e.g. {\"opponent_id\":\"mirror\",\"source_kind\":\"self_play\"} or a pinned_clone/local_only binding with individual per-file sha256"],
+    "league_complete": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME -- true only if selected_opponents is a superset of {lucario, dragapult, megastarmie}"
   },
   "candidate_artifact": {
     "artifact_id": "SET_BY_manifest_SUBCOMMAND_CALLER",
-    "sha256": "SET_BY_manifest_SUBCOMMAND_CALLER"
+    "sha256": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
+    "files": ["SET_BY_manifest_SUBCOMMAND_AT_RUNTIME -- individual {logical_name, path, sha256} entries (agent, deck, optional params), not a raw-byte-concatenation hash"]
   },
   "baseline_artifact": {
     "artifact_id": "SET_BY_manifest_SUBCOMMAND_CALLER",
-    "sha256": "SET_BY_manifest_SUBCOMMAND_CALLER"
+    "sha256": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
+    "files": ["SET_BY_manifest_SUBCOMMAND_AT_RUNTIME"]
   },
   "stage": "screening_OR_confirmation_SET_BY_manifest_SUBCOMMAND_CALLER"
 }

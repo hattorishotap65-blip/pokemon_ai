@@ -289,6 +289,58 @@ def game_cluster_bootstrap_delta(
     )
 
 
+def game_cluster_bootstrap_interval(
+    games: Sequence[Sequence[float]],
+    statistic_fn: Callable[[Sequence[float]], float],
+    seed_material: dict,
+    replicates: int = 10_000,
+    confidence: str = "0.95",
+) -> IntervalStats:
+    """Single-arm whole-game-cluster bootstrap CONFIDENCE INTERVAL (not a
+    delta). Used for a latency metric's OWN baseline_stats/candidate_stats
+    -- an earlier implementation reported these as a degenerate
+    estimate==lower==upper interval (no real uncertainty quantification),
+    which an external heterogeneous-model audit correctly flagged: a
+    single-arm point estimate presented as an "interval" with zero width is
+    not actually a confidence interval. Resamples WHOLE GAMES with
+    replacement (never individual decisions -- see game_cluster_bootstrap_delta's
+    docstring for why), pools each resample's values, applies statistic_fn,
+    and reports the percentile interval of the `replicates` resulting
+    values. seed_material must uniquely identify this cell AND this arm
+    (comparison-manifest hash + metric_id + segment_id + artifact role) so
+    resample indices are reproducible given identical inputs.
+    """
+    if not games:
+        raise ValueError("game_cluster_bootstrap_interval requires at least one game")
+    if replicates < 1:
+        raise ValueError("replicates must be >= 1")
+
+    indices = list(_resample_index_stream(seed_material, replicates * len(games), len(games)))
+    values: list[float] = []
+    for r in range(replicates):
+        sample: list[float] = []
+        for idx in indices[r * len(games):(r + 1) * len(games)]:
+            sample.extend(games[idx])
+        if not sample:
+            continue
+        values.append(statistic_fn(sample))
+
+    if not values:
+        raise ValueError("bootstrap produced no valid replicates (empty resampled games)")
+
+    alpha = (1.0 - float(Decimal(confidence))) / 2.0
+    point_estimate = statistic_fn([v for g in games for v in g])
+    lower = percentile(values, alpha * 100)
+    upper = percentile(values, (1 - alpha) * 100)
+    lower = min(lower, point_estimate)
+    upper = max(upper, point_estimate)
+    return IntervalStats(
+        estimate=format_decimal(point_estimate),
+        lower=format_decimal(lower),
+        upper=format_decimal(upper),
+    )
+
+
 def mean_statistic(values: Sequence[float]) -> float:
     return sum(values) / len(values)
 

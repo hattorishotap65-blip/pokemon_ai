@@ -5,9 +5,19 @@ Metric/segment IDs are DELIBERATELY aligned (identical literal strings,
 where a Profile-equivalent exists) with profiles/outcome/pokemon-ai.example.json
 -- this is fixture-only forward compatibility, NOT App Profile activation.
 This package never reads, loads, or activates any file under profiles/.
+
+EXCEPTION: SEGMENT_SEAT_0/SEGMENT_SEAT_1 deliberately do NOT align with the
+example Profile's "first-player"/"second-player" segment IDs. head_to_head.py's
+--first-player flag only controls player-index/deck-slot assignment; it does
+not read or condition on the compiled cabt engine's own coin-flip-determined
+first-mover (Observation.current.firstPlayer). Calling our deck-slot segment
+"first-player" would overclaim engine-confirmed first-mover status we do not
+actually have -- an earlier heterogeneous-model audit round flagged exactly
+this. "seat-0"/"seat-1" names what we actually measure without overclaiming.
 """
 from __future__ import annotations
 
+import math
 from decimal import Decimal
 from typing import Any
 
@@ -40,25 +50,37 @@ SEGMENT_OVERALL = "overall"
 SEGMENT_OPPONENT_LUCARIO = "opponent-lucario"
 SEGMENT_OPPONENT_DRAGAPULT = "opponent-dragapult"
 SEGMENT_OPPONENT_MEGASTARMIE = "opponent-megastarmie"
-SEGMENT_FIRST_PLAYER = "first-player"
-SEGMENT_SECOND_PLAYER = "second-player"
+SEGMENT_SEAT_0 = "seat-0"
+SEGMENT_SEAT_1 = "seat-1"
 SEGMENT_MIRROR = "mirror"
 
 LEAGUE_SEGMENT_IDS = (
     SEGMENT_OVERALL, SEGMENT_OPPONENT_LUCARIO, SEGMENT_OPPONENT_DRAGAPULT,
-    SEGMENT_OPPONENT_MEGASTARMIE, SEGMENT_FIRST_PLAYER, SEGMENT_SECOND_PLAYER,
+    SEGMENT_OPPONENT_MEGASTARMIE, SEGMENT_SEAT_0, SEGMENT_SEAT_1,
 )
 AUXILIARY_SEGMENT_IDS = (SEGMENT_MIRROR,)
 
 REQUIRED_LEAGUE_OPPONENTS = ("lucario", "dragapult", "megastarmie")
+KNOWN_OPPONENT_IDS = frozenset(REQUIRED_LEAGUE_OPPONENTS) | {SEGMENT_MIRROR}
 
-# Matches head_to_head.py's --jsonl-out per-game record shape exactly.
+# Matches head_to_head.py's --jsonl-out RAW per-game record shape exactly
+# (before orchestrator enrichment).
 GAME_RECORD_REQUIRED_FIELDS = frozenset({
     "schema_version", "game_index", "first_seat_agent", "label_a", "label_b",
     "termination", "result", "error_actor", "legality", "decisions",
 })
 GAME_RECORD_TERMINATION_CATEGORIES = frozenset({"result", "error", "timeout"})
 GAME_RECORD_LEGALITY_VALUES = frozenset({"legal", "illegal", "unknown"})
+
+# Fields the ORCHESTRATOR (raging_bolt_eval.py's cmd_run) adds on top of a raw
+# head_to_head.py record before appending it to a --jsonl-out file that
+# `summarize` will read. head_to_head.py itself never writes these -- it has
+# no notion of a comparison manifest, dataset, protocol, or opponent identity
+# (generic/application separation) -- only the orchestrator does.
+ENRICHED_GAME_RECORD_REQUIRED_FIELDS = GAME_RECORD_REQUIRED_FIELDS | frozenset({
+    "game_id", "batch_id", "comparison_manifest_sha256", "dataset_id",
+    "protocol_id", "opponent_id", "arm", "artifact_id",
+})
 
 # Exact 6-key cell shape required by tools/outcome_gatekeeper.py's
 # EVIDENCE_CELL validator -- this package never imports that validator (test-
@@ -94,6 +116,18 @@ def validate_game_record(record: dict) -> dict:
         raise SchemaError("GAME_RECORD_TERMINATION_INVALID")
     if termination["category"] not in GAME_RECORD_TERMINATION_CATEGORIES:
         raise SchemaError("GAME_RECORD_TERMINATION_CATEGORY_INVALID")
+    # "result" must be consistent with termination.category -- an earlier version never
+    # validated this at all, so a corrupt/malicious record with result=[] (not a dict) would
+    # pass schema validation and then crash summarize's win-rate computation with an
+    # uncaught AttributeError, and a record with termination.category="timeout" but a
+    # populated result={"winner":...} would be silently double-counted as both a timeout AND
+    # a win (found by an independent heterogeneous-model audit).
+    result = record["result"]
+    if termination["category"] == "result":
+        if not isinstance(result, dict) or result.get("winner") not in ("a", "b", "draw"):
+            raise SchemaError("GAME_RECORD_RESULT_INVALID")
+    elif result is not None:
+        raise SchemaError("GAME_RECORD_RESULT_MUST_BE_NULL_FOR_NON_RESULT_TERMINATION")
     if record["legality"] not in GAME_RECORD_LEGALITY_VALUES:
         raise SchemaError("GAME_RECORD_LEGALITY_INVALID")
     if record["error_actor"] not in ("a", "b", "engine", None):
@@ -107,6 +141,41 @@ def validate_game_record(record: dict) -> dict:
                 raise SchemaError("GAME_RECORD_DECISION_ENTRY_INVALID")
             if d["actor"] not in ("a", "b"):
                 raise SchemaError("GAME_RECORD_DECISION_ACTOR_INVALID")
+            duration_ms = d["duration_ms"]
+            # Explicit rejection of malformed timing data: must be a real (not bool),
+            # finite, non-negative number -- never silently coerced or ignored.
+            if isinstance(duration_ms, bool) or not isinstance(duration_ms, (int, float)):
+                raise SchemaError("GAME_RECORD_DECISION_DURATION_NOT_NUMERIC")
+            if not math.isfinite(duration_ms):
+                raise SchemaError("GAME_RECORD_DECISION_DURATION_NOT_FINITE")
+            if duration_ms < 0:
+                raise SchemaError("GAME_RECORD_DECISION_DURATION_NEGATIVE")
+    return record
+
+
+def validate_enriched_game_record(record: dict) -> dict:
+    """Structural validation of one ORCHESTRATOR-ENRICHED --jsonl-out record
+    (raw head_to_head.py fields plus game_id/batch_id/comparison_manifest_sha256/
+    dataset_id/protocol_id/opponent_id/arm/artifact_id). This is what
+    `summarize` actually reads and validates -- raw, unenriched
+    head_to_head.py output is never consumed directly by `summarize`."""
+    if not isinstance(record, dict):
+        raise SchemaError("GAME_RECORD_NOT_OBJECT")
+    missing = ENRICHED_GAME_RECORD_REQUIRED_FIELDS - set(record)
+    if missing:
+        raise SchemaError(f"ENRICHED_GAME_RECORD_MISSING_FIELDS:{sorted(missing)}")
+    validate_game_record({k: v for k, v in record.items() if k in GAME_RECORD_REQUIRED_FIELDS})
+    if not isinstance(record["game_id"], str) or not record["game_id"]:
+        raise SchemaError("GAME_RECORD_GAME_ID_INVALID")
+    if not isinstance(record["batch_id"], int) or isinstance(record["batch_id"], bool) or record["batch_id"] < 0:
+        raise SchemaError("GAME_RECORD_BATCH_ID_INVALID")
+    if record["opponent_id"] not in KNOWN_OPPONENT_IDS:
+        raise SchemaError("GAME_RECORD_OPPONENT_ID_INVALID")
+    if record["arm"] not in ("baseline", "candidate"):
+        raise SchemaError("GAME_RECORD_ARM_INVALID")
+    for key in ("comparison_manifest_sha256", "dataset_id", "protocol_id", "artifact_id"):
+        if not isinstance(record[key], str) or not record[key]:
+            raise SchemaError(f"GAME_RECORD_{key.upper()}_INVALID")
     return record
 
 

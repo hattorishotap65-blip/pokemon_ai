@@ -6,15 +6,18 @@ is a REQUIRED input with no default, enforced by opponent_registry.py never
 inventing one.
 
 Hardening (see experiments/eval_infra/README.md caveat F4 for the one
-deliberately-accepted gap in this threat model):
+remaining, deliberately-accepted gap in this threat model):
   - subprocess invoked with shell=False and an explicit argv list, never a
     shell string.
   - the repository URL is rejected if it starts with "-" (a cheap guard
-    against a pin value being parsed as a flag by git); this is a partial
-    mitigation only -- a full URL-scheme allowlist (e.g. restricting to
-    https://) was deliberately not added, since opponent_pins.json is a
-    manually-edited local file, not a network-facing input (documented risk
-    acceptance, see README caveat F4).
+    against a pin value being parsed as a flag by git), if it contains "::"
+    (git's ext::/fd:: remote-helper transport syntax, which can execute an
+    arbitrary command), if it uses any "scheme://" other than "https://",
+    or if it looks like SCP-style SSH remote syntax (user@host:path or
+    bare host:path) -- only "https://..." or a bare local filesystem path
+    (no "@", no ":" outside a Windows drive-letter prefix like "C:") is
+    accepted. This closes what an earlier version left as a documented,
+    deliberately-accepted gap.
   - the clone lands in a directory from tempfile.mkdtemp() (OS temp dir,
     outside the repository), and pin values themselves (commit SHA, and any
     repo-relative file path requested from the clone) are rejected if they
@@ -45,6 +48,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -79,9 +83,58 @@ def _reject_unsafe_pin_value(value: str, label: str) -> None:
         raise ClonePinError(f"{label} contains an unsafe path component: {value!r}")
 
 
+_ALLOWED_URL_SCHEME = "https"
+
+
 def _reject_unsafe_url(repo_url: str) -> None:
     if not repo_url or repo_url.startswith("-"):
         raise ClonePinError(f"repo_url rejected (empty or flag-like): {repo_url!r}")
+    if "::" in repo_url:
+        # Rejects git's remote-helper transport syntax (e.g. ext::, fd::), which can be
+        # used to make `git clone` execute an arbitrary command.
+        raise ClonePinError(
+            f"repo_url rejected (contains '::', a git remote-helper transport syntax like "
+            f"ext::/fd:: that can execute arbitrary commands): {repo_url!r}"
+        )
+    if "://" in repo_url:
+        scheme = repo_url.split("://", 1)[0].lower()
+        if scheme != _ALLOWED_URL_SCHEME:
+            raise ClonePinError(
+                f"repo_url scheme {scheme!r} is not in the allowlist (only "
+                f"{_ALLOWED_URL_SCHEME!r} or a bare local filesystem path -- no scheme "
+                f"separator -- is permitted): {repo_url!r}"
+            )
+        return  # https://... -- allowed
+    # No "://" at all: must be a bare LOCAL filesystem path, not SCP-style SSH remote syntax
+    # (git accepts both "user@host:path" and bare "host:path" as remotes, neither of which
+    # contains "://" or "::"). An earlier version accepted these unconditionally, silently
+    # treating an SSH remote as if it were "just a local path" -- reject anything containing
+    # "@" (a strong signal of user@host syntax), and reject any ":" that is not a Windows
+    # drive-letter prefix (e.g. "C:") -- a bare "host:path" has a colon that is neither.
+    if "@" in repo_url:
+        raise ClonePinError(
+            f"repo_url rejected (contains '@', which is SCP-style SSH remote syntax "
+            f"'user@host:path', not a bare local filesystem path): {repo_url!r}"
+        )
+    colon_idx = repo_url.find(":")
+    # The drive-letter exception is only meaningful on Windows itself -- on Linux/WSL (where
+    # real cabt games actually run, per repo docs), a single-letter host like "a:b" is
+    # unambiguously SCP-style git remote syntax, not a filesystem drive letter, and git on
+    # that platform will interpret it as such. An earlier version applied this exception on
+    # every platform, so "a:b" bypassed the allowlist even when running on Linux/WSL -- found
+    # by an independent heterogeneous-model audit.
+    is_drive_letter_prefix = (
+        platform.system() == "Windows" and colon_idx == 1 and repo_url[0].isalpha()
+    )
+    if colon_idx != -1 and not is_drive_letter_prefix:
+        raise ClonePinError(
+            f"repo_url rejected (contains ':' that is not a Windows drive-letter prefix on "
+            f"this platform, which is SCP-style SSH remote syntax 'host:path', not a bare "
+            f"local filesystem path): {repo_url!r}"
+        )
+    # A bare local filesystem path with no "@" and no non-drive-letter ":" -- allowed (used
+    # by this module's own synthetic-local-repo tests). A real production pin should
+    # normally use https://.
 
 
 def clone_and_verify(

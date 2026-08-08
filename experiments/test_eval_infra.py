@@ -410,12 +410,20 @@ for _bad_url in ("ext::sh -c 'touch pwned'", "fd::0", "http://example.com/x.git"
     except ClonePinError:
         check(f"_reject_unsafe_url rejects {_bad_url!r} directly (no git subprocess involved)", True)
 
-for _good_url in ("https://example.com/x.git", "C:\\some\\windows\\path", "relative/local/path"):
+for _good_url in ("https://example.com/x.git", "relative/local/path"):
     try:
         _reject_unsafe_url(_good_url)
         check(f"_reject_unsafe_url accepts {_good_url!r} (no false positive)", True)
     except ClonePinError as _e:
         check(f"_reject_unsafe_url accepts {_good_url!r} (no false positive): {_e}", False)
+# "C:\\some\\windows\\path" is DELIBERATELY NOT tested here unconditionally against the real
+# (unmocked) platform.system() -- whether it's accepted is platform-dependent BY DESIGN (see
+# the platform-gated block below): it's a genuine drive-letter path on Windows, but on
+# Linux/WSL (where CI actually runs this suite) it's indistinguishable from an SCP-style
+# "host:path" remote and must be REJECTED. An earlier version tested it here as
+# unconditionally "good", which passed on a Windows dev machine but failed this suite on
+# Linux CI once the platform gate below was added -- found by real Linux CI failure, not by
+# any local run on Windows.
 
 # The single-letter-drive-letter exception (e.g. "C:") is only meaningful ON WINDOWS -- an
 # independent heterogeneous-model audit found that an earlier version applied it on every
@@ -434,6 +442,18 @@ try:
     except ClonePinError:
         check("_reject_unsafe_url rejects single-letter SCP-style 'a:b' when platform.system() "
               "reports Linux (the Windows-drive-letter exception must not apply there)", True)
+
+    try:
+        _reject_unsafe_url("C:\\some\\windows\\path")
+        check("_reject_unsafe_url rejects a Windows drive-letter-shaped path "
+              "('C:\\\\some\\\\windows\\\\path') when platform.system() reports Linux -- on "
+              "Linux/WSL this is indistinguishable from SCP-style 'host:path' remote syntax "
+              "and must not be treated as a filesystem drive letter", False)
+    except ClonePinError:
+        check("_reject_unsafe_url rejects a Windows drive-letter-shaped path "
+              "('C:\\\\some\\\\windows\\\\path') when platform.system() reports Linux -- on "
+              "Linux/WSL this is indistinguishable from SCP-style 'host:path' remote syntax "
+              "and must not be treated as a filesystem drive letter", True)
 
     _clone_opponent_mod.platform.system = lambda: "Windows"
     try:
@@ -999,9 +1019,18 @@ try:
         r_run_tampered1 = run_cli(
             "run", "--manifest", tampered1_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl1"),
         )
+        # Asserts the SPECIFIC integrity-check error text, not just a nonzero exit code -- on
+        # this Windows machine, `run` WITHOUT --allow-partial fails for EVERY manifest (even a
+        # perfectly valid, untampered one) once it reaches game execution, because head_to_head.py
+        # cannot load libcg.so outside WSL/Linux. Checking only `returncode != 0` would make this
+        # test pass even if the games_per_segment tamper-detection itself were completely removed
+        # (found by an independent heterogeneous-model audit, applied here to every tamper case
+        # in this section that runs `run` without --allow-partial).
         check("run rejects a manifest whose protocol_identity.games_per_segment was edited "
-              "without updating protocol_identity.sha256 (tamper detection)",
-              r_run_tampered1.returncode != 0)
+              "without updating protocol_identity.sha256 (tamper detection) -- specifically via "
+              "the protocol_identity hash-mismatch error, not merely a nonzero exit that could "
+              "also come from this platform's inability to run real games",
+              r_run_tampered1.returncode != 0 and "protocol_identity hash mismatch" in (r_run_tampered1.stderr or ""))
 
         # Tamper case 2: edit the top-level comparison_manifest_sha256 itself.
         tampered2_path = os.path.join(_t17_tmp, "m_tampered2.json")
@@ -1016,8 +1045,11 @@ try:
             "--out", os.path.join(_t17_tmp, "report_tampered2.json"),
         )
         check("summarize rejects a manifest whose top-level comparison_manifest_sha256 was "
-              "directly edited to a value inconsistent with its own fields (tamper detection)",
-              r_summarize_tampered2.returncode != 0)
+              "directly edited to a value inconsistent with its own fields (tamper detection) "
+              "-- checked via the specific comparison_manifest_sha256-mismatch error, not the "
+              "deliberately-nonexistent --jsonl-in path used here",
+              r_summarize_tampered2.returncode != 0 and
+              "comparison_manifest_sha256 mismatch" in (r_summarize_tampered2.stderr or ""))
 
         # Tamper case 3: edit dataset_identity.selected_opponents (e.g. swap in a different
         # opponent list) without updating dataset_identity.sha256 -- this is the exact class
@@ -1035,8 +1067,9 @@ try:
         r_run_tampered3 = run_cli("run", "--manifest", tampered3_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl3"))
         check("run rejects a manifest whose dataset_identity.selected_opponents was swapped "
               "for a different opponent set without updating dataset_identity.sha256 -- "
-              "prevents running a different opponent under the same manifest hash",
-              r_run_tampered3.returncode != 0)
+              "prevents running a different opponent under the same manifest hash (checked via "
+              "the specific dataset_identity hash-mismatch error, not merely a nonzero exit)",
+              r_run_tampered3.returncode != 0 and "dataset_identity hash mismatch" in (r_run_tampered3.stderr or ""))
 
         # Tamper case 4: swap candidate_artifact.files[agent].path/sha256 to point at a
         # substituted file -- self-consistent within "files" alone -- while leaving the
@@ -1062,8 +1095,9 @@ try:
         check("run rejects a manifest whose candidate_artifact.files[agent].path/sha256 was "
               "swapped to a substituted file while leaving candidate_artifact.sha256 (the "
               "bundle hash) untouched -- prevents executing different content under the same "
-              "manifest hash",
-              r_run_tampered4.returncode != 0)
+              "manifest hash (checked via the specific bundle sha256-mismatch error, not "
+              "merely a nonzero exit)",
+              r_run_tampered4.returncode != 0 and "candidate_artifact bundle sha256 mismatch" in (r_run_tampered4.stderr or ""))
 
         # Tamper case 5/6: forge protocol_identity.step_limit (and separately
         # games_per_worker) to a value OTHER than what `run` will actually enforce, while
@@ -1108,16 +1142,21 @@ try:
         r_run_tampered5 = run_cli("run", "--manifest", tampered5_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl5"))
         check("run rejects an internally hash-consistent manifest whose protocol_identity."
               "step_limit=500 does not match the actual hardcoded engine step limit (2000) "
-              "-- a claim `run` cannot enforce is never silently accepted",
-              r_run_tampered5.returncode != 0)
+              "-- a claim `run` cannot enforce is never silently accepted (checked via the "
+              "specific step_limit error, not merely a nonzero exit)",
+              r_run_tampered5.returncode != 0 and
+              "does not match the actual hardcoded engine step limit" in (r_run_tampered5.stderr or ""))
 
         tampered6_path = os.path.join(_t17_tmp, "m_tampered6.json")
         _forge_manifest_with_protocol_override(_good_manifest, tampered6_path, games_per_worker=2)
         r_run_tampered6 = run_cli("run", "--manifest", tampered6_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl6"))
         check("run rejects an internally hash-consistent manifest whose protocol_identity."
               "games_per_worker=2 does not match the actual value `run` always uses (1) -- a "
-              "claim `run` cannot enforce is never silently accepted",
-              r_run_tampered6.returncode != 0)
+              "claim `run` cannot enforce is never silently accepted (checked via the "
+              "specific games_per_worker error, not merely a nonzero exit)",
+              r_run_tampered6.returncode != 0 and
+              "games_per_worker=2" in (r_run_tampered6.stderr or "") and
+              "does not match the actual value" in (r_run_tampered6.stderr or ""))
 
         # Tamper case 7: an internally hash-consistent manifest with games_per_segment=0 and
         # an empty side_allocation_schedule. `manifest` itself rejects --games-per-segment < 1
@@ -1131,8 +1170,64 @@ try:
         r_run_tampered7 = run_cli("run", "--manifest", tampered7_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl7"))
         check("run rejects an internally hash-consistent manifest whose "
               "games_per_segment=0 (an empty schedule can never be a sound comparison, "
-              "regardless of hash consistency)",
-              r_run_tampered7.returncode != 0)
+              "regardless of hash consistency) -- checked via the specific "
+              "games_per_segment error, not merely a nonzero exit",
+              r_run_tampered7.returncode != 0 and "is not a positive integer" in (r_run_tampered7.stderr or ""))
+
+        # Tamper case 8: forge candidate_artifact.files[agent].path from its normal
+        # repo-relative form to a repo-INTERNAL ABSOLUTE path pointing at the exact same
+        # (unchanged) file content, with EVERY hash fully, correctly recomputed (per-file
+        # sha256 unchanged since content is identical; bundle sha256 and the top-level
+        # comparison_manifest_sha256 both recomputed to match) -- fully internally
+        # self-consistent, unlike tamper case 4 which deliberately left a hash stale.
+        # Containment alone would accept this (the absolute path still resolves inside the
+        # repo), but it is not the canonical repo-relative form `manifest` itself always
+        # writes -- and both `run` and `summarize` copy/execute an artifact's "files" using
+        # exactly what is stored, so an absolute local path could otherwise be embedded
+        # verbatim into a report (found by an independent heterogeneous-model audit).
+        _candidate_agent_entry = next(f for f in _good_manifest["candidate_artifact"]["files"] if f["logical_name"] == "agent")
+        _candidate_agent_abs_path = os.path.join(_REPO_ROOT, _candidate_agent_entry["path"])
+        _tampered8 = json.loads(json.dumps(_good_manifest))
+        for f_entry in _tampered8["candidate_artifact"]["files"]:
+            if f_entry["logical_name"] == "agent":
+                f_entry["path"] = _candidate_agent_abs_path
+        _tampered8["candidate_artifact"]["sha256"] = raging_bolt_eval._artifact_bundle_sha256_from_files(
+            _tampered8["candidate_artifact"]["files"])
+        _tampered8_comparison_identity = {
+            "schema_version": _tampered8["schema_version"], "candidate_role": _tampered8["candidate_role"],
+            "dataset_sha256": _tampered8["dataset_identity"]["sha256"], "protocol_sha256": _tampered8["protocol_identity"]["sha256"],
+            "candidate_artifact": {"artifact_id": _tampered8["candidate_artifact"]["artifact_id"], "sha256": _tampered8["candidate_artifact"]["sha256"]},
+            "baseline_artifact": {"artifact_id": _tampered8["baseline_artifact"]["artifact_id"], "sha256": _tampered8["baseline_artifact"]["sha256"]},
+            "stage": _tampered8["stage"],
+        }
+        _tampered8["comparison_manifest_sha256"] = raging_bolt_eval.sha256_hex(_tampered8_comparison_identity)
+        tampered8_path = os.path.join(_t17_tmp, "m_tampered8.json")
+        with open(tampered8_path, "w", encoding="utf-8") as f:
+            json.dump(_tampered8, f)
+
+        r_run_tampered8 = run_cli("run", "--manifest", tampered8_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl8"))
+        check("run rejects a fully hash-consistent manifest whose candidate_artifact."
+              "files[agent].path is a repo-internal ABSOLUTE path (same content, still "
+              "passes containment) instead of the canonical repo-relative form -- only the "
+              "exact form `manifest` itself writes is ever accepted (checked via the "
+              "specific canonical-path error, not merely a nonzero exit that this platform "
+              "would also produce for an untampered manifest run without --allow-partial)",
+              r_run_tampered8.returncode != 0 and
+              "is not in the canonical repo-relative POSIX form" in (r_run_tampered8.stderr or ""))
+
+        r_summarize_tampered8 = run_cli(
+            "summarize", "--manifest", tampered8_path,
+            "--jsonl-in", os.path.join(_t17_tmp, "nonexistent__mirror__baseline.jsonl"),
+            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--out", os.path.join(_t17_tmp, "report_tampered8.json"),
+        )
+        check("summarize ALSO rejects the same non-canonical-path manifest, before it could "
+              "ever embed candidate_artifact into a report (summarize now validates artifact "
+              "paths itself, not only `run`) -- checked via the specific canonical-path "
+              "error (not e.g. the deliberately-nonexistent --jsonl-in path used here, which "
+              "would also produce SOME nonzero exit but for an unrelated reason)",
+              r_summarize_tampered8.returncode != 0 and
+              "is not in the canonical repo-relative POSIX form" in (r_summarize_tampered8.stderr or ""))
 
         # Negative control: the untampered manifest must still be accepted by the same
         # integrity check when actually attempting to run it.
@@ -1365,7 +1460,11 @@ finally:
 # ---------------------------------------------------------------------------
 print("\n=== T20: artifact file-boundary unambiguity ===")
 
-_t20_tmp = tempfile.mkdtemp(prefix="eval_infra_t20_")
+# Created INSIDE the repo (not the OS temp dir) -- artifact paths are now confined to the
+# repository root (see _resolve_repo_confined_artifact_path), so a fixture file outside the
+# repo would be rejected outright rather than exercising the file-boundary behavior this test
+# is actually about.
+_t20_tmp = tempfile.mkdtemp(prefix="eval_infra_t20_", dir=_REPO_ROOT)
 try:
     agent_path20 = os.path.join(_t20_tmp, "agent.py")
     deck_path20 = os.path.join(_t20_tmp, "deck.csv")
@@ -1411,6 +1510,226 @@ try:
           binding_same_content_diff_path["sha256"] != binding_deck_changed["sha256"])
 finally:
     shutil.rmtree(_t20_tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
+# T20b: candidate/baseline artifact paths are confined to the repository
+# root -- absolute-outside-repo paths, "../" escapes, and symlink escapes
+# are all rejected via realpath + commonpath containment (not just a
+# string-level normpath, which resolves neither symlinks nor ".." against
+# the real filesystem); a repo-internal absolute path normalizes to the
+# same repo-relative artifact identity as the equivalent relative path;
+# manifests and reports never persist a local absolute filesystem path.
+# ---------------------------------------------------------------------------
+print("\n=== T20b: artifact path repo-confinement ===")
+
+_t20b_tmp = tempfile.mkdtemp(prefix="eval_infra_t20b_", dir=_REPO_ROOT)
+_t20b_outside_tmp = tempfile.mkdtemp(prefix="eval_infra_t20b_outside_")
+# Initialized here (before anything in the try block below can raise) so the `finally` at the
+# end of this section can always safely check whether the escape-marker file was created,
+# without risking a NameError if an earlier step in the try block fails first.
+# _escape_marker_created (file exists on disk, set right after os.open succeeds) is
+# deliberately separate from _escape_marker_writable (file exists AND was fully written) --
+# cleanup must key off the former, or a write failure after a successful create would leak
+# the (empty/partial) file.
+_escape_marker_writable = False
+_escape_marker_created = False
+t20b_escape_target_abs = None
+try:
+    t20b_agent_abs = os.path.join(_t20b_tmp, "agent.py")
+    t20b_deck_abs = os.path.join(_t20b_tmp, "deck.csv")
+    with open(t20b_agent_abs, "w", encoding="utf-8") as f:
+        f.write("def agent(obs): return []\n")
+    with open(t20b_deck_abs, "w", encoding="utf-8") as f:
+        f.write("1\n2\n3\n")
+    t20b_agent_rel = os.path.relpath(t20b_agent_abs, _REPO_ROOT).replace(os.sep, "/")
+    t20b_deck_rel = os.path.relpath(t20b_deck_abs, _REPO_ROOT).replace(os.sep, "/")
+
+    # (1) A repo-INTERNAL absolute path normalizes to a repo-relative "path" in the stored
+    # artifact binding -- never the absolute input itself.
+    binding_via_absolute = raging_bolt_eval._artifact_binding("t20b-abs", t20b_agent_abs, t20b_deck_rel, None)
+    stored_agent_path = next(f["path"] for f in binding_via_absolute["files"] if f["logical_name"] == "agent")
+    check("a repo-internal ABSOLUTE agent path is normalized to a repo-relative path in the "
+          f"stored artifact binding (got {stored_agent_path!r})",
+          stored_agent_path == t20b_agent_rel and not os.path.isabs(stored_agent_path))
+
+    # (5) Equivalent relative and absolute inputs (same underlying file) produce the SAME
+    # artifact identity (same bundle sha256) -- not just the same stored path string.
+    binding_via_relative = raging_bolt_eval._artifact_binding("t20b-rel", t20b_agent_rel, t20b_deck_rel, None)
+    check("an artifact built from a repo-internal ABSOLUTE path and one built from the "
+          "equivalent RELATIVE path produce the identical artifact bundle sha256 (same "
+          "underlying file, same identity, regardless of input spelling)",
+          binding_via_absolute["sha256"] == binding_via_relative["sha256"])
+
+    # (2) An absolute path OUTSIDE the repository is rejected outright.
+    t20b_outside_agent = os.path.join(_t20b_outside_tmp, "outside_agent.py")
+    with open(t20b_outside_agent, "w", encoding="utf-8") as f:
+        f.write("def agent(obs): return []\n")
+    try:
+        raging_bolt_eval._artifact_binding("t20b-outside", t20b_outside_agent, t20b_deck_rel, None)
+        check("_artifact_binding rejects an absolute agent path OUTSIDE the repository root", False)
+    except ValueError:
+        check("_artifact_binding rejects an absolute agent path OUTSIDE the repository root", True)
+
+    # (3) A "../" escape out of the repository is rejected, even though it's syntactically a
+    # RELATIVE path (no leading absolute-path signal at all). The escape target is a REAL,
+    # EXISTING file one level above the repo root -- an earlier version of this test pointed
+    # at a marker file that was never created, so the rejection could equally have come from
+    # _resolve_repo_confined_artifact_path's later `os.path.isfile()` check (a nonexistent
+    # file) rather than from the containment check itself; if confinement were silently
+    # removed/broken, that same "not a file" rejection would still fire and this test would
+    # keep "passing" without ever detecting the regression (found by an independent
+    # heterogeneous-model audit). Creating a real file at the escape target closes that gap:
+    # only the containment check can reject a path that genuinely resolves to a real file.
+    # A UNIQUE (UUID-suffixed) filename, created via O_CREAT|O_EXCL (atomic create-only-if-
+    # absent), so this can never collide with -- and therefore never overwrite or later delete
+    # -- any pre-existing file that happens to already live in the repo's parent directory
+    # (an earlier version used a fixed, predictable filename and unconditionally removed it in
+    # `finally`, which would have destroyed a same-named pre-existing file; found by an
+    # independent heterogeneous-model audit).
+    import uuid as _uuid_t20b
+    t20b_escape_target_dir = os.path.dirname(_REPO_ROOT)
+    t20b_escape_marker_name = f"eval_infra_t20b_escape_marker_{_uuid_t20b.uuid4().hex}.py"
+    t20b_escape_target_abs = os.path.join(t20b_escape_target_dir, t20b_escape_marker_name)
+    t20b_escape_rel = os.path.join("..", t20b_escape_marker_name)
+    _escape_marker_writable = False
+    try:
+        _escape_marker_fd = os.open(t20b_escape_target_abs, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        # Set the moment the file actually exists on disk -- separate from
+        # _escape_marker_writable below, which additionally requires the write to have
+        # succeeded. If fdopen/write raised, the file would still exist (just empty/partial),
+        # and cleanup must still remove it; gating cleanup on _escape_marker_writable alone
+        # (which an earlier version did) would leak that file in exactly this failure mode
+        # (found by an independent heterogeneous-model audit).
+        _escape_marker_created = True
+        with os.fdopen(_escape_marker_fd, "w", encoding="utf-8") as f:
+            f.write("def agent(obs): return []\n")
+        _escape_marker_writable = True
+    except OSError as _escape_exc:
+        _escape_marker_writable = False
+        print(f"    [SKIP]  '../' escape check: could not create a real file in the "
+              f"repo's parent directory in this environment ({_escape_exc}) -- NOT run, "
+              f"not claimed as passing")
+    if _escape_marker_writable:
+        try:
+            raging_bolt_eval._artifact_binding("t20b-escape", t20b_escape_rel, t20b_deck_rel, None)
+            check("_artifact_binding rejects a '../' path that escapes the repository root "
+                  "(escape target is a REAL, existing file -- rejection can only come from "
+                  "the containment check, not a 'file not found' fallback)", False)
+        except ValueError:
+            check("_artifact_binding rejects a '../' path that escapes the repository root "
+                  "(escape target is a REAL, existing file -- rejection can only come from "
+                  "the containment check, not a 'file not found' fallback)", True)
+
+    # (4) A symlink INSIDE the repo that points OUTSIDE it is rejected -- string-level checks
+    # (normpath, or even a naive commonpath on the UNRESOLVED path) cannot catch this; only
+    # realpath (which follows symlinks) can. Best-effort: symlink creation can fail with a
+    # PermissionError on Windows without Developer Mode / admin rights -- if so, this specific
+    # sub-check is honestly reported as unavailable rather than silently skipped or falsely
+    # claimed as passing.
+    t20b_symlink_path = os.path.join(_t20b_tmp, "symlink_agent.py")
+    try:
+        os.symlink(t20b_outside_agent, t20b_symlink_path)
+        _symlink_available = True
+    except (OSError, NotImplementedError) as _symlink_exc:
+        _symlink_available = False
+        print(f"    [SKIP]  symlink-escape check: could not create a symlink in this "
+              f"environment ({_symlink_exc}) -- NOT run, not claimed as passing")
+    if _symlink_available:
+        t20b_symlink_rel = os.path.relpath(t20b_symlink_path, _REPO_ROOT).replace(os.sep, "/")
+        try:
+            raging_bolt_eval._artifact_binding("t20b-symlink", t20b_symlink_rel, t20b_deck_rel, None)
+            check("_artifact_binding rejects a symlink that is nominally INSIDE the repo but "
+                  "resolves (via realpath) to a target OUTSIDE it", False)
+        except ValueError:
+            check("_artifact_binding rejects a symlink that is nominally INSIDE the repo but "
+                  "resolves (via realpath) to a target OUTSIDE it", True)
+
+    # (6) A REAL, actually-generated manifest (via the CLI, not a fabricated fixture) and a
+    # REAL, actually-generated report (via a hand-fed single mirror game through summarize,
+    # exactly the enriched-record shape `run` itself would produce) never contain a local
+    # absolute filesystem path -- Windows-style (e.g. "C:\...") or POSIX-style (the actual
+    # _REPO_ROOT prefix on this machine, checked literally).
+    def _scan_text_for_absolute_paths(label, text):
+        problems = []
+        if _re.search(r"[A-Za-z]:[\\/]", text):
+            problems.append("Windows-style absolute path (X:\\ or X:/)")
+        if _REPO_ROOT in text or _REPO_ROOT.replace(os.sep, "/") in text:
+            problems.append("this machine's literal repo-root absolute path")
+        if text.count('"/') and _re.search(r'"/(?:home|Users|usr|etc)/', text):
+            problems.append("POSIX-style absolute path under /home, /Users, /usr, or /etc")
+        check(f"{label} contains no absolute filesystem path", problems == [])
+        if problems:
+            print("    problems found:", problems)
+
+    t20b_manifest_path = os.path.join(_t20b_tmp, "manifest.json")
+    r_t20b_manifest = run_cli(
+        "manifest",
+        "--candidate-agent", "experiments/agents/raging_bolt/main.py",
+        "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
+        "--candidate-artifact-id", "candidate-t20b",
+        "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-t20b",
+        "--protocol-id", "proto-t20b", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
+        "--opponent", "mirror", "--games-per-segment", "1",
+        "--out", t20b_manifest_path,
+    )
+    check(f"T20b setup: a real manifest was generated via the CLI (stderr: "
+          f"{r_t20b_manifest.stderr.strip()[:300]!r})", r_t20b_manifest.returncode == 0)
+    if os.path.exists(t20b_manifest_path):
+        with open(t20b_manifest_path, encoding="utf-8") as f:
+            _t20b_manifest_text = f.read()
+            _t20b_manifest_obj = json.loads(_t20b_manifest_text)
+        _scan_text_for_absolute_paths("a REAL, actually-generated manifest", _t20b_manifest_text)
+
+        t20b_hash = _t20b_manifest_obj["comparison_manifest_sha256"]
+        t20b_side_schedule = _t20b_manifest_obj["protocol_identity"]["side_allocation_schedule"]
+        t20b_jsonl_dir = os.path.join(_t20b_tmp, "jsonl")
+        os.makedirs(t20b_jsonl_dir, exist_ok=True)
+        for arm in ("baseline", "candidate"):
+            artifact_id = _t20b_manifest_obj[f"{arm}_artifact"]["artifact_id"]
+            fname = os.path.join(t20b_jsonl_dir, f"{t20b_hash}__mirror__{arm}.jsonl")
+            with open(fname, "w", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "schema_version": "1", "game_index": 0, "first_seat_agent": t20b_side_schedule[0],
+                    "label_a": arm, "label_b": "mirror",
+                    "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                    "error_actor": None, "legality": "legal", "decisions": None,
+                    "game_id": f"{t20b_hash}:mirror:{arm}:000000", "batch_id": 0,
+                    "comparison_manifest_sha256": t20b_hash, "dataset_id": _t20b_manifest_obj["dataset_identity"]["id"],
+                    "protocol_id": _t20b_manifest_obj["protocol_identity"]["id"],
+                    "opponent_id": "mirror", "arm": arm, "artifact_id": artifact_id,
+                }) + "\n")
+        t20b_report_path = os.path.join(_t20b_tmp, "report.json")
+        r_t20b_summarize = run_cli(
+            "summarize", "--manifest", t20b_manifest_path,
+            "--jsonl-in", os.path.join(t20b_jsonl_dir, f"{t20b_hash}__mirror__baseline.jsonl"),
+            "--jsonl-in", os.path.join(t20b_jsonl_dir, f"{t20b_hash}__mirror__candidate.jsonl"),
+            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--out", t20b_report_path,
+        )
+        check(f"T20b setup: a real report was generated via summarize (stderr: "
+              f"{r_t20b_summarize.stderr.strip()[:300]!r})", r_t20b_summarize.returncode == 0)
+        if os.path.exists(t20b_report_path):
+            with open(t20b_report_path, encoding="utf-8") as f:
+                _t20b_report_text = f.read()
+            _scan_text_for_absolute_paths("a REAL, actually-generated report", _t20b_report_text)
+        else:
+            check("T20b: a report file was created", False)
+    else:
+        check("T20b: a manifest file was created (prerequisite for the report-generation check)", False)
+finally:
+    shutil.rmtree(_t20b_tmp, ignore_errors=True)
+    shutil.rmtree(_t20b_outside_tmp, ignore_errors=True)
+    # Only remove the escape-marker file if THIS run actually created it (tracked via
+    # _escape_marker_created, set immediately after the O_CREAT|O_EXCL open succeeded --
+    # deliberately NOT gated on _escape_marker_writable, which also requires the subsequent
+    # write to have succeeded; a write failure after a successful create would otherwise leak
+    # the empty/partial file, found by an independent heterogeneous-model audit) -- never
+    # unconditionally, and only by its unique tracked path.
+    if _escape_marker_created:
+        try:
+            os.remove(t20b_escape_target_abs)
+        except OSError:
+            pass
 
 # ---------------------------------------------------------------------------
 # T21: partial league is never reported as "primary"; the league-wide

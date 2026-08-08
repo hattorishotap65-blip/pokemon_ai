@@ -62,7 +62,6 @@ def main():
         os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
 
     if args.dry_run:
-        import json
         dry = {"mode": "dry_run", "agent_a": args.agent_a, "agent_b": args.agent_b,
                "deck_a": args.deck_a, "deck_b": args.deck_b, "n": args.n}
         if args.output:
@@ -228,7 +227,6 @@ def main():
         print(f"{args.label_a} win rate: {a_wins/total*100:.1f}%")
 
     if args.output:
-        import json
         summary = {
             "games": args.n, "agent_a_wins": a_wins, "agent_b_wins": b_wins,
             "draws": draws, "errors": errors, "timeouts": timeouts,

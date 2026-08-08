@@ -305,15 +305,31 @@ history for the full findings of each round)
   inside `experiments/head_to_head.py`'s game loop (added additively; the
   default no-flags path is untouched) has had its default-off-path safety
   verified by code review and by the Windows-runnable test suite's
-  structural/formula-level checks only. It has not yet been exercised by an
-  actual cabt game (that requires WSL/Linux; see L1-L3 in
-  `experiments/test_eval_infra.py`'s module docstring), so its behavior
-  under real engine execution is not yet empirically confirmed.
+  structural/formula-level checks. It HAS now also been exercised by actual
+  cabt games: a manual `wsl.exe -d Ubuntu` smoke test ran the real
+  `manifest`/`run`/`summarize` pipeline against `mirror` (2 games per arm,
+  4 total, using the unchanged raging_bolt agent/deck/params), which found
+  and fixed a real bug -- `experiments/head_to_head.py`'s `main()` had two
+  redundant local `import json` statements that shadowed the module-level
+  import, causing `UnboundLocalError` on every real (non-dry-run)
+  `--jsonl-out` game. After the fix, the full pipeline produced real JSONL
+  records with globally-unique `game_id`, real per-decision timing data,
+  correct `seat-0`/`seat-1` alternation per `side_allocation_schedule`,
+  `report_kind="partial_diagnostic"` (correct for a mirror-only selection),
+  zero errors/timeouts, and no absolute path leaked into the manifest or
+  report. This was a manual, one-off verification in a local session, not
+  continuous CI coverage -- see F9 -- and did not exercise the 3 required
+  league opponents (Lucario is `UNAVAILABLE` in this worktree; Dragapult/
+  Mega Starmie are pinned-clone remote opponents requiring network access
+  not exercised in that session), so opponent-specific behavior under real
+  engine execution remains unconfirmed by this smoke test.
 - **F9** -- No test anywhere in this repository's current CI
   (`.github/workflows/tests.yml`) exercises the real compiled `cg` engine.
   Deferring this package's real-game tests (L1-L3) to a manual/Linux-only
   run continues that existing repository-wide convention; it is not a new
-  gap introduced by this package.
+  gap introduced by this package. The manual WSL smoke test described under
+  F8 is exactly such a manual/Linux-only run -- it is not wired into CI and
+  does not run automatically on every change.
 
 (F3, F5, F6, F7 from earlier rounds are no longer listed as standalone
 caveats: F3's "games-per-worker>1 + seat alternation" concern is now moot --

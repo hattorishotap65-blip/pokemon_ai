@@ -96,12 +96,49 @@ def _abs_repo_path(path: str) -> str:
     return path if os.path.isabs(path) else os.path.join(_REPO_ROOT, path)
 
 
-def _normalize_artifact_path(path: str) -> str:
-    """Canonical form of an artifact file path: collapse "./"/redundant separators via
-    os.path.normpath, then use forward slashes -- so equivalent spellings of the same path
-    (e.g. "main.py" vs "./main.py") hash identically. Does NOT resolve to an absolute path
-    (manifests/reports must never embed a local machine's filesystem layout)."""
-    return os.path.normpath(path).replace(os.sep, "/")
+def _confine_to_repo_root(abs_path: str, original_for_error: str) -> str:
+    """Resolve an already-absolute path via os.path.realpath (collapsing "..", "." and
+    SYMLINKS -- not just a string-level normpath) and confirm the result is contained within
+    the repository root. Returns the resolved real absolute path (safe to open/hash). Raises
+    ValueError on any escape: an absolute path outside the repo, a "../" traversal out of the
+    repo, or a symlink that points outside the repo. Windows paths are case-insensitive, so
+    the CONTAINMENT CHECK normalizes case via os.path.normcase; the returned path keeps its
+    real on-disk case."""
+    real_candidate = os.path.realpath(abs_path)
+    real_repo_root = os.path.realpath(_REPO_ROOT)
+    try:
+        common = os.path.commonpath([real_repo_root, real_candidate])
+    except ValueError:
+        # e.g. paths on different Windows drives -- definitionally not contained.
+        common = None
+    if common is None or os.path.normcase(common) != os.path.normcase(real_repo_root):
+        raise ValueError(
+            f"path {original_for_error!r} resolves to {real_candidate!r}, which is outside "
+            f"the repository root {real_repo_root!r} -- rejecting (escape via '..', an "
+            f"absolute path outside the repo, or a symlink pointing outside it)"
+        )
+    return real_candidate
+
+
+def _resolve_repo_confined_artifact_path(path: str) -> tuple[str, str]:
+    """Resolve `path` (relative-to-repo-root or absolute) to a real file strictly confined to
+    the repository. Returns (repo_relative_posix_path, real_absolute_path) -- ONLY the first
+    value is ever stored in a manifest/files entry, so no local machine's absolute filesystem
+    path is ever persisted (verified by T14's content-safety scan); the second value is used
+    solely to open/hash the file's bytes right now. A repo-internal absolute path input is
+    normalized to the same repo-relative form as an equivalent relative input (so both hash
+    identically and the candidate/baseline "byte-identical artifact" self-comparison guard
+    cannot be bypassed by spelling). Raises ValueError if the path cannot be confined to the
+    repository (found necessary by an independent external review after an earlier version
+    only did string-level normpath, which does not resolve symlinks or verify containment at
+    all)."""
+    abs_input = _abs_repo_path(path)
+    real_candidate = _confine_to_repo_root(abs_input, path)
+    if not os.path.isfile(real_candidate):
+        raise ValueError(f"artifact path {path!r} (resolved to {real_candidate!r}) is not a file")
+    real_repo_root = os.path.realpath(_REPO_ROOT)
+    repo_relative = os.path.relpath(real_candidate, real_repo_root).replace(os.sep, "/")
+    return repo_relative, real_candidate
 
 
 def _artifact_binding(artifact_id: str, agent_path: str, deck_path: str, params_path: str | None) -> dict:
@@ -119,23 +156,26 @@ def _artifact_binding(artifact_id: str, agent_path: str, deck_path: str, params_
     covered by comparison_manifest_sha256 -- so editing the top-level path
     alone (leaving "files" and the bundle hash untouched) would pass every
     integrity/re-hash check while silently executing different content. A
-    single source of truth removes that gap by construction."""
+    single source of truth removes that gap by construction.
+
+    Every path is resolved via _resolve_repo_confined_artifact_path -- which uses realpath
+    (resolving symlinks, not just string-level normpath) and requires containment within the
+    repository root -- before it is hashed or stored, so: (1) two different spellings of the
+    same file (e.g. "main.py" vs "./main.py", or a repo-internal absolute path vs the
+    equivalent relative one) resolve to the identical repo-relative path and therefore hash
+    identically, restoring the candidate-vs-baseline "byte-identical artifact" self-comparison
+    guard below; (2) a path outside the repository (absolute-elsewhere, "../" escape, or a
+    symlink pointing outside the repo) is rejected outright, so it can never be hashed/read at
+    all; (3) only the repo-relative POSIX path is ever stored -- never a local machine's
+    absolute filesystem path -- in the manifest or, later, the report. Raises ValueError
+    (caught by cmd_manifest) if any path cannot be confined to the repository."""
     entries = [("agent", agent_path), ("deck", deck_path)]
     if params_path:
         entries.append(("params", params_path))
-    # Normalize each path (collapse "./", redundant separators, etc.) BEFORE hashing --
-    # otherwise, now that "path" is part of the bundle hash (see
-    # _artifact_bundle_sha256_from_files), two different spellings of the exact same file
-    # (e.g. "main.py" vs "./main.py") would produce two different bundle hashes despite
-    # resolving to identical content at the identical location, silently defeating the
-    # candidate-vs-baseline "byte-identical artifact" self-comparison guard below (found by an
-    # independent heterogeneous-model audit). Kept relative (not resolved to an
-    # absolute/machine-specific path) so manifests and reports never embed local filesystem
-    # paths.
-    files = [
-        {"logical_name": name, "path": _normalize_artifact_path(p), "sha256": _hash_file(_abs_repo_path(p))}
-        for name, p in entries
-    ]
+    files = []
+    for name, p in entries:
+        repo_relative_path, abs_path_for_hash = _resolve_repo_confined_artifact_path(p)
+        files.append({"logical_name": name, "path": repo_relative_path, "sha256": _hash_file(abs_path_for_hash)})
     bundle_sha256 = _artifact_bundle_sha256_from_files(files)
     return {
         "artifact_id": artifact_id,
@@ -414,12 +454,16 @@ def cmd_manifest(args: argparse.Namespace) -> int:
         print(f"ERROR: --opponent list contains duplicates: {args.opponent}", file=sys.stderr)
         return 1
 
-    candidate = _artifact_binding(
-        args.candidate_artifact_id, args.candidate_agent, args.candidate_deck, args.candidate_params
-    )
-    baseline = _artifact_binding(
-        args.baseline_artifact_id, args.baseline_agent, args.baseline_deck, args.baseline_params
-    )
+    try:
+        candidate = _artifact_binding(
+            args.candidate_artifact_id, args.candidate_agent, args.candidate_deck, args.candidate_params
+        )
+        baseline = _artifact_binding(
+            args.baseline_artifact_id, args.baseline_agent, args.baseline_deck, args.baseline_params
+        )
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
     if candidate["sha256"] == baseline["sha256"]:
         print("ERROR: candidate and baseline artifacts are byte-identical; refusing to "
               "produce a manifest that would compare an artifact against itself.", file=sys.stderr)
@@ -595,9 +639,39 @@ def _verify_manifest_integrity(manifest: dict) -> str | None:
 def _verify_artifact_unchanged(artifact: dict) -> str | None:
     """Rehash an artifact's individual files against the sha256 values recorded in the
     manifest at `manifest` time; returns an error string if any no longer match (the
-    artifact changed on disk since manifest was created), else None."""
+    artifact changed on disk since manifest was created), else None.
+
+    Also re-confines each stored path to the repository root (same check
+    _resolve_repo_confined_artifact_path applies at manifest-creation time) before reading
+    it. `manifest` only ever writes an already-confined repo-relative path, but this function
+    is the gate `run` AND `summarize` actually trust before touching disk / embedding a path
+    into a report -- a hand-edited (yet internally hash-consistent, i.e. a forged manifest
+    never built via the `manifest` CLI) "files" entry with an escaping path (e.g.
+    "../../../etc/passwd", with its "sha256" edited to match) must not be silently read just
+    because its own hash is locally self-consistent.
+
+    Containment alone is not enough: a forged "files" entry could store a repo-INTERNAL
+    ABSOLUTE path (e.g. "C:\\...\\repo\\main.py" instead of "main.py") with a correspondingly
+    recomputed sha256/bundle hash -- fully contained, fully hash-consistent, but not the
+    canonical repo-relative POSIX form `manifest` always writes. `summarize` copies an
+    artifact's "files" verbatim into its report, so that absolute path would leak into the
+    report's JSON (found by an independent heterogeneous-model audit). Requiring the stored
+    path to equal the canonical form recomputed from where it actually resolves closes this:
+    only the exact string `manifest` itself would have written is ever accepted."""
+    real_repo_root = os.path.realpath(_REPO_ROOT)
     for f in artifact.get("files", []):
-        abs_path = _abs_repo_path(f["path"])
+        try:
+            abs_path = _confine_to_repo_root(_abs_repo_path(f["path"]), f["path"])
+        except ValueError as exc:
+            return f"artifact {artifact['artifact_id']!r} file {f['path']!r}: {exc}"
+        canonical_path = os.path.relpath(abs_path, real_repo_root).replace(os.sep, "/")
+        if f["path"] != canonical_path:
+            return (f"artifact {artifact['artifact_id']!r} file {f['path']!r} is not in the "
+                    f"canonical repo-relative POSIX form `manifest` writes (expected "
+                    f"{canonical_path!r}) -- e.g. an absolute-but-repo-internal path, a "
+                    f"non-normalized path, or backslash separators; only the exact form "
+                    f"`manifest` itself produces is ever accepted, to guarantee no local "
+                    f"absolute path can be embedded into a report")
         if not os.path.isfile(abs_path):
             return f"artifact {artifact['artifact_id']!r} file {f['path']!r} is missing at run time"
         actual = _hash_file(abs_path)
@@ -991,6 +1065,16 @@ def cmd_summarize(args: argparse.Namespace) -> int:
     if execution_binding_error:
         print(f"ERROR: {execution_binding_error}", file=sys.stderr)
         return 1
+
+    # summarize copies manifest["candidate_artifact"]/["baseline_artifact"] verbatim into its
+    # report -- so their "files" paths must be validated (containment + canonical repo-relative
+    # form) here too, not just by `run`, or a forged manifest fed directly to `summarize`
+    # (never touching `run` at all) could embed an unvalidated/absolute path into the report.
+    for artifact_key in ("candidate_artifact", "baseline_artifact"):
+        artifact_error = _verify_artifact_unchanged(manifest[artifact_key])
+        if artifact_error:
+            print(f"ERROR: {artifact_error}", file=sys.stderr)
+            return 1
 
     manifest_hash = _manifest_hash_full(manifest)
 

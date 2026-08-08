@@ -173,6 +173,50 @@ seat_alternation_ok = all(
 check("--first-player a vs b flips seat assignment for every gi=0..9 "
       "(source-level check only, not an executed game)", seat_alternation_ok)
 
+# Static (AST-based) guard against a real bug found via an actual WSL/Linux real-engine smoke
+# test: main() had a local "import json" statement inside an early-return `if args.dry_run:`
+# branch (and another inside `if args.output:`), which makes Python treat "json" as a LOCAL
+# name for main()'s ENTIRE body -- so the module-level `import json` at the top of the file
+# was shadowed, and the real (non-dry-run, non-mocked) game loop's `jsonl_f.write(json.dumps(
+# record) + "\n")` raised UnboundLocalError every time --jsonl-out was used without
+# --dry-run -- i.e. exactly the code path `raging_bolt_eval.py run` depends on for real games.
+# No Windows-runnable test previously executed this code path (all --dry-run tests above
+# return before reaching it, and every mocked-subprocess test in test_eval_infra.py replaces
+# the subprocess entirely, so neither could have caught this). This static check verifies the
+# specific footgun is gone: main() contains no local import that shadows a module-level
+# import, which is what caused it.
+import ast as _ast
+
+with open(path_hth, encoding="utf-8") as _f:
+    _hth_tree = _ast.parse(_f.read(), filename=path_hth)
+
+_module_level_names = set()
+for _node in _hth_tree.body:
+    if isinstance(_node, _ast.Import):
+        _module_level_names.update(alias.asname or alias.name.split(".")[0] for alias in _node.names)
+    elif isinstance(_node, _ast.ImportFrom):
+        _module_level_names.update(alias.asname or alias.name for alias in _node.names)
+
+_main_func = next((n for n in _hth_tree.body if isinstance(n, _ast.FunctionDef) and n.name == "main"), None)
+check("head_to_head.py defines a top-level main() function (prerequisite for the shadowing check below)",
+      _main_func is not None)
+if _main_func is not None:
+    _shadowed_names = []
+    for _node in _ast.walk(_main_func):
+        if isinstance(_node, _ast.Import):
+            _shadowed_names.extend(
+                (alias.asname or alias.name.split(".")[0]) for alias in _node.names
+                if (alias.asname or alias.name.split(".")[0]) in _module_level_names
+            )
+        elif isinstance(_node, _ast.ImportFrom):
+            _shadowed_names.extend(
+                (alias.asname or alias.name) for alias in _node.names
+                if (alias.asname or alias.name) in _module_level_names
+            )
+    check(f"main() contains no local import that shadows a module-level import "
+          f"(would make that name UnboundLocal for main()'s entire body) -- "
+          f"found: {_shadowed_names}", _shadowed_names == [])
+
 print("\n=== deck files ===")
 
 for deck_name in ["top_crustle_replay.csv", "raging_bolt_ogerpon.csv"]:

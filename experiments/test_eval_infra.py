@@ -23,6 +23,7 @@ Run: python experiments/test_eval_infra.py
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import shutil
@@ -262,6 +263,63 @@ try:
 except schema.SchemaError:
     check("validate_stats_triple rejects lower>upper", True)
 
+# A Decimal comparison (<=) involving NaN raises an uncaught decimal.InvalidOperation under
+# the default context (Decimal("NaN") itself does not raise, only the later comparison
+# does) -- an earlier version had no explicit finiteness check before that comparison,
+# found by an independent heterogeneous-model audit.
+for _nan_field in ("estimate", "lower", "upper"):
+    _triple = {"estimate": "0.5", "lower": "0.4", "upper": "0.6"}
+    _triple[_nan_field] = "NaN"
+    try:
+        schema.validate_stats_triple(_triple)
+        check(f"validate_stats_triple rejects a NaN {_nan_field!r} with a controlled "
+              f"SchemaError rather than an uncaught decimal.InvalidOperation", False)
+    except schema.SchemaError:
+        check(f"validate_stats_triple rejects a NaN {_nan_field!r} with a controlled "
+              f"SchemaError rather than an uncaught decimal.InvalidOperation", True)
+    except Exception:  # noqa: BLE001 - any other exception type means the bug is still present
+        check(f"validate_stats_triple rejects a NaN {_nan_field!r} with a controlled "
+              f"SchemaError rather than an uncaught decimal.InvalidOperation", False)
+
+try:
+    schema.validate_stats_triple({"estimate": "0.5", "lower": "-Infinity", "upper": "0.6"})
+    check("validate_stats_triple rejects a non-finite (Infinity) bound with a controlled "
+          "SchemaError", False)
+except schema.SchemaError:
+    check("validate_stats_triple rejects a non-finite (Infinity) bound with a controlled "
+          "SchemaError", True)
+
+# The canonical shape (see stats.py's IntervalStats) is a decimal STRING for each field --
+# Decimal(...) also silently accepts a raw int or bool (bool is an int subclass), which is
+# not the documented canonical form (found by an independent heterogeneous-model audit).
+try:
+    schema.validate_stats_triple({"estimate": True, "lower": False, "upper": 1})
+    check("validate_stats_triple rejects non-canonical (bool/int, not decimal-string) values "
+          "with a controlled SchemaError", False)
+except schema.SchemaError:
+    check("validate_stats_triple rejects non-canonical (bool/int, not decimal-string) values "
+          "with a controlled SchemaError", True)
+
+# bool is a subclass of int -- build_cell's observations check must exclude it explicitly,
+# or observations=True would silently be accepted as if it were the integer 1 (found by an
+# independent heterogeneous-model audit).
+try:
+    schema.build_cell(schema.METRIC_WIN_RATE, schema.SEGMENT_OVERALL, True, w.as_dict(), w.as_dict(), nd.as_dict())
+    check("build_cell rejects observations=True (bool, not a real int)", False)
+except schema.SchemaError:
+    check("build_cell rejects observations=True (bool, not a real int)", True)
+
+try:
+    schema.build_cell(schema.METRIC_WIN_RATE, schema.SEGMENT_OVERALL, [], w.as_dict(), w.as_dict(), nd.as_dict())
+    check("build_cell rejects a non-int observations value with a controlled SchemaError "
+          "rather than an uncaught TypeError from the comparison", False)
+except schema.SchemaError:
+    check("build_cell rejects a non-int observations value with a controlled SchemaError "
+          "rather than an uncaught TypeError from the comparison", True)
+except TypeError:
+    check("build_cell rejects a non-int observations value with a controlled SchemaError "
+          "rather than an uncaught TypeError from the comparison", False)
+
 # validate_game_record's "result" must be consistent with "termination.category" -- an
 # earlier version never validated this at all, so a corrupt record with result=[] passed
 # schema validation and then crashed summarize's win-rate computation with an uncaught
@@ -311,6 +369,38 @@ check("validate_game_record accepts a genuinely valid timeout-category record wi
       "result=None (no false positive)",
       schema.validate_game_record(_base_raw_record(
           termination={"category": "timeout", "kind": "wall_clock"}, result=None))["result"] is None)
+
+# bool is a subclass of int -- game_index's check must exclude it explicitly, or
+# game_index=True would silently be accepted as if it were the integer 1 (found by an
+# independent heterogeneous-model audit).
+try:
+    schema.validate_game_record(_base_raw_record(game_index=True))
+    check("validate_game_record rejects game_index=True (bool, not a real int)", False)
+except schema.SchemaError:
+    check("validate_game_record rejects game_index=True (bool, not a real int)", True)
+
+# label_a/label_b/termination.kind/decision.ply were only checked for PRESENCE, never TYPE --
+# a non-string label or a non-int ply would pass schema validation (found by an independent
+# heterogeneous-model audit's broader sweep).
+for _field, _bad_value in (("label_a", []), ("label_b", [])):
+    try:
+        schema.validate_game_record(_base_raw_record(**{_field: _bad_value}))
+        check(f"validate_game_record rejects a non-string {_field!r}", False)
+    except schema.SchemaError:
+        check(f"validate_game_record rejects a non-string {_field!r}", True)
+
+try:
+    schema.validate_game_record(_base_raw_record(termination={"category": "result", "kind": []}))
+    check("validate_game_record rejects a non-string termination.kind", False)
+except schema.SchemaError:
+    check("validate_game_record rejects a non-string termination.kind", True)
+
+try:
+    schema.validate_game_record(_base_raw_record(
+        decisions=[{"ply": [], "actor": "a", "duration_ms": 10.0}]))
+    check("validate_game_record rejects a non-int decision.ply", False)
+except schema.SchemaError:
+    check("validate_game_record rejects a non-int decision.ply", True)
 
 # ---------------------------------------------------------------------------
 # T7: metric/segment ID alignment to the example App Profile (fixture-only,
@@ -373,6 +463,26 @@ try:
 
     res_bad_pin = opponent_registry.resolve_opponent("dragapult", {"dragapult": {"commit_sha": "not-40-hex"}}, _tmp_repo)
     check("dragapult UNAVAILABLE with malformed commit_sha", res_bad_pin.availability == opponent_registry.UNAVAILABLE)
+
+    # commit_sha as a non-string (e.g. an int) must not crash the _COMMIT_SHA_RE.fullmatch(...)
+    # call, which requires a str/bytes argument (found by an independent heterogeneous-model
+    # audit).
+    res_int_sha = opponent_registry.resolve_opponent("dragapult", {"dragapult": {"commit_sha": 12345}}, _tmp_repo)
+    check("dragapult UNAVAILABLE (not a crash) with a non-string commit_sha",
+          res_int_sha.availability == opponent_registry.UNAVAILABLE)
+
+    # A malformed (unparseable) opponent_pins.json must raise a controlled ValueError, not an
+    # uncaught json.JSONDecodeError (found by an independent heterogeneous-model audit).
+    _bad_pins_path = os.path.join(_tmp_repo, "bad_opponent_pins.json")
+    with open(_bad_pins_path, "w", encoding="utf-8") as f:
+        f.write("{not valid json at all")
+    try:
+        opponent_registry.load_pins(_bad_pins_path)
+        check("load_pins raises a controlled ValueError for unparseable JSON, not an uncaught "
+              "json.JSONDecodeError", False)
+    except ValueError:
+        check("load_pins raises a controlled ValueError for unparseable JSON, not an uncaught "
+              "json.JSONDecodeError", True)
 
     good_sha = "a" * 40
     res_good_pin = opponent_registry.resolve_opponent("dragapult", {"dragapult": {"commit_sha": good_sha}}, _tmp_repo)
@@ -551,6 +661,42 @@ try:
             check("clone_and_verify rejects a malformed (non-40-hex) commit_sha before touching git", False)
         except ClonePinError:
             check("clone_and_verify rejects a malformed (non-40-hex) commit_sha before touching git", True)
+
+        # A git invocation that hangs past the timeout, or a missing/unrunnable git
+        # executable, must fail the same controlled ClonePinError way every other git failure
+        # here does -- an earlier version let subprocess.TimeoutExpired/OSError propagate
+        # straight out uncaught (found by an independent heterogeneous-model audit).
+        import unittest.mock as _unittest_mock_t9
+
+        def _fake_git_timeout(*args, **kwargs):
+            raise subprocess.TimeoutExpired(args[0] if args else kwargs.get("args"), kwargs.get("timeout") or 120)
+
+        with _unittest_mock_t9.patch("experiments.eval_infra.clone_opponent.subprocess.run", side_effect=_fake_git_timeout):
+            try:
+                _clone_opponent_mod._run_git(["clone", "--no-checkout", _synth_repo, _clone_dest])
+                check("_run_git raises a controlled ClonePinError (not an uncaught "
+                      "TimeoutExpired) when the git subprocess times out", False)
+            except ClonePinError:
+                check("_run_git raises a controlled ClonePinError (not an uncaught "
+                      "TimeoutExpired) when the git subprocess times out", True)
+            except subprocess.TimeoutExpired:
+                check("_run_git raises a controlled ClonePinError (not an uncaught "
+                      "TimeoutExpired) when the git subprocess times out", False)
+
+        def _fake_git_missing(*args, **kwargs):
+            raise FileNotFoundError("git executable not found")
+
+        with _unittest_mock_t9.patch("experiments.eval_infra.clone_opponent.subprocess.run", side_effect=_fake_git_missing):
+            try:
+                _clone_opponent_mod._run_git(["clone", "--no-checkout", _synth_repo, _clone_dest])
+                check("_run_git raises a controlled ClonePinError (not an uncaught "
+                      "FileNotFoundError) when the git executable itself cannot be run", False)
+            except ClonePinError:
+                check("_run_git raises a controlled ClonePinError (not an uncaught "
+                      "FileNotFoundError) when the git executable itself cannot be run", True)
+            except FileNotFoundError:
+                check("_run_git raises a controlled ClonePinError (not an uncaught "
+                      "FileNotFoundError) when the git executable itself cannot be run", False)
     shutil.rmtree(_clone_dest, ignore_errors=True)
 finally:
     shutil.rmtree(_synth_repo, ignore_errors=True)
@@ -780,7 +926,7 @@ try:
             f.write("{}\n")
         r_summarize_reuse = run_cli(
             "summarize", "--manifest", manifest_path, "--jsonl-in", wrong_hash_path,
-            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--stage", "screening", "--allow-partial-report",
             "--out", os.path.join(_cli_tmp, "report_reject.json"),
         )
         check("summarize refuses a --jsonl-in file whose filename doesn't carry the FULL "
@@ -791,7 +937,7 @@ try:
             f.write("{}\n")
         r_summarize_truncated = run_cli(
             "summarize", "--manifest", manifest_path, "--jsonl-in", truncated_hash_path,
-            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--stage", "screening", "--allow-partial-report",
             "--out", os.path.join(_cli_tmp, "report_reject2.json"),
         )
         check("summarize refuses a --jsonl-in file named with only the TRUNCATED 8-char "
@@ -838,10 +984,13 @@ try:
                 return _REAL_SUBPROCESS_RUN(*args, **kwargs)
             captured_envs.append(kwargs.get("env"))
             out_path = cmd[cmd.index("--jsonl-out") + 1]
+            label_a_val = cmd[cmd.index("--label-a") + 1]
+            label_b_val = cmd[cmd.index("--label-b") + 1]
+            first_player_val = cmd[cmd.index("--first-player") + 1]
             with open(out_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps({
-                    "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
-                    "label_a": "candidate", "label_b": "mirror",
+                    "schema_version": "1", "game_index": 0, "first_seat_agent": first_player_val,
+                    "label_a": label_a_val, "label_b": label_b_val,
                     "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
                     "error_actor": None, "legality": "legal", "decisions": None,
                 }) + "\n")
@@ -900,10 +1049,13 @@ try:
                 return _REAL_SUBPROCESS_RUN(*args, **kwargs)
             captured_cmds.append(cmd)
             out_path = cmd[cmd.index("--jsonl-out") + 1]
+            label_a_val = cmd[cmd.index("--label-a") + 1]
+            label_b_val = cmd[cmd.index("--label-b") + 1]
+            first_player_val = cmd[cmd.index("--first-player") + 1]
             with open(out_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps({
-                    "schema_version": "1", "game_index": 0, "first_seat_agent": "a",
-                    "label_a": "candidate", "label_b": "mirror",
+                    "schema_version": "1", "game_index": 0, "first_seat_agent": first_player_val,
+                    "label_a": label_a_val, "label_b": label_b_val,
                     "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
                     "error_actor": None, "legality": "legal", "decisions": None,
                 }) + "\n")
@@ -923,6 +1075,148 @@ try:
         check("T15b: manifest was created", False)
 finally:
     shutil.rmtree(_t15b_tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
+# T15c: the raw jsonl record head_to_head.py's subprocess writes is schema-validated
+# BEFORE enrichment, and unparseable raw JSON is a controlled per-game error -- an
+# earlier version did `dict(raw_record)` directly (so a subprocess that exited 0 but
+# wrote e.g. a JSON array `[]` as its single line silently produced an enriched
+# record missing every real game field, via dict([]) == {}, and `run` reported
+# success) and let a json.JSONDecodeError from unparseable raw JSON propagate
+# uncaught out of `run` entirely (found by an independent heterogeneous-model audit).
+# ---------------------------------------------------------------------------
+print("\n=== T15c: raw subprocess jsonl output validated before enrichment ===")
+
+_t15c_tmp = tempfile.mkdtemp(prefix="eval_infra_t15c_")
+try:
+    t15c_manifest_path = os.path.join(_t15c_tmp, "manifest.json")
+    r_t15c_manifest = subprocess.run([
+        sys.executable, "-m", "experiments.eval_infra.raging_bolt_eval", "manifest",
+        "--candidate-agent", "experiments/agents/raging_bolt/main.py",
+        "--candidate-deck", "experiments/decks/raging_bolt_ogerpon.csv",
+        "--candidate-artifact-id", "candidate-t15c",
+        "--baseline-agent", "main.py", "--baseline-deck", "deck.csv", "--baseline-artifact-id", "baseline-t15c",
+        "--protocol-id", "proto-t15c", "--dataset-id", "ds-v1", "--dataset-version", "1", "--stage", "screening",
+        "--opponent", "mirror", "--games-per-segment", "1",
+        "--out", t15c_manifest_path,
+    ], cwd=_REPO_ROOT, capture_output=True, text=True)
+    check("T15c setup: manifest succeeds", r_t15c_manifest.returncode == 0)
+
+    if os.path.exists(t15c_manifest_path):
+        def _fake_run_writes_json_array(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            out_path = cmd[cmd.index("--jsonl-out") + 1]
+            with open(out_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps([]) + "\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        t15c_args_a = _argparse.Namespace(manifest=t15c_manifest_path, jsonl_out=os.path.join(_t15c_tmp, "jsonl_a"), allow_partial=False)
+        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_writes_json_array):
+            t15c_rc_a = raging_bolt_eval.cmd_run(t15c_args_a)
+        check("cmd_run fails closed (nonzero exit) when the subprocess exits 0 but writes a "
+              "JSON array (not an object) as its jsonl record, instead of silently accepting "
+              "dict([]) == {} as a valid enriched game record",
+              t15c_rc_a != 0)
+
+        def _fake_run_writes_unparseable_json(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            out_path = cmd[cmd.index("--jsonl-out") + 1]
+            with open(out_path, "a", encoding="utf-8") as f:
+                f.write("{not valid json at all\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        t15c_args_b = _argparse.Namespace(manifest=t15c_manifest_path, jsonl_out=os.path.join(_t15c_tmp, "jsonl_b"), allow_partial=False)
+        _t15c_exc_b = None
+        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_writes_unparseable_json):
+            try:
+                t15c_rc_b = raging_bolt_eval.cmd_run(t15c_args_b)
+            except Exception as exc:  # noqa: BLE001 - deliberately catching to prove no uncaught exception is the fix
+                _t15c_exc_b = exc
+                t15c_rc_b = None
+        check("cmd_run fails closed (nonzero exit, no uncaught exception) when the subprocess "
+              "exits 0 but writes unparseable JSON as its jsonl output",
+              _t15c_exc_b is None and t15c_rc_b is not None and t15c_rc_b != 0)
+
+        def _fake_run_writes_invalid_utf8(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            out_path = cmd[cmd.index("--jsonl-out") + 1]
+            with open(out_path, "ab") as f:
+                f.write(b"\xff\xfe not valid utf-8\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        t15c_args_c = _argparse.Namespace(manifest=t15c_manifest_path, jsonl_out=os.path.join(_t15c_tmp, "jsonl_c"), allow_partial=False)
+        _t15c_exc_c = None
+        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_writes_invalid_utf8):
+            try:
+                t15c_rc_c = raging_bolt_eval.cmd_run(t15c_args_c)
+            except Exception as exc:  # noqa: BLE001 - deliberately catching to prove no uncaught exception is the fix
+                _t15c_exc_c = exc
+                t15c_rc_c = None
+        check("cmd_run fails closed (nonzero exit, no uncaught UnicodeDecodeError) when the "
+              "subprocess exits 0 but writes invalid UTF-8 bytes as its jsonl output",
+              _t15c_exc_c is None and t15c_rc_c is not None and t15c_rc_c != 0)
+
+        def _fake_run_wrong_label(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            out_path = cmd[cmd.index("--jsonl-out") + 1]
+            first_player_val = cmd[cmd.index("--first-player") + 1]
+            with open(out_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "schema_version": "1", "game_index": 0, "first_seat_agent": first_player_val,
+                    "label_a": "totally-wrong-label", "label_b": "mirror",
+                    "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                    "error_actor": None, "legality": "legal", "decisions": None,
+                }) + "\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        t15c_args_d = _argparse.Namespace(manifest=t15c_manifest_path, jsonl_out=os.path.join(_t15c_tmp, "jsonl_d"), allow_partial=False)
+        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_wrong_label):
+            t15c_rc_d = raging_bolt_eval.cmd_run(t15c_args_d)
+        check("cmd_run fails closed when the subprocess writes a record whose label_a doesn't "
+              "match the --label-a this invocation actually asked for, instead of writing the "
+              "mismatched record and reporting success (summarize would reject it later anyway)",
+              t15c_rc_d != 0)
+
+        def _fake_run_two_records_then_timeout(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            out_path = cmd[cmd.index("--jsonl-out") + 1]
+            first_player_val = cmd[cmd.index("--first-player") + 1]
+            label_a_val = cmd[cmd.index("--label-a") + 1]
+            label_b_val = cmd[cmd.index("--label-b") + 1]
+            rec = {
+                "schema_version": "1", "game_index": 0, "first_seat_agent": first_player_val,
+                "label_a": label_a_val, "label_b": label_b_val,
+                "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                "error_actor": None, "legality": "legal", "decisions": None,
+            }
+            with open(out_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(rec) + "\n")
+                f.write(json.dumps(rec) + "\n")
+            raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout") or 1)
+
+        t15c_args_e = _argparse.Namespace(manifest=t15c_manifest_path, jsonl_out=os.path.join(_t15c_tmp, "jsonl_e"), allow_partial=True)
+        with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_two_records_then_timeout):
+            t15c_rc_e = raging_bolt_eval.cmd_run(t15c_args_e)
+        t15c_index_e_matches = glob.glob(os.path.join(_t15c_tmp, "jsonl_e", "*__run_index.json"))
+        t15c_errors_e = json.load(open(t15c_index_e_matches[0], encoding="utf-8"))["errors"] if t15c_index_e_matches else []
+        check("cmd_run (with --allow-partial) records an honest per-game error, rather than "
+              "silently picking one of two records a subprocess had written before timing out "
+              "and discarding the other",
+              t15c_rc_e == 0 and any("2 jsonl record" in e.get("reason", "") for e in t15c_errors_e))
+    else:
+        check("T15c: manifest was created", False)
+finally:
+    shutil.rmtree(_t15c_tmp, ignore_errors=True)
 
 # ---------------------------------------------------------------------------
 # T16: TimeoutExpired accounting (mocked subprocess hang). games_per_worker
@@ -982,10 +1276,12 @@ try:
                 return _REAL_SUBPROCESS_RUN(*args, **kwargs)
             first_player = cmd[cmd.index("--first-player") + 1]
             out_path = cmd[cmd.index("--jsonl-out") + 1]
+            label_a_val = cmd[cmd.index("--label-a") + 1]
+            label_b_val = cmd[cmd.index("--label-b") + 1]
             with open(out_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps({
                     "schema_version": "1", "game_index": 0, "first_seat_agent": first_player,
-                    "label_a": "candidate", "label_b": "mirror",
+                    "label_a": label_a_val, "label_b": label_b_val,
                     "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
                     "error_actor": None, "legality": "legal", "decisions": None,
                 }) + "\n")
@@ -1041,6 +1337,18 @@ try:
     r_bad_timeout_neg = _make_manifest17(os.path.join(_t17_tmp, "m_bad_timeout_neg.json"), **{"--wall-timeout-seconds": -5})
     check("manifest rejects a negative --wall-timeout-seconds at creation time", r_bad_timeout_neg.returncode != 0)
 
+    # An empty --protocol-id/--dataset-id/--candidate-artifact-id/--baseline-artifact-id must
+    # be rejected at `manifest` creation time -- an earlier version let `manifest` succeed and
+    # write a file that its own `run`/`summarize` (which require these to be non-empty
+    # strings, per _verify_manifest_integrity) would immediately reject on the very next
+    # invocation (found by an independent heterogeneous-model audit).
+    for _empty_id_flag in ("--protocol-id", "--dataset-id", "--candidate-artifact-id", "--baseline-artifact-id"):
+        _empty_id_out = os.path.join(_t17_tmp, f"m_empty_id_{_empty_id_flag.strip('-')}.json")
+        _r_empty_id = _make_manifest17(_empty_id_out, **{_empty_id_flag: ""})
+        check(f"manifest rejects an empty {_empty_id_flag} at creation time, rather than "
+              f"writing a file its own run/summarize would immediately reject",
+              _r_empty_id.returncode != 0 and not os.path.exists(_empty_id_out))
+
     good_manifest_path = os.path.join(_t17_tmp, "m_good.json")
     r_good = _make_manifest17(good_manifest_path)
     check("manifest (valid args) succeeds -- prerequisite for the tamper-detection checks below",
@@ -1081,7 +1389,7 @@ try:
         r_summarize_tampered2 = run_cli(
             "summarize", "--manifest", tampered2_path,
             "--jsonl-in", os.path.join(_t17_tmp, f"{'0' * 64}__mirror__candidate.jsonl"),
-            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--stage", "screening", "--allow-partial-report",
             "--out", os.path.join(_t17_tmp, "report_tampered2.json"),
         )
         check("summarize rejects a manifest whose top-level comparison_manifest_sha256 was "
@@ -1258,7 +1566,7 @@ try:
         r_summarize_tampered8 = run_cli(
             "summarize", "--manifest", tampered8_path,
             "--jsonl-in", os.path.join(_t17_tmp, "nonexistent__mirror__baseline.jsonl"),
-            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--stage", "screening", "--allow-partial-report",
             "--out", os.path.join(_t17_tmp, "report_tampered8.json"),
         )
         check("summarize ALSO rejects the same non-canonical-path manifest, before it could "
@@ -1268,6 +1576,698 @@ try:
               "would also produce SOME nonzero exit but for an unrelated reason)",
               r_summarize_tampered8.returncode != 0 and
               "is not in the canonical repo-relative POSIX form" in (r_summarize_tampered8.stderr or ""))
+
+        # Tamper cases 9-14: opponent_id/source_kind canonical-binding validation. A forged
+        # (never built via the `manifest` CLI) manifest could set source_kind="self_play" for
+        # a REQUIRED league opponent (lucario/dragapult/megastarmie), with dataset_identity's
+        # hash fully, correctly recomputed to match -- internally hash-consistent, yet the
+        # opponent it claims is "selected" would actually run (and have its jsonl output
+        # labeled as) a self-play mirror game. Found by an independent external review; see
+        # _verify_opponent_binding_canonical's docstring. Every case below uses a fully
+        # hash-consistent forge (never a stale/mismatched hash -- that class of tamper is
+        # already covered by tamper case 3 above), so a plain nonzero-exit check alone
+        # wouldn't distinguish "the canonical-binding check caught this" from "some other
+        # check happened to reject it too" -- each assertion below checks the SPECIFIC error
+        # text this new validation produces.
+        def _forge_manifest_with_dataset_override(base_manifest, out_path, selected_opponents, league_complete_claim=None):
+            protocol_identity = dict(base_manifest["protocol_identity"])
+            protocol_sha256 = protocol_identity.pop("sha256")
+            dataset_identity = dict(base_manifest["dataset_identity"])
+            dataset_identity.pop("sha256", None)
+            dataset_identity["selected_opponents"] = selected_opponents
+            if league_complete_claim is not None:
+                dataset_identity["league_complete"] = league_complete_claim
+            else:
+                dataset_identity["league_complete"] = set(schema.REQUIRED_LEAGUE_OPPONENTS) <= {
+                    b.get("opponent_id") for b in selected_opponents
+                }
+            dataset_sha256 = sha256_hex(dataset_identity)
+            candidate = base_manifest["candidate_artifact"]
+            baseline = base_manifest["baseline_artifact"]
+            comparison_identity = {
+                "schema_version": base_manifest["schema_version"], "candidate_role": base_manifest["candidate_role"],
+                "dataset_sha256": dataset_sha256, "protocol_sha256": protocol_sha256,
+                "candidate_artifact": {"artifact_id": candidate["artifact_id"], "sha256": candidate["sha256"]},
+                "baseline_artifact": {"artifact_id": baseline["artifact_id"], "sha256": baseline["sha256"]},
+                "stage": base_manifest["stage"],
+            }
+            forged = {
+                "schema_version": base_manifest["schema_version"], "stage": base_manifest["stage"],
+                "candidate_role": base_manifest["candidate_role"],
+                "protocol_identity": {**protocol_identity, "sha256": protocol_sha256},
+                "dataset_identity": {**dataset_identity, "sha256": dataset_sha256},
+                "candidate_artifact": candidate, "baseline_artifact": baseline,
+                "comparison_manifest_sha256": sha256_hex(comparison_identity),
+            }
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(forged, f, indent=2, sort_keys=True, ensure_ascii=False)
+            return forged
+
+        def _self_play_binding(opponent_id):
+            return {"opponent_id": opponent_id, "source_kind": "self_play"}
+
+        def _pinned_clone_binding(opponent_id):
+            return {
+                "opponent_id": opponent_id, "source_kind": "pinned_clone",
+                "repo_url": "https://example.invalid/fake.git", "commit_sha": "a" * 40,
+                "files": [
+                    {"logical_name": "agent", "path": f"agents/{opponent_id}/main.py", "sha256": "b" * 64},
+                    {"logical_name": "deck", "path": f"agents/{opponent_id}/deck.csv", "sha256": "c" * 64},
+                ],
+            }
+
+        def _local_only_binding(opponent_id):
+            paths = raging_bolt_eval.opponent_registry.LOCAL_ONLY_OPPONENTS[opponent_id]
+            return {
+                "opponent_id": opponent_id, "source_kind": "local_only",
+                "files": [
+                    {"logical_name": "agent", "path": paths["agent_path"], "sha256": "d" * 64},
+                    {"logical_name": "deck", "path": paths["deck_path"], "sha256": "e" * 64},
+                ],
+            }
+
+        for _bad_opp, _bad_binding, _label in (
+            ("lucario", _self_play_binding("lucario"), "lucario+self_play"),
+            ("dragapult", _self_play_binding("dragapult"), "dragapult+self_play"),
+            ("megastarmie", _self_play_binding("megastarmie"), "megastarmie+self_play"),
+            ("mirror", _pinned_clone_binding("mirror"), "mirror+pinned_clone"),
+            ("lucario", _pinned_clone_binding("lucario"), "lucario+pinned_clone"),
+        ):
+            _canon_path = os.path.join(_t17_tmp, f"m_canon_{_label.replace('+', '_')}.json")
+            _forge_manifest_with_dataset_override(_good_manifest, _canon_path, [_bad_binding])
+            _r_run_canon = run_cli("run", "--manifest", _canon_path, "--jsonl-out", os.path.join(_t17_tmp, f"jsonl_canon_{_label}"))
+            check(f"run rejects a fully hash-consistent manifest with a {_label} binding "
+                  f"(source_kind does not match the canonical mapping for this opponent_id) "
+                  f"-- checked via the specific canonical-binding error, not merely a nonzero exit",
+                  _r_run_canon.returncode != 0 and
+                  "selected_opponents binding invalid" in (_r_run_canon.stderr or "") and
+                  "canonical mapping" in (_r_run_canon.stderr or ""))
+
+        # The actual attack scenario this whole check exists to prevent: ALL 3 required league
+        # opponents disguised as self_play, with league_complete correctly (and misleadingly)
+        # computed as True from the opponent_id set alone -- must never be accepted as
+        # report_kind="primary" (or accepted by `run`/`summarize` at all).
+        _forged_3opp_path = os.path.join(_t17_tmp, "m_forged_3opp_self_play.json")
+        _forged_3opp = _forge_manifest_with_dataset_override(
+            _good_manifest, _forged_3opp_path,
+            [_self_play_binding("lucario"), _self_play_binding("dragapult"), _self_play_binding("megastarmie")],
+        )
+        check("a forged manifest with all 3 required league opponents disguised as self_play "
+              "still (misleadingly) computes league_complete=True from the opponent_id set "
+              "alone -- confirms this is exactly the attack scenario being tested, not a setup bug",
+              _forged_3opp["dataset_identity"]["league_complete"] is True)
+        _r_run_3opp = run_cli("run", "--manifest", _forged_3opp_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl_3opp"))
+        check("run rejects the forged 3-required-opponent-disguised-as-self_play manifest "
+              "outright -- it can never reach game execution, let alone report_kind='primary'",
+              _r_run_3opp.returncode != 0 and "selected_opponents binding invalid" in (_r_run_3opp.stderr or ""))
+        _r_summarize_3opp = run_cli(
+            "summarize", "--manifest", _forged_3opp_path,
+            "--jsonl-in", os.path.join(_t17_tmp, "nonexistent__mirror__baseline.jsonl"),
+            "--stage", "screening", "--allow-partial-report",
+            "--out", os.path.join(_t17_tmp, "report_3opp.json"),
+        )
+        check("summarize ALSO rejects the forged 3-required-opponent-disguised-as-self_play "
+              "manifest -- it can never be summarized into a report_kind='primary' Measurement "
+              "Report",
+              _r_summarize_3opp.returncode != 0 and "selected_opponents binding invalid" in (_r_summarize_3opp.stderr or ""))
+        check("no report file was written for the forged 3-opponent manifest (rejected before "
+              "any report could be produced)",
+              not os.path.exists(os.path.join(_t17_tmp, "report_3opp.json")))
+
+        # Tamper case 15: a smuggled-back extra field (e.g. "rng_seed") in
+        # protocol_identity.measurement_settings, fully hash-consistent -- an earlier version
+        # only validated the fields it recognized and never rejected UNKNOWN extra ones, so a
+        # forged manifest could re-add "rng_seed" (contradicting bootstrap_seed_scheme's own
+        # claim that no caller-supplied seed exists) and have it copied verbatim into the
+        # report (found by an independent heterogeneous-model audit).
+        _tampered15_measurement_settings = dict(_good_manifest["protocol_identity"]["measurement_settings"])
+        _tampered15_measurement_settings["rng_seed"] = 123
+        tampered15_path = os.path.join(_t17_tmp, "m_tampered15.json")
+        _forge_manifest_with_protocol_override(_good_manifest, tampered15_path, measurement_settings=_tampered15_measurement_settings)
+        r_run_tampered15 = run_cli("run", "--manifest", tampered15_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl15"))
+        check("run rejects a fully hash-consistent manifest whose protocol_identity."
+              "measurement_settings has a smuggled-back extra field (e.g. 'rng_seed') -- "
+              "only the exact fixed key set is ever accepted",
+              r_run_tampered15.returncode != 0 and
+              "measurement_settings has unexpected extra field" in (r_run_tampered15.stderr or ""))
+
+        # Tamper cases 16-19: opponent-binding canonical-shape gaps found by an independent
+        # heterogeneous-model audit that the ORIGINAL _verify_opponent_binding_canonical
+        # implementation missed -- each is a SEPARATE, fully hash-consistent forged manifest.
+
+        # 16: a non-dict entry in selected_opponents must be rejected gracefully (not crash
+        # with an uncaught AttributeError from binding.get(...) on a non-dict).
+        tampered16_path = os.path.join(_t17_tmp, "m_tampered16.json")
+        # league_complete_claim=False explicit: the helper's own default-case league_complete
+        # computation calls b.get("opponent_id") on every entry, which would crash on this
+        # deliberately non-dict entry before ever writing the file.
+        _forge_manifest_with_dataset_override(_good_manifest, tampered16_path, ["not-an-object"], league_complete_claim=False)
+        r_run_tampered16 = run_cli("run", "--manifest", tampered16_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl16"))
+        check("run rejects a manifest whose selected_opponents contains a non-object entry, "
+              "with a clear error rather than an uncaught exception",
+              r_run_tampered16.returncode != 0 and
+              "is not an object" in (r_run_tampered16.stderr or "") and
+              "Traceback" not in (r_run_tampered16.stderr or ""))
+
+        # 17: duplicate opponent_id entries (both mirror) -- fully hash-consistent.
+        tampered17_path = os.path.join(_t17_tmp, "m_tampered17.json")
+        _forge_manifest_with_dataset_override(_good_manifest, tampered17_path, [_self_play_binding("mirror"), _self_play_binding("mirror")])
+        r_run_tampered17 = run_cli("run", "--manifest", tampered17_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl17"))
+        check("run rejects a manifest whose selected_opponents contains a DUPLICATE "
+              "opponent_id, even though every individual binding is otherwise canonical",
+              r_run_tampered17.returncode != 0 and
+              "duplicate opponent_id" in (r_run_tampered17.stderr or ""))
+
+        # 18: an unexpected extra per-file field on an opponent binding's "files" entry.
+        _lucario_paths_18 = raging_bolt_eval.opponent_registry.LOCAL_ONLY_OPPONENTS["lucario"]
+        _bad_lucario_files_binding = {
+            "opponent_id": "lucario", "source_kind": "local_only",
+            "files": [
+                {"logical_name": "agent", "path": _lucario_paths_18["agent_path"], "sha256": "a" * 64, "note": "unexpected"},
+                {"logical_name": "deck", "path": _lucario_paths_18["deck_path"], "sha256": "b" * 64},
+            ],
+        }
+        tampered18_path = os.path.join(_t17_tmp, "m_tampered18.json")
+        _forge_manifest_with_dataset_override(_good_manifest, tampered18_path, [_bad_lucario_files_binding])
+        r_run_tampered18 = run_cli("run", "--manifest", tampered18_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl18"))
+        check("run rejects an opponent binding whose 'files' entry has an unexpected extra "
+              "per-file field",
+              r_run_tampered18.returncode != 0 and
+              "missing and/or extra field" in (r_run_tampered18.stderr or ""))
+
+        # 19: a pinned-clone opponent binding whose file path escapes via "../" -- must be
+        # rejected even though it's otherwise a well-formed pinned_clone binding.
+        _escaping_dragapult_binding = {
+            "opponent_id": "dragapult", "source_kind": "pinned_clone",
+            "repo_url": "https://example.invalid/fake.git", "commit_sha": "a" * 40,
+            "files": [
+                {"logical_name": "agent", "path": "../outside.py", "sha256": "c" * 64},
+                {"logical_name": "deck", "path": "agents/dragapult/deck.csv", "sha256": "d" * 64},
+            ],
+        }
+        tampered19_path = os.path.join(_t17_tmp, "m_tampered19.json")
+        _forge_manifest_with_dataset_override(_good_manifest, tampered19_path, [_escaping_dragapult_binding])
+        r_run_tampered19 = run_cli("run", "--manifest", tampered19_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl19"))
+        check("run rejects a pinned-clone opponent binding whose file path contains a '../' "
+              "escape",
+              r_run_tampered19.returncode != 0 and "is unsafe" in (r_run_tampered19.stderr or ""))
+
+        # 20: a pinned-clone opponent binding whose file entry is MISSING a required key
+        # (logical_name) rather than carrying an extra one -- a prior version of the per-file
+        # validator only checked for extra keys via set-subtraction, so a missing key produced
+        # an empty "extra" set and passed validation, then crashed later with an uncaught
+        # KeyError: 'logical_name' when building `by_name`. Must be rejected with a controlled
+        # error, not an uncaught traceback.
+        _missing_key_dragapult_binding = {
+            "opponent_id": "dragapult", "source_kind": "pinned_clone",
+            "repo_url": "https://example.invalid/fake.git", "commit_sha": "a" * 40,
+            "files": [
+                {"path": "agents/dragapult/main.py", "sha256": "e" * 64},
+                {"logical_name": "deck", "path": "agents/dragapult/deck.csv", "sha256": "f" * 64},
+            ],
+        }
+        tampered20_path = os.path.join(_t17_tmp, "m_tampered20.json")
+        _forge_manifest_with_dataset_override(_good_manifest, tampered20_path, [_missing_key_dragapult_binding])
+        r_run_tampered20 = run_cli("run", "--manifest", tampered20_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl20"))
+        check("run rejects an opponent binding whose 'files' entry is missing a required "
+              "per-file field, with a controlled error rather than an uncaught traceback",
+              r_run_tampered20.returncode != 0 and
+              "missing and/or extra field" in (r_run_tampered20.stderr or "") and
+              "Traceback" not in (r_run_tampered20.stderr or ""))
+
+        # 21: opponent_id is a non-string (a JSON array) rather than merely an unrecognized
+        # string -- a prior version passed opponent_id straight into
+        # `_CANONICAL_OPPONENT_SOURCE_KIND.get(opponent_id)` without a type check, so an
+        # unhashable value (a JSON array survives JSON round-tripping as a Python list) raised
+        # an uncaught `TypeError: unhashable type: 'list'` instead of a controlled rejection.
+        # Must use league_complete_claim=False explicitly since the forge helper's own default
+        # league_complete computation also hashes opponent_id into a set.
+        _unhashable_opponent_id_binding = {
+            "opponent_id": [], "source_kind": "self_play",
+        }
+        tampered21_path = os.path.join(_t17_tmp, "m_tampered21.json")
+        _forge_manifest_with_dataset_override(_good_manifest, tampered21_path, [_unhashable_opponent_id_binding], league_complete_claim=False)
+        r_run_tampered21 = run_cli("run", "--manifest", tampered21_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl21"))
+        check("run rejects a selected_opponents entry whose opponent_id is a non-string "
+              "(unhashable) value, with a controlled error rather than an uncaught traceback",
+              r_run_tampered21.returncode != 0 and
+              "non-string opponent_id" in (r_run_tampered21.stderr or "") and
+              "Traceback" not in (r_run_tampered21.stderr or ""))
+
+        # 22: logical_name is a non-string (a JSON array) inside an otherwise well-formed
+        # pinned-clone binding's 'files' entry -- a prior version passed logical_name straight
+        # into a dict comprehension key (`{f["logical_name"]: f for f in files}`) without a
+        # type check, so an unhashable value raised an uncaught `TypeError: unhashable type:
+        # 'list'` instead of a controlled rejection.
+        _unhashable_logical_name_binding = {
+            "opponent_id": "dragapult", "source_kind": "pinned_clone",
+            "repo_url": "https://example.invalid/fake.git", "commit_sha": "a" * 40,
+            "files": [
+                {"logical_name": [], "path": "agents/dragapult/main.py", "sha256": "a" * 64},
+                {"logical_name": "deck", "path": "agents/dragapult/deck.csv", "sha256": "b" * 64},
+            ],
+        }
+        tampered22_path = os.path.join(_t17_tmp, "m_tampered22.json")
+        _forge_manifest_with_dataset_override(_good_manifest, tampered22_path, [_unhashable_logical_name_binding])
+        r_run_tampered22 = run_cli("run", "--manifest", tampered22_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl22"))
+        check("run rejects an opponent binding whose 'files' entry has a non-string "
+              "(unhashable) logical_name, with a controlled error rather than an uncaught "
+              "traceback",
+              r_run_tampered22.returncode != 0 and
+              "expected exactly 'agent' or 'deck'" in (r_run_tampered22.stderr or "") and
+              "Traceback" not in (r_run_tampered22.stderr or ""))
+
+        # 23/24: protocol_identity.engine_binding / evaluator_binding is a non-dict (a JSON
+        # array) -- a prior version compared it against the freshly-computed binding and, on
+        # mismatch, called `.get(...)` on it while formatting the error message, without ever
+        # checking it was a dict first. An unhashable-shaped value here still hashes fine (JSON
+        # serialization doesn't require a dict), so the manifest is fully hash-consistent, but
+        # `.get()` on a list raised an uncaught AttributeError instead of a controlled
+        # rejection.
+        tampered23_path = os.path.join(_t17_tmp, "m_tampered23.json")
+        _forge_manifest_with_protocol_override(_good_manifest, tampered23_path, engine_binding=[])
+        r_run_tampered23 = run_cli("run", "--manifest", tampered23_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl23"))
+        check("run rejects a manifest whose protocol_identity.engine_binding is not an "
+              "object, with a controlled error rather than an uncaught traceback",
+              r_run_tampered23.returncode != 0 and
+              "engine_binding" in (r_run_tampered23.stderr or "") and
+              "not an object" in (r_run_tampered23.stderr or "") and
+              "Traceback" not in (r_run_tampered23.stderr or ""))
+
+        tampered24_path = os.path.join(_t17_tmp, "m_tampered24.json")
+        _forge_manifest_with_protocol_override(_good_manifest, tampered24_path, evaluator_binding=[])
+        r_run_tampered24 = run_cli("run", "--manifest", tampered24_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl24"))
+        check("run rejects a manifest whose protocol_identity.evaluator_binding is not an "
+              "object, with a controlled error rather than an uncaught traceback",
+              r_run_tampered24.returncode != 0 and
+              "evaluator_binding" in (r_run_tampered24.stderr or "") and
+              "not an object" in (r_run_tampered24.stderr or "") and
+              "Traceback" not in (r_run_tampered24.stderr or ""))
+
+        # 25: a candidate_artifact 'files' entry with a non-string (a JSON array) path -- a
+        # prior version never validated file-entry shape/types before hashing (which doesn't
+        # require a string) and later resolving the path against disk (which does), so this
+        # crashed with an uncaught TypeError ("expected str, bytes or os.PathLike object, not
+        # list") instead of a controlled rejection. Built via a dedicated forge helper (rather
+        # than _forge_manifest_with_protocol_override/_forge_manifest_with_dataset_override,
+        # neither of which touches candidate_artifact) that recomputes the artifact bundle
+        # sha256 and comparison_manifest_sha256 to match the tampered 'files' list, using the
+        # actual production _artifact_bundle_sha256_from_files formula so the forged manifest
+        # is genuinely hash-consistent, not rejected earlier for an unrelated hash mismatch.
+        def _forge_manifest_with_candidate_files(base_manifest, out_path, files):
+            protocol_identity = dict(base_manifest["protocol_identity"])
+            protocol_sha256 = protocol_identity.pop("sha256")
+            dataset_identity = dict(base_manifest["dataset_identity"])
+            dataset_sha256 = dataset_identity.pop("sha256")
+            baseline = base_manifest["baseline_artifact"]
+            candidate_bundle_sha256 = raging_bolt_eval._artifact_bundle_sha256_from_files(files)
+            candidate = {**base_manifest["candidate_artifact"], "files": files, "sha256": candidate_bundle_sha256}
+            comparison_identity = {
+                "schema_version": base_manifest["schema_version"], "candidate_role": base_manifest["candidate_role"],
+                "dataset_sha256": dataset_sha256, "protocol_sha256": protocol_sha256,
+                "candidate_artifact": {"artifact_id": candidate["artifact_id"], "sha256": candidate["sha256"]},
+                "baseline_artifact": {"artifact_id": baseline["artifact_id"], "sha256": baseline["sha256"]},
+                "stage": base_manifest["stage"],
+            }
+            forged = {
+                "schema_version": base_manifest["schema_version"], "stage": base_manifest["stage"],
+                "candidate_role": base_manifest["candidate_role"],
+                "protocol_identity": {**protocol_identity, "sha256": protocol_sha256},
+                "dataset_identity": {**dataset_identity, "sha256": dataset_sha256},
+                "candidate_artifact": candidate, "baseline_artifact": baseline,
+                "comparison_manifest_sha256": sha256_hex(comparison_identity),
+            }
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(forged, f, indent=2, sort_keys=True, ensure_ascii=False)
+            return forged
+
+        _good_candidate_files = _good_manifest["candidate_artifact"]["files"]
+        _bad_candidate_files = [
+            {**_good_candidate_files[0], "path": []},
+            *_good_candidate_files[1:],
+        ]
+        tampered25_path = os.path.join(_t17_tmp, "m_tampered25.json")
+        _forge_manifest_with_candidate_files(_good_manifest, tampered25_path, _bad_candidate_files)
+        r_run_tampered25 = run_cli("run", "--manifest", tampered25_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl25"))
+        check("run rejects a candidate_artifact 'files' entry with a non-string path, with a "
+              "controlled error rather than an uncaught traceback",
+              r_run_tampered25.returncode != 0 and
+              "missing/empty/non-string path" in (r_run_tampered25.stderr or "") and
+              "Traceback" not in (r_run_tampered25.stderr or ""))
+
+        # 26: candidate_artifact carries a smuggled EXTRA top-level field (e.g. an absolute
+        # local path under an unrelated key name) -- an earlier version only hashed
+        # {artifact_id, sha256} into comparison_manifest_sha256 and never validated the
+        # artifact object's own top-level key set, so this extra field had zero effect on any
+        # hash tier and `summarize` would copy the artifact object (including the smuggled
+        # field) verbatim into its report. Must be rejected outright, never silently accepted
+        # or allowed to leak into a report.
+        def _forge_manifest_with_candidate_artifact(base_manifest, out_path, files=None, extra_top_level_fields=None):
+            protocol_identity = dict(base_manifest["protocol_identity"])
+            protocol_sha256 = protocol_identity.pop("sha256")
+            dataset_identity = dict(base_manifest["dataset_identity"])
+            dataset_sha256 = dataset_identity.pop("sha256")
+            baseline = base_manifest["baseline_artifact"]
+            candidate = dict(base_manifest["candidate_artifact"])
+            if files is not None:
+                candidate["files"] = files
+                candidate["sha256"] = raging_bolt_eval._artifact_bundle_sha256_from_files(files)
+            if extra_top_level_fields:
+                candidate.update(extra_top_level_fields)
+            comparison_identity = {
+                "schema_version": base_manifest["schema_version"], "candidate_role": base_manifest["candidate_role"],
+                "dataset_sha256": dataset_sha256, "protocol_sha256": protocol_sha256,
+                "candidate_artifact": {"artifact_id": candidate["artifact_id"], "sha256": candidate["sha256"]},
+                "baseline_artifact": {"artifact_id": baseline["artifact_id"], "sha256": baseline["sha256"]},
+                "stage": base_manifest["stage"],
+            }
+            forged = {
+                "schema_version": base_manifest["schema_version"], "stage": base_manifest["stage"],
+                "candidate_role": base_manifest["candidate_role"],
+                "protocol_identity": {**protocol_identity, "sha256": protocol_sha256},
+                "dataset_identity": {**dataset_identity, "sha256": dataset_sha256},
+                "candidate_artifact": candidate, "baseline_artifact": baseline,
+                "comparison_manifest_sha256": sha256_hex(comparison_identity),
+            }
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(forged, f, indent=2, sort_keys=True, ensure_ascii=False)
+            return forged
+
+        tampered26_path = os.path.join(_t17_tmp, "m_tampered26.json")
+        _forge_manifest_with_candidate_artifact(_good_manifest, tampered26_path,
+                                                 extra_top_level_fields={"debug_absolute_path": "C:/private/eval_secret.txt"})
+        r_run_tampered26 = run_cli("run", "--manifest", tampered26_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl26"))
+        check("run rejects a candidate_artifact with a smuggled extra top-level field, with a "
+              "controlled error rather than silently accepting it",
+              r_run_tampered26.returncode != 0 and
+              "missing and/or extra field" in (r_run_tampered26.stderr or "") and
+              "Traceback" not in (r_run_tampered26.stderr or ""))
+
+        # 27: candidate_artifact's 'files' list has a canonically-shaped 'agent' entry but is
+        # MISSING the 'deck' entry entirely -- every per-file check (key set, logical_name
+        # enum, path, sha256) passes for the single remaining entry, so this specifically tests
+        # that the SET of logical_names present is itself validated, not just each individual
+        # entry's shape.
+        _agent_only_files = [f for f in _good_candidate_files if f["logical_name"] == "agent"]
+        tampered27_path = os.path.join(_t17_tmp, "m_tampered27.json")
+        _forge_manifest_with_candidate_artifact(_good_manifest, tampered27_path, files=_agent_only_files)
+        r_run_tampered27 = run_cli("run", "--manifest", tampered27_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl27"))
+        check("run rejects a candidate_artifact whose 'files' list is missing the required "
+              "'deck' logical_name entry, with a controlled error",
+              r_run_tampered27.returncode != 0 and
+              "must include at least 'agent' and 'deck'" in (r_run_tampered27.stderr or "") and
+              "Traceback" not in (r_run_tampered27.stderr or ""))
+
+        # 28/29: protocol_identity / dataset_identity is a JSON array of [key, value] pairs
+        # rather than an object -- Python's dict(...) coercion accepts this silently (it's a
+        # valid iterable-of-pairs), so an earlier version's `dict(manifest.get(...))` call
+        # never raised, and every subsequent direct string-key read crashed with an uncaught
+        # TypeError ("list indices must be integers") instead of a controlled rejection.
+        # Built by converting the GOOD protocol_identity/dataset_identity dict (INCLUDING its
+        # own "sha256" field) into a list of [key, value] pairs, via list(d.items()) -- since
+        # dict(list(d.items())) == d, this list form reconstructs to the exact same dict an old
+        # `dict(manifest.get(...))` coercion would have produced, so the hash comparison an old
+        # version performed on the coerced dict would have PASSED (not incidentally rejected
+        # this forgery for an unrelated hash-mismatch reason); only the later direct
+        # manifest["protocol_identity"]["id"]-style indexing (on the ORIGINAL uncoerced list,
+        # never mutated by the coercion) would have crashed. No other manifest field needs
+        # recomputing -- comparison_manifest_sha256 stays valid since the coerced dict content
+        # is unchanged.
+        tampered28_path = os.path.join(_t17_tmp, "m_tampered28.json")
+        with open(tampered28_path, "w", encoding="utf-8") as f:
+            _forged28 = dict(_good_manifest)
+            _forged28["protocol_identity"] = [[k, v] for k, v in _good_manifest["protocol_identity"].items()]
+            json.dump(_forged28, f, indent=2, sort_keys=True, ensure_ascii=False)
+        r_run_tampered28 = run_cli("run", "--manifest", tampered28_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl28"))
+        check("run rejects a manifest whose protocol_identity is a JSON array (not an "
+              "object), with a controlled error rather than an uncaught traceback",
+              r_run_tampered28.returncode != 0 and
+              "protocol_identity is missing or not an object" in (r_run_tampered28.stderr or "") and
+              "Traceback" not in (r_run_tampered28.stderr or ""))
+
+        tampered29_path = os.path.join(_t17_tmp, "m_tampered29.json")
+        with open(tampered29_path, "w", encoding="utf-8") as f:
+            _forged29 = dict(_good_manifest)
+            _forged29["dataset_identity"] = [[k, v] for k, v in _good_manifest["dataset_identity"].items()]
+            json.dump(_forged29, f, indent=2, sort_keys=True, ensure_ascii=False)
+        r_run_tampered29 = run_cli("run", "--manifest", tampered29_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl29"))
+        check("run rejects a manifest whose dataset_identity is a JSON array (not an "
+              "object), with a controlled error rather than an uncaught traceback",
+              r_run_tampered29.returncode != 0 and
+              "dataset_identity is missing or not an object" in (r_run_tampered29.stderr or "") and
+              "Traceback" not in (r_run_tampered29.stderr or ""))
+
+        # 30: wall_timeout_seconds is a non-numeric string -- `run` later does
+        # float(manifest["protocol_identity"]["wall_timeout_seconds"]) before passing it to
+        # subprocess.run(timeout=...); an earlier version never validated this field at all.
+        tampered30_path = os.path.join(_t17_tmp, "m_tampered30.json")
+        _forge_manifest_with_protocol_override(_good_manifest, tampered30_path, wall_timeout_seconds="not-a-number")
+        r_run_tampered30 = run_cli("run", "--manifest", tampered30_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl30"))
+        check("run rejects a manifest whose wall_timeout_seconds is not a parseable number, "
+              "with a controlled error rather than an uncaught traceback",
+              r_run_tampered30.returncode != 0 and
+              "wall_timeout_seconds" in (r_run_tampered30.stderr or "") and
+              "Traceback" not in (r_run_tampered30.stderr or ""))
+
+        # 31/32: protocol_identity.id / dataset_identity.id is missing ENTIRELY (not merely
+        # null) -- both `run` and `summarize` read manifest["protocol_identity"]["id"] /
+        # manifest["dataset_identity"]["id"] via direct indexing (e.g. to name output files),
+        # and an earlier version never required either "id" field to be present. Built via a
+        # shared helper that pops "id" from one identity block, recomputes ONLY that block's
+        # own hash (the other block, artifacts, schema_version/candidate_role/stage are
+        # untouched, so their contribution to comparison_manifest_sha256 is unchanged), and
+        # recomputes comparison_manifest_sha256 to match -- genuinely hash-consistent, not
+        # rejected for an unrelated reason.
+        def _forge_manifest_missing_id(base_manifest, out_path, identity_key):
+            protocol_identity = dict(base_manifest["protocol_identity"])
+            protocol_sha256 = protocol_identity.pop("sha256")
+            dataset_identity = dict(base_manifest["dataset_identity"])
+            dataset_sha256 = dataset_identity.pop("sha256")
+            if identity_key == "protocol_identity":
+                del protocol_identity["id"]
+                protocol_sha256 = sha256_hex(protocol_identity)
+            else:
+                del dataset_identity["id"]
+                dataset_sha256 = sha256_hex(dataset_identity)
+            candidate = base_manifest["candidate_artifact"]
+            baseline = base_manifest["baseline_artifact"]
+            comparison_identity = {
+                "schema_version": base_manifest["schema_version"], "candidate_role": base_manifest["candidate_role"],
+                "dataset_sha256": dataset_sha256, "protocol_sha256": protocol_sha256,
+                "candidate_artifact": {"artifact_id": candidate["artifact_id"], "sha256": candidate["sha256"]},
+                "baseline_artifact": {"artifact_id": baseline["artifact_id"], "sha256": baseline["sha256"]},
+                "stage": base_manifest["stage"],
+            }
+            forged = {
+                "schema_version": base_manifest["schema_version"], "stage": base_manifest["stage"],
+                "candidate_role": base_manifest["candidate_role"],
+                "protocol_identity": {**protocol_identity, "sha256": protocol_sha256},
+                "dataset_identity": {**dataset_identity, "sha256": dataset_sha256},
+                "candidate_artifact": candidate, "baseline_artifact": baseline,
+                "comparison_manifest_sha256": sha256_hex(comparison_identity),
+            }
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(forged, f, indent=2, sort_keys=True, ensure_ascii=False)
+            return forged
+
+        tampered31_path = os.path.join(_t17_tmp, "m_tampered31.json")
+        _forge_manifest_missing_id(_good_manifest, tampered31_path, "protocol_identity")
+        r_run_tampered31 = run_cli("run", "--manifest", tampered31_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl31"))
+        check("run rejects a manifest whose protocol_identity.id is missing, with a "
+              "controlled error rather than an uncaught traceback",
+              r_run_tampered31.returncode != 0 and
+              "protocol_identity.id" in (r_run_tampered31.stderr or "") and
+              "Traceback" not in (r_run_tampered31.stderr or ""))
+
+        tampered32_path = os.path.join(_t17_tmp, "m_tampered32.json")
+        _forge_manifest_missing_id(_good_manifest, tampered32_path, "dataset_identity")
+        r_run_tampered32 = run_cli("run", "--manifest", tampered32_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl32"))
+        check("run rejects a manifest whose dataset_identity.id is missing, with a controlled "
+              "error rather than an uncaught traceback",
+              r_run_tampered32.returncode != 0 and
+              "dataset_identity.id" in (r_run_tampered32.stderr or "") and
+              "Traceback" not in (r_run_tampered32.stderr or ""))
+
+        # 34/35/36: protocol_identity.engine_binding / evaluator_binding / runtime_environment
+        # is missing ENTIRELY (not merely wrong-typed like tampered23/24) --
+        # _verify_execution_bindings_unchanged reads each via direct
+        # manifest["protocol_identity"]["<field>"] indexing; the isinstance(dict) checks added
+        # there for tampered23/24 only guard a PRESENT-but-wrong-type value, since the direct
+        # index itself raises an uncaught KeyError before those checks ever run if the key is
+        # missing outright. Reuses the same delete-and-rehash-only-protocol_identity pattern as
+        # _forge_manifest_missing_id, generalized to an arbitrary protocol_identity field.
+        def _forge_manifest_missing_protocol_field(base_manifest, out_path, field_name):
+            protocol_identity = dict(base_manifest["protocol_identity"])
+            protocol_identity.pop("sha256")
+            del protocol_identity[field_name]
+            protocol_sha256 = sha256_hex(protocol_identity)
+            dataset_identity = dict(base_manifest["dataset_identity"])
+            dataset_sha256 = dataset_identity.pop("sha256")
+            candidate = base_manifest["candidate_artifact"]
+            baseline = base_manifest["baseline_artifact"]
+            comparison_identity = {
+                "schema_version": base_manifest["schema_version"], "candidate_role": base_manifest["candidate_role"],
+                "dataset_sha256": dataset_sha256, "protocol_sha256": protocol_sha256,
+                "candidate_artifact": {"artifact_id": candidate["artifact_id"], "sha256": candidate["sha256"]},
+                "baseline_artifact": {"artifact_id": baseline["artifact_id"], "sha256": baseline["sha256"]},
+                "stage": base_manifest["stage"],
+            }
+            forged = {
+                "schema_version": base_manifest["schema_version"], "stage": base_manifest["stage"],
+                "candidate_role": base_manifest["candidate_role"],
+                "protocol_identity": {**protocol_identity, "sha256": protocol_sha256},
+                "dataset_identity": {**dataset_identity, "sha256": dataset_sha256},
+                "candidate_artifact": candidate, "baseline_artifact": baseline,
+                "comparison_manifest_sha256": sha256_hex(comparison_identity),
+            }
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(forged, f, indent=2, sort_keys=True, ensure_ascii=False)
+            return forged
+
+        for _n, _field in ((34, "engine_binding"), (35, "evaluator_binding"), (36, "runtime_environment")):
+            _path = os.path.join(_t17_tmp, f"m_tampered{_n}.json")
+            _forge_manifest_missing_protocol_field(_good_manifest, _path, _field)
+            _r = run_cli("run", "--manifest", _path, "--jsonl-out", os.path.join(_t17_tmp, f"jsonl{_n}"))
+            check(f"run rejects a manifest whose protocol_identity.{_field} is missing "
+                  f"entirely, with a controlled error rather than an uncaught traceback",
+                  _r.returncode != 0 and
+                  f"protocol_identity.{_field}" in (_r.stderr or "") and
+                  "Traceback" not in (_r.stderr or ""))
+
+        # 33: manifest.stage is missing entirely -- `summarize` compares
+        # args.stage != manifest["stage"] via direct indexing before opening any jsonl file;
+        # an earlier version never required "stage" to be present. comparison_manifest_sha256
+        # is explicitly RECOMPUTED here with "stage": None (what manifest.get("stage") returns
+        # once the key is absent) so this is genuinely hash-consistent under an old
+        # `.get("stage")`-based hash comparison (which would therefore have PASSED, not
+        # incidentally rejected this forgery for an unrelated hash-mismatch reason) -- only the
+        # later direct manifest["stage"] indexing would have crashed.
+        tampered33_path = os.path.join(_t17_tmp, "m_tampered33.json")
+        with open(tampered33_path, "w", encoding="utf-8") as f:
+            _forged33 = {k: v for k, v in _good_manifest.items() if k != "stage"}
+            _candidate_33 = _good_manifest["candidate_artifact"]
+            _baseline_33 = _good_manifest["baseline_artifact"]
+            _comparison_identity_33 = {
+                "schema_version": _good_manifest["schema_version"], "candidate_role": _good_manifest["candidate_role"],
+                "dataset_sha256": _good_manifest["dataset_identity"]["sha256"], "protocol_sha256": _good_manifest["protocol_identity"]["sha256"],
+                "candidate_artifact": {"artifact_id": _candidate_33["artifact_id"], "sha256": _candidate_33["sha256"]},
+                "baseline_artifact": {"artifact_id": _baseline_33["artifact_id"], "sha256": _baseline_33["sha256"]},
+                "stage": None,
+            }
+            _forged33["comparison_manifest_sha256"] = sha256_hex(_comparison_identity_33)
+            json.dump(_forged33, f, indent=2, sort_keys=True, ensure_ascii=False)
+        r_run_tampered33 = run_cli("run", "--manifest", tampered33_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl33"))
+        check("run rejects a manifest whose top-level 'stage' field is missing, with a "
+              "controlled error rather than an uncaught traceback",
+              r_run_tampered33.returncode != 0 and
+              "manifest.stage" in (r_run_tampered33.stderr or "") and
+              "Traceback" not in (r_run_tampered33.stderr or ""))
+
+        # 37/38/39: a manifest field is JSON's non-standard NaN/Infinity/-Infinity token --
+        # Python's json.load ACCEPTS these by default (parse_constant=None), even though
+        # canon.sha256_hex's own json.dumps(..., allow_nan=False) rejects them. An earlier
+        # version loaded the manifest with plain json.load(f), so a forged manifest smuggling
+        # one of these tokens anywhere would parse successfully and then crash with an
+        # uncaught ValueError the MOMENT _verify_manifest_integrity tried to hash the
+        # containing block -- before any field-by-field validation (this round's or any prior
+        # round's) ever ran, since hashing protocol_identity/dataset_identity/comparison_identity
+        # is the very first operation performed on each. No hash-matching is needed to build
+        # these fixtures: rejection now happens at manifest LOAD time (json.load's
+        # parse_constant callback), strictly before any hash is even computed.
+        for _n, _block, _extra_field, _token in (
+            (37, "protocol_identity", "_poison_protocol", float("nan")),
+            (38, "dataset_identity", "_poison_dataset", float("inf")),
+            (39, "candidate_artifact", "_poison_artifact", float("-inf")),
+        ):
+            _path = os.path.join(_t17_tmp, f"m_tampered{_n}.json")
+            with open(_path, "w", encoding="utf-8") as f:
+                _forged = json.loads(json.dumps(_good_manifest))
+                _forged[_block][_extra_field] = _token
+                json.dump(_forged, f, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=True)
+            _r = run_cli("run", "--manifest", _path, "--jsonl-out", os.path.join(_t17_tmp, f"jsonl{_n}"))
+            check(f"run rejects a manifest containing a non-finite JSON numeric token "
+                  f"(NaN/Infinity/-Infinity) inside {_block}, with a controlled error rather "
+                  f"than an uncaught traceback",
+                  _r.returncode != 0 and
+                  "non-finite JSON numeric token" in (_r.stderr or "") and
+                  "Traceback" not in (_r.stderr or ""))
+
+        # 40/41: manifest.schema_version / manifest.candidate_role is wrong-valued or missing
+        # entirely -- both are hashed into comparison_manifest_sha256 via comparison_identity
+        # (using manifest.get(...), so a missing field hashes as None either way) but were
+        # never otherwise semantically validated, so `summarize` would copy either verbatim
+        # into its report (e.g. candidate_role=null or ="bogus") with no rejection. Built via a
+        # dedicated helper that only recomputes comparison_manifest_sha256 from the modified
+        # top-level fields -- protocol_identity/dataset_identity/artifacts (and their own
+        # internal hashes) are untouched, so this is genuinely hash-consistent.
+        def _forge_manifest_top_level(base_manifest, out_path, drop_keys=(), **overrides):
+            forged = {k: v for k, v in base_manifest.items() if k not in drop_keys}
+            forged.update(overrides)
+            protocol = base_manifest["protocol_identity"]
+            dataset = base_manifest["dataset_identity"]
+            candidate = base_manifest["candidate_artifact"]
+            baseline = base_manifest["baseline_artifact"]
+            comparison_identity = {
+                "schema_version": forged.get("schema_version"), "candidate_role": forged.get("candidate_role"),
+                "dataset_sha256": dataset["sha256"], "protocol_sha256": protocol["sha256"],
+                "candidate_artifact": {"artifact_id": candidate["artifact_id"], "sha256": candidate["sha256"]},
+                "baseline_artifact": {"artifact_id": baseline["artifact_id"], "sha256": baseline["sha256"]},
+                "stage": forged.get("stage"),
+            }
+            forged["comparison_manifest_sha256"] = sha256_hex(comparison_identity)
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(forged, f, indent=2, sort_keys=True, ensure_ascii=False)
+            return forged
+
+        tampered40_path = os.path.join(_t17_tmp, "m_tampered40.json")
+        _forge_manifest_top_level(_good_manifest, tampered40_path, **{"schema_version": "99"})
+        r_run_tampered40 = run_cli("run", "--manifest", tampered40_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl40"))
+        check("run rejects a manifest whose top-level schema_version is not '2', with a "
+              "controlled error rather than silently accepting it",
+              r_run_tampered40.returncode != 0 and
+              "manifest.schema_version" in (r_run_tampered40.stderr or "") and
+              "Traceback" not in (r_run_tampered40.stderr or ""))
+
+        tampered41_path = os.path.join(_t17_tmp, "m_tampered41.json")
+        _forge_manifest_top_level(_good_manifest, tampered41_path, drop_keys=("candidate_role",))
+        r_run_tampered41 = run_cli("run", "--manifest", tampered41_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl41"))
+        check("run rejects a manifest whose top-level candidate_role is missing entirely, "
+              "with a controlled error rather than silently accepting it",
+              r_run_tampered41.returncode != 0 and
+              "manifest.candidate_role" in (r_run_tampered41.stderr or "") and
+              "Traceback" not in (r_run_tampered41.stderr or ""))
+
+        # 42/43/44: worker_model / decision_time_measurement / game_rng_control is a fixed,
+        # self-documenting claim about how this harness operates -- recorded into every
+        # manifest but, until now, never re-verified against the actual fixed value, so a
+        # forged (yet hash-consistent) manifest could claim something different with nothing
+        # catching the discrepancy before `summarize` copies the claim verbatim into its
+        # report (found by an independent heterogeneous-model audit).
+        for _n, _field, _bad_value in (
+            (42, "worker_model", "two_subprocesses_per_game"),
+            (43, "decision_time_measurement", "something else entirely"),
+            (44, "game_rng_control", {"availability": "AVAILABLE", "reason": "fabricated"}),
+        ):
+            _path = os.path.join(_t17_tmp, f"m_tampered{_n}.json")
+            _forge_manifest_with_protocol_override(_good_manifest, _path, **{_field: _bad_value})
+            _r = run_cli("run", "--manifest", _path, "--jsonl-out", os.path.join(_t17_tmp, f"jsonl{_n}"))
+            check(f"run rejects a manifest whose protocol_identity.{_field} does not match "
+                  f"the actual fixed value this harness uses, with a controlled error",
+                  _r.returncode != 0 and
+                  f"protocol_identity.{_field}" in (_r.stderr or "") and
+                  "Traceback" not in (_r.stderr or ""))
+
+        # 45: games_per_worker=True (bool) -- bool is a subclass of int and the required value
+        # is 1, so an unguarded `!=` comparison would silently accept True as equal to 1
+        # (found by an independent heterogeneous-model audit).
+        tampered45_path = os.path.join(_t17_tmp, "m_tampered45.json")
+        _forge_manifest_with_protocol_override(_good_manifest, tampered45_path, games_per_worker=True)
+        r_run_tampered45 = run_cli("run", "--manifest", tampered45_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl45"))
+        check("run rejects a manifest whose protocol_identity.games_per_worker is the bool "
+              "True rather than the real integer 1, with a controlled error",
+              r_run_tampered45.returncode != 0 and
+              "protocol_identity.games_per_worker" in (r_run_tampered45.stderr or "") and
+              "Traceback" not in (r_run_tampered45.stderr or ""))
 
         # Negative control: the untampered manifest must not be falsely rejected by any of the
         # checks `run`/`summarize` perform before touching a real game. Verified
@@ -1334,10 +2334,12 @@ try:
                 return _REAL_SUBPROCESS_RUN(*args, **kwargs)
             out_path = cmd[cmd.index("--jsonl-out") + 1]
             first_player = cmd[cmd.index("--first-player") + 1]
+            label_a_val = cmd[cmd.index("--label-a") + 1]
+            label_b_val = cmd[cmd.index("--label-b") + 1]
             with open(out_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps({
                     "schema_version": "1", "game_index": 0,  # ALWAYS 0 -- mirrors real head_to_head.py behavior
-                    "first_seat_agent": first_player, "label_a": "candidate", "label_b": "mirror",
+                    "first_seat_agent": first_player, "label_a": label_a_val, "label_b": label_b_val,
                     "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
                     "error_actor": None, "legality": "legal", "decisions": None,
                 }) + "\n")
@@ -1369,7 +2371,7 @@ try:
             r_t18_summarize_ok = run_cli(
                 "summarize", "--manifest", t18_manifest_path,
                 "--jsonl-in", os.path.join(t18_jsonl_dir, t18_candidate_files[0]),
-                "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+                "--stage", "screening", "--allow-partial-report",
                 "--out", t18_report_path,
             )
             check("summarize accepts a file whose game_id values are all genuinely unique",
@@ -1388,7 +2390,7 @@ try:
             r_t18_dup = run_cli(
                 "summarize", "--manifest", t18_manifest_path,
                 "--jsonl-in", os.path.join(t18_jsonl_dir, t18_candidate_files[0]), "--jsonl-in", dup_path,
-                "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+                "--stage", "screening", "--allow-partial-report",
                 "--out", os.path.join(_t18_tmp, "report_dup.json"),
             )
             check("summarize rejects a duplicate game_id reused across two different input "
@@ -1475,6 +2477,82 @@ try:
         check("a dataset_identity-shaped hash over the opponent binding changes when the "
               "opponent's commit (and deck) changes -- this is exactly what propagates into "
               "comparison_manifest_sha256 in a real manifest", ds_hash1 != ds_hash2)
+
+        # MAJOR fix: the same --opponent SET, given in a different CLI order, must produce the
+        # IDENTICAL dataset_identity (and therefore comparison_manifest_sha256) hash --
+        # otherwise two functionally-identical manifests (same opponents, just listed in a
+        # different order) would be treated as different comparisons (found by an independent
+        # external review). Exercised via the actual `cmd_manifest` code path (in-process,
+        # with _PINS_PATH monkeypatched to a synthetic pins file -- never the real repo-tracked
+        # opponent_pins.json), not just a hand-rolled hash comparison, so this proves
+        # `cmd_manifest`'s own sort call is what's responsible.
+        t19_order_tmp = tempfile.mkdtemp(prefix="eval_infra_t19_order_")
+        try:
+            t19_order_pins_path = os.path.join(t19_order_tmp, "pins.json")
+            with open(t19_order_pins_path, "w", encoding="utf-8") as f:
+                json.dump({"dragapult": {"repo_url": synth_repo19, "commit_sha": commit1,
+                                          "file_paths": ["agents/x/main.py", "agents/x/deck.csv"]}}, f)
+
+            def _t19_manifest_namespace(opponents, out_path):
+                return argparse.Namespace(
+                    candidate_agent="experiments/agents/raging_bolt/main.py",
+                    candidate_deck="experiments/decks/raging_bolt_ogerpon.csv",
+                    candidate_artifact_id="candidate-t19-order", candidate_params=None,
+                    baseline_agent="main.py", baseline_deck="deck.csv",
+                    baseline_artifact_id="baseline-t19-order", baseline_params=None,
+                    protocol_id="proto-t19-order", dataset_id="ds-t19-order", dataset_version="1",
+                    stage="screening", candidate_role="primary", wall_timeout_seconds=120.0,
+                    opponent=list(opponents), games_per_segment=1,
+                    confidence_level="0.95", bootstrap_replicates=10_000, out=out_path,
+                )
+
+            order_a_path = os.path.join(t19_order_tmp, "manifest_order_a.json")
+            order_b_path = os.path.join(t19_order_tmp, "manifest_order_b.json")
+            with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval._PINS_PATH", t19_order_pins_path):
+                rc_order_a = raging_bolt_eval.cmd_manifest(_t19_manifest_namespace(["mirror", "dragapult"], order_a_path))
+                rc_order_b = raging_bolt_eval.cmd_manifest(_t19_manifest_namespace(["dragapult", "mirror"], order_b_path))
+            check("manifest succeeds for --opponent given as [mirror, dragapult]", rc_order_a == 0)
+            check("manifest succeeds for --opponent given as [dragapult, mirror] (reversed order)", rc_order_b == 0)
+            if rc_order_a == 0 and rc_order_b == 0:
+                with open(order_a_path, encoding="utf-8") as f:
+                    _manifest_order_a = json.load(f)
+                with open(order_b_path, encoding="utf-8") as f:
+                    _manifest_order_b = json.load(f)
+                _opp_ids_a = [b["opponent_id"] for b in _manifest_order_a["dataset_identity"]["selected_opponents"]]
+                _opp_ids_b = [b["opponent_id"] for b in _manifest_order_b["dataset_identity"]["selected_opponents"]]
+                check(f"selected_opponents is stored in the SAME (sorted) order regardless of "
+                      f"--opponent CLI order -- got {_opp_ids_a!r} and {_opp_ids_b!r} -- proves "
+                      f"cmd_manifest's own sort is what's responsible, not coincidence",
+                      _opp_ids_a == _opp_ids_b == sorted(_opp_ids_a))
+                check("dataset_identity.sha256 is IDENTICAL for the same opponent set given in "
+                      "different --opponent CLI orders",
+                      _manifest_order_a["dataset_identity"]["sha256"] == _manifest_order_b["dataset_identity"]["sha256"])
+                check("comparison_manifest_sha256 is IDENTICAL for the same opponent set given "
+                      "in different --opponent CLI orders (transitively, via dataset_identity)",
+                      _manifest_order_a["comparison_manifest_sha256"] == _manifest_order_b["comparison_manifest_sha256"])
+
+            # `manifest` reads opponent_pins.json unconditionally (even for a mirror-only
+            # selection, which needs no pin) -- a malformed pins file must fail closed with a
+            # controlled "ERROR: ..." + nonzero exit, not an uncaught exception (found by an
+            # independent heterogeneous-model audit).
+            t19_bad_pins_path = os.path.join(t19_order_tmp, "bad_pins.json")
+            with open(t19_bad_pins_path, "w", encoding="utf-8") as f:
+                f.write("{not valid json at all")
+            bad_pins_out_path = os.path.join(t19_order_tmp, "manifest_bad_pins.json")
+            with unittest.mock.patch("experiments.eval_infra.raging_bolt_eval._PINS_PATH", t19_bad_pins_path):
+                _t19_bad_pins_exc = None
+                try:
+                    rc_bad_pins = raging_bolt_eval.cmd_manifest(_t19_manifest_namespace(["mirror"], bad_pins_out_path))
+                except Exception as exc:  # noqa: BLE001 - deliberately catching to prove no uncaught exception is the fix
+                    _t19_bad_pins_exc = exc
+                    rc_bad_pins = None
+            check("manifest fails closed (nonzero exit, no uncaught exception) when "
+                  "opponent_pins.json is malformed JSON, even for a mirror-only selection "
+                  "that needs no pin",
+                  _t19_bad_pins_exc is None and rc_bad_pins is not None and rc_bad_pins != 0
+                  and not os.path.exists(bad_pins_out_path))
+        finally:
+            shutil.rmtree(t19_order_tmp, ignore_errors=True)
     finally:
         shutil.rmtree(synth_repo19, ignore_errors=True)
 
@@ -1763,7 +2841,7 @@ try:
             "summarize", "--manifest", t20b_manifest_path,
             "--jsonl-in", os.path.join(t20b_jsonl_dir, f"{t20b_hash}__mirror__baseline.jsonl"),
             "--jsonl-in", os.path.join(t20b_jsonl_dir, f"{t20b_hash}__mirror__candidate.jsonl"),
-            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--stage", "screening", "--allow-partial-report",
             "--out", t20b_report_path,
         )
         check(f"T20b setup: a real report was generated via summarize (stderr: "
@@ -1812,6 +2890,18 @@ def _build_synthetic_manifest(opponent_ids, games_per_segment, out_path, stage="
     for opp in opponent_ids:
         if opp == "mirror":
             selected_opponents.append({"opponent_id": "mirror", "source_kind": "self_play"})
+        elif opp in raging_bolt_eval.opponent_registry.LOCAL_ONLY_OPPONENTS:
+            # lucario is local_only, not pinned_clone -- _verify_opponent_binding_canonical now
+            # enforces the exact canonical shape per opponent_id (path values included), so this
+            # fabricated binding must match opponent_registry.LOCAL_ONLY_OPPONENTS exactly.
+            _canonical_paths = raging_bolt_eval.opponent_registry.LOCAL_ONLY_OPPONENTS[opp]
+            selected_opponents.append({
+                "opponent_id": opp, "source_kind": "local_only",
+                "files": [
+                    {"logical_name": "agent", "path": _canonical_paths["agent_path"], "sha256": hashlib.sha256(f"{opp}-agent".encode()).hexdigest()},
+                    {"logical_name": "deck", "path": _canonical_paths["deck_path"], "sha256": hashlib.sha256(f"{opp}-deck".encode()).hexdigest()},
+                ],
+            })
         else:
             selected_opponents.append({
                 "opponent_id": opp, "source_kind": "pinned_clone",
@@ -1821,6 +2911,10 @@ def _build_synthetic_manifest(opponent_ids, games_per_segment, out_path, stage="
                     {"logical_name": "deck", "path": f"agents/{opp}/deck.csv", "sha256": hashlib.sha256(f"{opp}-deck".encode()).hexdigest()},
                 ],
             })
+    # Sorted by opponent_id, matching cmd_manifest's own sort -- _verify_manifest_integrity
+    # now rejects an unsorted selected_opponents list (see the MAJOR fix), so this fixture
+    # must match the same canonical order a real manifest would have.
+    selected_opponents.sort(key=lambda binding: binding["opponent_id"])
     league_complete = set(schema.REQUIRED_LEAGUE_OPPONENTS) <= set(opponent_ids)
     if league_complete_claim is not None:
         # Deliberately lie in dataset_identity.league_complete -- the hash below is computed
@@ -1832,11 +2926,19 @@ def _build_synthetic_manifest(opponent_ids, games_per_segment, out_path, stage="
     protocol_identity = {
         "id": "proto-t21", "step_limit": 2000, "games_per_worker": 1,
         "wall_timeout_seconds": "30.0", "games_per_segment": games_per_segment,
-        "side_allocation_schedule": side_schedule, "worker_model": "one_subprocess_per_game",
-        "decision_time_measurement": "x", "game_rng_control": {"availability": "UNAVAILABLE", "reason": "x"},
+        "side_allocation_schedule": side_schedule, "worker_model": raging_bolt_eval._ACTUAL_WORKER_MODEL,
+        "decision_time_measurement": raging_bolt_eval._ACTUAL_DECISION_TIME_MEASUREMENT,
+        "game_rng_control": raging_bolt_eval._ACTUAL_GAME_RNG_CONTROL,
         "engine_binding": raging_bolt_eval._engine_binding(),
         "evaluator_binding": raging_bolt_eval._evaluator_binding(),
         "runtime_environment": raging_bolt_eval._runtime_environment(),
+        "measurement_settings": {
+            "confidence_level": "0.95", "bootstrap_replicates": 10_000,
+            "rate_interval_method": raging_bolt_eval._RATE_INTERVAL_METHOD,
+            "rate_delta_method": raging_bolt_eval._RATE_DELTA_METHOD,
+            "latency_bootstrap_method": raging_bolt_eval._LATENCY_BOOTSTRAP_METHOD,
+            "bootstrap_seed_scheme": raging_bolt_eval._BOOTSTRAP_SEED_SCHEME,
+        },
     }
     dataset_identity = {"id": "ds-t21", "version": "1", "selected_opponents": selected_opponents, "league_complete": league_complete}
     protocol_sha256 = _sha256_hex_direct(protocol_identity)
@@ -1890,7 +2992,7 @@ try:
 
     r_partial_fail_closed = run_cli(
         "summarize", "--manifest", partial_manifest_path, "--jsonl-in", mirror_b, "--jsonl-in", mirror_c,
-        "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_t21_tmp, "report_p1.json"),
+        "--stage", "screening", "--out", os.path.join(_t21_tmp, "report_p1.json"),
     )
     check("summarize fails closed (nonzero exit) for a partial (mirror-only) league without "
           "--allow-partial-report -- a partial league is NEVER silently accepted as primary",
@@ -1898,7 +3000,7 @@ try:
 
     r_partial_allowed = run_cli(
         "summarize", "--manifest", partial_manifest_path, "--jsonl-in", mirror_b, "--jsonl-in", mirror_c,
-        "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+        "--stage", "screening", "--allow-partial-report",
         "--out", os.path.join(_t21_tmp, "report_p2.json"),
     )
     check("summarize succeeds for the same partial league WITH --allow-partial-report",
@@ -1943,7 +3045,7 @@ try:
                 }) + "\n")
     r_lying_fail_closed = run_cli(
         "summarize", "--manifest", lying_manifest_path, "--jsonl-in", lying_mirror_b, "--jsonl-in", lying_mirror_c,
-        "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_t21_tmp, "report_lying.json"),
+        "--stage", "screening", "--out", os.path.join(_t21_tmp, "report_lying.json"),
     )
     check("summarize fails closed (nonzero exit) for a manifest that falsely CLAIMS "
           "league_complete=True while selected_opponents is actually mirror-only -- the "
@@ -1979,7 +3081,7 @@ try:
     r_full = run_cli(
         "summarize", "--manifest", full_manifest_path,
         *[a for p in full_paths for a in ("--jsonl-in", p)],
-        "--stage", "screening", "--rng-seed", "1", "--out", full_report_path,
+        "--stage", "screening", "--out", full_report_path,
     )
     check(f"summarize succeeds (report_kind can be 'primary') for a complete league with all "
           f"required opponent/arm inputs present (stderr: {r_full.stderr.strip()[:400]!r})" if r_full.returncode != 0 else
@@ -1998,6 +3100,84 @@ try:
               "'second-player' (we do not claim confirmed engine first-mover)",
               _seat_segment_ids <= {"seat-0", "seat-1"})
 
+    # BLOCKER regression: the SAME manifest + the SAME set of --jsonl-in files, given in a
+    # DIFFERENT CLI order, must produce a BYTE-IDENTICAL report -- previously the whole-game
+    # cluster bootstrap (_latency_cell) mapped each deterministic resample index to games[idx]
+    # by LIST POSITION, and that games list was built by iterating all_records in
+    # dict-insertion order (== --jsonl-in CLI order across opponents), so reordering
+    # --jsonl-in silently resampled DIFFERENT actual game content at the same index despite
+    # identical seed_material -- found by an independent heterogeneous-model audit via direct
+    # empirical reproduction (not just code reading). IMPORTANT: a naive fixture with uniform,
+    # equal-sized decision clusters per game turns out to be a degenerate case where simple
+    # reordering (e.g. a full reversal) coincidentally produces byte-identical bootstrap output
+    # regardless of whether the order-independence fix is present -- confirmed by directly
+    # exercising experiments/eval_infra/stats.py's game_cluster_bootstrap_interval with and
+    # without the fix, isolated from the CLI. This fixture therefore deliberately uses VARYING
+    # decision-cluster sizes per game (1-5 decisions) and widely varying magnitudes per
+    # opponent, which reproducibly triggers a real, visible CI-bound difference when the
+    # order-independence fix is absent -- verified via that same isolated stats.py
+    # reproduction before being encoded here, so this test is not tautological.
+    order_manifest_path = os.path.join(_t21_tmp, "manifest_order.json")
+    order_manifest = _build_synthetic_manifest(["lucario", "dragapult", "megastarmie"], 4, order_manifest_path)
+    h_order = order_manifest["comparison_manifest_sha256"]
+    order_schedule = order_manifest["protocol_identity"]["side_allocation_schedule"]
+    order_paths = []
+    _t21_order_dir = os.path.join(_t21_tmp, "order_test")
+    os.makedirs(_t21_order_dir, exist_ok=True)
+    _decision_counts = [1, 3, 2, 5]
+    for opp_idx, opp in enumerate(("lucario", "dragapult", "megastarmie")):
+        for arm in ("baseline", "candidate"):
+            # Filename convention is a strict protocol (<hash>__<opponent_id>__<arm>.jsonl) --
+            # kept in a dedicated subdirectory instead of appending a suffix to `arm`, which
+            # would break _load_and_validate_jsonl's filename parsing.
+            p = os.path.join(_t21_order_dir, f"{h_order}__{opp}__{arm}.jsonl")
+            order_paths.append(p)
+            with open(p, "w", encoding="utf-8") as f:
+                for gi in range(4):
+                    n_decisions = _decision_counts[gi]
+                    base_ms = (7.0 * (opp_idx + 1) * (gi + 1)) % 953  # widely varying magnitude per opponent/game
+                    decisions = [{"ply": i, "actor": "a", "duration_ms": base_ms + i * 3.3}
+                                 for i in range(n_decisions)]
+                    f.write(json.dumps({
+                        "schema_version": "1", "game_index": 0, "first_seat_agent": order_schedule[gi],
+                        "label_a": arm, "label_b": opp,
+                        "termination": {"category": "result", "kind": "win"}, "result": {"winner": "a"},
+                        "error_actor": None, "legality": "legal", "decisions": decisions,
+                        "game_id": f"{h_order}:{opp}:{arm}:{gi:06d}", "batch_id": gi,
+                        "comparison_manifest_sha256": h_order, "dataset_id": "ds-t21", "protocol_id": "proto-t21",
+                        "opponent_id": opp, "arm": arm, "artifact_id": f"{arm}-t21",
+                    }) + "\n")
+    report_order_forward_path = os.path.join(_t21_tmp, "report_order_forward.json")
+    r_order_forward = run_cli(
+        "summarize", "--manifest", order_manifest_path,
+        *[a for p in order_paths for a in ("--jsonl-in", p)],
+        "--stage", "screening", "--allow-partial-report", "--out", report_order_forward_path,
+    )
+    check(f"summarize succeeds with --jsonl-in given in forward opponent order (lucario, "
+          f"dragapult, megastarmie) (stderr: {r_order_forward.stderr.strip()[:400]!r})" if r_order_forward.returncode != 0 else
+          "summarize succeeds with --jsonl-in given in forward opponent order (lucario, dragapult, megastarmie)",
+          r_order_forward.returncode == 0)
+    report_order_reversed_path = os.path.join(_t21_tmp, "report_order_reversed.json")
+    r_order_reversed = run_cli(
+        "summarize", "--manifest", order_manifest_path,
+        *[a for p in reversed(order_paths) for a in ("--jsonl-in", p)],
+        "--stage", "screening", "--allow-partial-report", "--out", report_order_reversed_path,
+    )
+    check(f"summarize succeeds with the SAME --jsonl-in files given in REVERSED order "
+          f"(stderr: {r_order_reversed.stderr.strip()[:400]!r})" if r_order_reversed.returncode != 0 else
+          "summarize succeeds with the SAME --jsonl-in files given in REVERSED order",
+          r_order_reversed.returncode == 0)
+    if r_order_forward.returncode == 0 and r_order_reversed.returncode == 0:
+        with open(report_order_forward_path, encoding="utf-8") as f:
+            _report_order_forward_text = f.read()
+        with open(report_order_reversed_path, encoding="utf-8") as f:
+            _report_order_reversed_text = f.read()
+        check("the SAME manifest + the SAME set of --jsonl-in files produces a BYTE-FOR-BYTE "
+              "identical report regardless of --jsonl-in CLI ORDER, across multiple opponents "
+              "with varying decision-cluster sizes (this is exactly the BLOCKER an independent "
+              "heterogeneous-model audit found and empirically reproduced)",
+              _report_order_forward_text == _report_order_reversed_text)
+
     # Full league but MISSING one opponent's candidate input -> must still fail closed / be
     # explicitly partial_diagnostic, even though league_complete (the manifest's own
     # selection) is True -- "required opponents, both arms" must be validated too.
@@ -2005,7 +3185,7 @@ try:
     r_missing_input = run_cli(
         "summarize", "--manifest", full_manifest_path,
         *[a for p in incomplete_paths for a in ("--jsonl-in", p)],
-        "--stage", "screening", "--rng-seed", "1", "--out", os.path.join(_t21_tmp, "report_missing.json"),
+        "--stage", "screening", "--out", os.path.join(_t21_tmp, "report_missing.json"),
     )
     check("summarize fails closed when league_complete=True but one required opponent/arm's "
           "INPUT is missing (megastarmie/candidate), even without --allow-partial-report",
@@ -2073,12 +3253,43 @@ try:
             f.write(json.dumps(rec) + "\n")
         r_bad = run_cli(
             "summarize", "--manifest", os.path.join(_t22_tmp, f"manifest_{label}.json"), "--jsonl-in", bad_path,
-            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--stage", "screening", "--allow-partial-report",
             "--out", os.path.join(_t22_tmp, f"report_{label}.json"),
         )
         check(f"summarize rejects a record with {label} duration_ms (correctly-named "
               f"fixture, so this actually exercises duration validation, not filename "
               f"reuse-rejection)", r_bad.returncode != 0)
+
+    # legality / termination.category / opponent_id are each checked via frozenset
+    # membership (`in GAME_RECORD_LEGALITY_VALUES` etc.) in schema.py -- `in` on a frozenset
+    # hashes its argument, so a JSON array (an unhashable Python list) for any of these three
+    # fields previously raised an uncaught TypeError: unhashable type instead of a controlled
+    # SchemaError. This is the jsonl-record analogue of the opponent_id/logical_name
+    # unhashable-type bug just fixed for manifest opponent bindings (found by an independent
+    # heterogeneous-model audit's broader sweep for the same bug class).
+    for label, field, bad_value in (
+        ("unhashable_legality", "legality", []),
+        ("unhashable_termination_category", "termination", {"category": [], "kind": "win"}),
+        ("unhashable_opponent_id", "opponent_id", []),
+    ):
+        t22u_manifest = _make_t22_manifest(label)
+        check(f"T22 setup: manifest for {label!r} case succeeds", t22u_manifest is not None)
+        if t22u_manifest is None:
+            continue
+        h22u = t22u_manifest["comparison_manifest_sha256"]
+        bad_path_u = os.path.join(_t22_tmp, f"{h22u}__mirror__candidate.jsonl")
+        with open(bad_path_u, "w", encoding="utf-8") as f:
+            rec = _base_record(h22u, f"p22-{label}", 10.0)
+            rec[field] = bad_value
+            f.write(json.dumps(rec) + "\n")
+        r_bad_u = run_cli(
+            "summarize", "--manifest", os.path.join(_t22_tmp, f"manifest_{label}.json"), "--jsonl-in", bad_path_u,
+            "--stage", "screening", "--allow-partial-report",
+            "--out", os.path.join(_t22_tmp, f"report_{label}.json"),
+        )
+        check(f"summarize rejects a record with a non-string (unhashable) {field!r} value "
+              f"with a controlled error, not an uncaught traceback",
+              r_bad_u.returncode != 0 and "Traceback" not in (r_bad_u.stderr or ""))
 
     t22_manifest_mj = _make_t22_manifest("malformedjson")
     check("T22 setup: manifest for malformed-JSON case succeeds", t22_manifest_mj is not None)
@@ -2090,7 +3301,7 @@ try:
         r_malformed = run_cli(
             "summarize", "--manifest", os.path.join(_t22_tmp, "manifest_malformedjson.json"),
             "--jsonl-in", malformed_json_path,
-            "--stage", "screening", "--rng-seed", "1", "--allow-partial-report",
+            "--stage", "screening", "--allow-partial-report",
             "--out", os.path.join(_t22_tmp, "report_malformed.json"),
         )
         check("summarize rejects a correctly-named file containing malformed (unparseable) "
@@ -2149,7 +3360,7 @@ try:
         report23_path = os.path.join(_t23_tmp, "report23.json")
         r23 = run_cli(
             "summarize", "--manifest", t23_manifest_path, "--jsonl-in", b_path23, "--jsonl-in", c_path23,
-            "--stage", "screening", "--rng-seed", "7", "--allow-partial-report",
+            "--stage", "screening", "--allow-partial-report",
             "--out", report23_path,
         )
         check("summarize succeeds on a varied-duration latency fixture", r23.returncode == 0)
@@ -2164,6 +3375,35 @@ try:
                       f"bootstrap interval, not a degenerate point estimate", b_hi > b_lo)
                 check(f"candidate_stats latency CI has NON-ZERO width ({c_lo}..{c_hi})", c_hi > c_lo)
 
+            # BLOCKER 1 determinism requirement: the SAME manifest + the SAME JSONL input must
+            # ALWAYS produce the IDENTICAL stats output, across separate `summarize`
+            # invocations -- there is no caller-supplied confidence/bootstrap-replicates/seed
+            # left to vary between runs (all fixed in the manifest's own
+            # protocol_identity.measurement_settings, and the bootstrap seed is derived purely
+            # from comparison_manifest_sha256/metric_id/segment_id/arm). Re-running summarize a
+            # second time against the exact same inputs (a fresh --out path) must produce a
+            # byte-for-byte identical report, including the bootstrap-derived latency cells'
+            # estimate/lower/upper.
+            report23_repeat_path = os.path.join(_t23_tmp, "report23_repeat.json")
+            r23_repeat = run_cli(
+                "summarize", "--manifest", t23_manifest_path, "--jsonl-in", b_path23, "--jsonl-in", c_path23,
+                "--stage", "screening", "--allow-partial-report",
+                "--out", report23_repeat_path,
+            )
+            check("summarize succeeds on a REPEAT run against the identical manifest + JSONL inputs",
+                  r23_repeat.returncode == 0)
+            if r23_repeat.returncode == 0:
+                with open(report23_path, encoding="utf-8") as f:
+                    _report23_text_first = f.read()
+                with open(report23_repeat_path, encoding="utf-8") as f:
+                    _report23_text_repeat = f.read()
+                check("the SAME manifest + the SAME JSONL input produces a BYTE-FOR-BYTE "
+                      "identical Measurement Report on a second, independent summarize "
+                      "invocation (including the bootstrap-derived latency cells) -- no "
+                      "caller-supplied seed/confidence/replicates choice remains to make two "
+                      "runs of the same comparison diverge",
+                      _report23_text_first == _report23_text_repeat)
+
         # All-zero-decisions case: every game has decisions=None (timing never captured) --
         # must produce an UNAVAILABLE (omitted) cell, never a crash.
         b_path23z = os.path.join(_t23_tmp, f"{h23}__lucario__baseline.jsonl")
@@ -2173,7 +3413,7 @@ try:
         report23z_path = os.path.join(_t23_tmp, "report23z.json")
         r23z = run_cli(
             "summarize", "--manifest", t23_manifest_path, "--jsonl-in", b_path23z, "--jsonl-in", c_path23z,
-            "--stage", "screening", "--rng-seed", "7", "--allow-partial-report",
+            "--stage", "screening", "--allow-partial-report",
             "--out", report23z_path,
         )
         check("summarize does NOT crash when every game in a segment has zero captured "

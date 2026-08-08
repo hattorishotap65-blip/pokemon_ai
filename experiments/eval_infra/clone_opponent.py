@@ -222,13 +222,23 @@ def _sha256_file(path: str) -> str:
 
 
 def _run_git(args: list[str]) -> subprocess.CompletedProcess:
-    result = subprocess.run(
-        ["git", *args],
-        shell=False,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
+    # A git invocation that hangs past the timeout, or a missing/unrunnable git executable,
+    # must fail the same controlled way every other git failure here does -- an earlier
+    # version let subprocess.TimeoutExpired/FileNotFoundError/OSError propagate straight out
+    # of clone_and_verify as an uncaught exception instead of the ClonePinError callers
+    # already handle (found by an independent heterogeneous-model audit).
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            shell=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ClonePinError(f"git {' '.join(args)} timed out after 120s") from exc
+    except OSError as exc:
+        raise ClonePinError(f"git {' '.join(args)} could not be run: {exc}") from exc
     if result.returncode != 0:
         raise ClonePinError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
     return result

@@ -82,6 +82,30 @@ _EVAL_INFRA_SOURCE_FILES = (
 # trust anything else in it.
 _ACTUAL_STEP_LIMIT = 2000
 _ACTUAL_GAMES_PER_WORKER = 1
+_ACTUAL_WORKER_MODEL = "one_subprocess_per_game"
+_ACTUAL_DECISION_TIME_MEASUREMENT = (
+    "wall-clock time.perf_counter() per agent decision, tagged actor=a|b; summarize uses "
+    "only actor=a (the arm under measurement)"
+)
+_ACTUAL_GAME_RNG_CONTROL = {
+    "availability": "UNAVAILABLE",
+    "reason": "no seed/RNG-control parameter exists anywhere in cg.api/cg.game's Python surface",
+}
+
+# The actual, fixed statistical methods this harness uses -- see stats.py's module docstring
+# for the rationale (Wilson/Newcombe for game-level 0/1 rate metrics, since no seed/RNG
+# control exists anywhere in cg.api/cg.game so runs are independent unpaired samples; a
+# whole-game cluster bootstrap for decision-level latency metrics, since decisions within one
+# game are correlated). Recorded into every manifest's protocol_identity.measurement_settings
+# (and hashed into comparison_manifest_sha256) purely for self-documentation/auditability -- a
+# CODE change to which method is actually used would already change comparison_manifest_sha256
+# via evaluator_binding (raging_bolt_eval.py's own source hash), so these strings are not
+# themselves an independent enforcement mechanism, just an explicit, human-readable record of
+# what evaluator_binding's hash is currently pinning.
+_RATE_INTERVAL_METHOD = "wilson_score"
+_RATE_DELTA_METHOD = "newcombe_wilson"
+_LATENCY_BOOTSTRAP_METHOD = "game_cluster_bootstrap_percentile"
+_BOOTSTRAP_SEED_SCHEME = "sha256_counter(comparison_manifest_sha256, metric_id, segment_id, arm) -- no caller-supplied seed"
 
 
 def _hash_file(path: str) -> str:
@@ -261,6 +285,14 @@ def _verify_execution_bindings_unchanged(manifest: dict) -> str | None:
     for a different machine, rather than silently reusing an old hash."""
     current_engine = _engine_binding()
     recorded_engine = manifest["protocol_identity"]["engine_binding"]
+    # recorded_engine/recorded_evaluator must be validated as dicts BEFORE .get() is called on
+    # them below -- a forged manifest could set either to a non-dict JSON value (e.g. a JSON
+    # array) with a correctly recomputed protocol/comparison hash, which would otherwise raise
+    # an uncaught AttributeError ('list' object has no attribute 'get') while formatting the
+    # mismatch error itself, instead of a controlled rejection (found by an independent
+    # heterogeneous-model audit).
+    if not isinstance(recorded_engine, dict):
+        return f"engine_binding in the manifest is not an object, got {recorded_engine!r}"
     if current_engine != recorded_engine:
         return (f"engine_binding mismatch: libcg.so and/or its Python wrapper files "
                 f"(reference/extracted/cg/*.py) differ from what `manifest` recorded "
@@ -269,6 +301,8 @@ def _verify_execution_bindings_unchanged(manifest: dict) -> str | None:
 
     current_evaluator = _evaluator_binding()
     recorded_evaluator = manifest["protocol_identity"]["evaluator_binding"]
+    if not isinstance(recorded_evaluator, dict):
+        return f"evaluator_binding in the manifest is not an object, got {recorded_evaluator!r}"
     if current_evaluator != recorded_evaluator:
         return (f"evaluator_binding mismatch: this harness's own source code (including "
                 f"experiments/head_to_head.py) differs from what `manifest` recorded "
@@ -357,11 +391,20 @@ def _resolve_opponent_binding(opponent_id: str, pins: dict) -> dict:
         repo_url = entry.get("repo_url") if isinstance(entry, dict) else None
         file_paths = entry.get("file_paths") if isinstance(entry, dict) else None
         commit_sha = entry.get("commit_sha") if isinstance(entry, dict) else None
-        if not repo_url or not file_paths or len(file_paths) != 2 or not commit_sha:
+        # Every field's TYPE must be validated here, not just truthiness -- `not file_paths`
+        # is False for a non-empty non-list value (e.g. an int), so len(file_paths) below
+        # would raise an uncaught TypeError, and clone_opponent.clone_and_verify's own
+        # repo_url.startswith(...) checks would raise an uncaught AttributeError for a
+        # non-string repo_url (found by an independent heterogeneous-model audit).
+        if (not isinstance(repo_url, str) or not repo_url
+                or not isinstance(file_paths, (list, tuple)) or len(file_paths) != 2
+                or not all(isinstance(p, str) and p for p in file_paths)
+                or not isinstance(commit_sha, str) or not commit_sha):
             raise ValueError(
-                f"opponent {opponent_id!r}: opponent_pins.json entry incomplete or missing "
-                f"(needs commit_sha + repo_url + exactly-2 file_paths: agent, deck) -- drop it "
-                f"from --opponent or add a valid pin first"
+                f"opponent {opponent_id!r}: opponent_pins.json entry incomplete, missing, or "
+                f"malformed (needs a non-empty string commit_sha, a non-empty string repo_url, "
+                f"and exactly 2 non-empty string file_paths: agent, deck) -- drop it from "
+                f"--opponent or add a valid pin first"
             )
         dest_dir = tempfile.mkdtemp(prefix=f"eval_infra_manifest_clone_{opponent_id}_")
         try:
@@ -383,6 +426,152 @@ def _resolve_opponent_binding(opponent_id: str, pins: dict) -> dict:
 
     raise ValueError(f"unknown opponent_id {opponent_id!r} (not mirror, not a known local_only "
                       f"or pinned_clone opponent)")
+
+
+# The single, fixed mapping from opponent_id to the source_kind that opponent_id is REQUIRED
+# to use -- never inferred from whatever source_kind a binding happens to claim.
+_CANONICAL_OPPONENT_SOURCE_KIND = {
+    opponent_registry.MIRROR_OPPONENT_ID: "self_play",
+    **{opp_id: "local_only" for opp_id in opponent_registry.LOCAL_ONLY_OPPONENTS},
+    **{opp_id: "pinned_clone" for opp_id in opponent_registry.PINNED_CLONE_OPPONENTS},
+}
+
+
+def _verify_opponent_binding_canonical(binding: dict) -> str | None:
+    """Validates that ONE selected-opponent binding matches the canonical shape its
+    opponent_id is required to have -- not merely that the manifest's own hash is
+    self-consistent (_verify_manifest_integrity's hash checks only prove a binding wasn't
+    edited AFTER `manifest` wrote it; they say nothing about whether the binding's CONTENT is
+    semantically valid for that opponent_id, since a hand-forged manifest, never built via the
+    `manifest` CLI, can freely choose both and recompute a matching hash).
+
+    Without this check, a forged manifest could set source_kind="self_play" for EVERY
+    opponent_id -- including lucario/dragapult/megastarmie -- with a correctly recomputed
+    dataset_identity hash, so a mirror-only self-play run would appear to have all 3 required
+    league opponents "selected" and become eligible for report_kind="primary" (found by an
+    independent external review). `_resolve_opponent_paths_at_run_time` dispatches purely on
+    source_kind, so such a binding would actually run (and label its output as) a self-play
+    game under the required opponent's name.
+
+    Called for every entry in dataset_identity.selected_opponents, by both `run` and
+    `summarize` (via _verify_manifest_integrity), before league_complete or anything else is
+    computed from selected_opponents. Returns an error string on any mismatch, else None."""
+    if not isinstance(binding, dict):
+        return f"selected_opponents entry is not an object, got {binding!r}"
+    opponent_id = binding.get("opponent_id")
+    source_kind = binding.get("source_kind")
+    # opponent_id must be a hashable string BEFORE it is ever used as a dict key below --
+    # a JSON array/object value here would otherwise raise an uncaught
+    # `TypeError: unhashable type` from the dict .get() lookup instead of a controlled
+    # rejection (found by an independent heterogeneous-model audit).
+    if not isinstance(opponent_id, str):
+        return f"selected_opponents entry has a non-string opponent_id, got {opponent_id!r}"
+    expected_kind = _CANONICAL_OPPONENT_SOURCE_KIND.get(opponent_id)
+    if expected_kind is None:
+        return (f"selected_opponents entry has unknown opponent_id {opponent_id!r} (not "
+                f"mirror, not a known local_only or pinned_clone opponent) -- rejected, "
+                f"never silently accepted")
+    if source_kind != expected_kind:
+        return (f"opponent {opponent_id!r} binding has source_kind={source_kind!r}, but the "
+                f"canonical mapping for {opponent_id!r} requires source_kind={expected_kind!r} "
+                f"-- a binding claiming a different kind (e.g. a required league opponent "
+                f"disguised as self_play so it runs a mirror game under that opponent's name) "
+                f"is never accepted")
+
+    if opponent_id == opponent_registry.MIRROR_OPPONENT_ID:
+        extra = set(binding) - {"opponent_id", "source_kind"}
+        if extra:
+            return (f"mirror binding has unexpected extra field(s) {sorted(extra)} -- a "
+                     f"mirror binding must be exactly {{opponent_id, source_kind}}, nothing "
+                     f"claiming a repo_url/commit_sha/files")
+        return None
+
+    if opponent_id in opponent_registry.LOCAL_ONLY_OPPONENTS:
+        extra = set(binding) - {"opponent_id", "source_kind", "files"}
+        if extra:
+            return f"{opponent_id!r} binding has unexpected extra field(s) {sorted(extra)}"
+        files_error, by_name = _verify_opponent_files_canonical(opponent_id, binding.get("files"))
+        if files_error:
+            return files_error
+        expected_paths = opponent_registry.LOCAL_ONLY_OPPONENTS[opponent_id]
+        if by_name["agent"]["path"] != expected_paths["agent_path"]:
+            return (f"{opponent_id!r} binding's agent file path "
+                     f"{by_name['agent']['path']!r} does not match the canonical "
+                     f"local_only path {expected_paths['agent_path']!r}")
+        if by_name["deck"]["path"] != expected_paths["deck_path"]:
+            return (f"{opponent_id!r} binding's deck file path "
+                     f"{by_name['deck']['path']!r} does not match the canonical "
+                     f"local_only path {expected_paths['deck_path']!r}")
+        return None
+
+    if opponent_id in opponent_registry.PINNED_CLONE_OPPONENTS:
+        extra = set(binding) - {"opponent_id", "source_kind", "repo_url", "commit_sha", "files"}
+        if extra:
+            return f"{opponent_id!r} binding has unexpected extra field(s) {sorted(extra)}"
+        repo_url = binding.get("repo_url")
+        commit_sha = binding.get("commit_sha")
+        if not isinstance(repo_url, str) or not repo_url:
+            return f"{opponent_id!r} (pinned_clone) binding is missing a non-empty repo_url"
+        if not isinstance(commit_sha, str) or len(commit_sha) != 40 or not all(c in "0123456789abcdef" for c in commit_sha):
+            return (f"{opponent_id!r} (pinned_clone) binding's commit_sha must be exactly "
+                     f"40 lowercase hex chars, got {commit_sha!r}")
+        files_error, _by_name = _verify_opponent_files_canonical(opponent_id, binding.get("files"))
+        if files_error:
+            return files_error
+        return None
+
+    # Unreachable given the expected_kind lookup above, but fail closed rather than silently
+    # accept an opponent_id this function has no canonical shape rule for.
+    return f"opponent {opponent_id!r}: no canonical binding-shape rule defined"
+
+
+def _verify_opponent_files_canonical(opponent_id: str, files) -> tuple[str | None, dict | None]:
+    """Shared per-file validation for a local_only/pinned_clone opponent binding's "files"
+    list: exactly 2 entries, logical_name exactly {agent, deck}, each entry has EXACTLY
+    {logical_name, path, sha256} (no smuggled extra per-file field), sha256 is 64 lowercase
+    hex, and path is repo-relative and safe (no "..", no absolute/drive-letter/backslash
+    escape) -- an earlier version accepted a pinned-clone path like "../outside.py" and never
+    checked for extra per-file fields, both found by an independent heterogeneous-model audit.
+    Returns (error_or_None, {"agent": file_dict, "deck": file_dict} or None)."""
+    if not isinstance(files, list) or len(files) != 2:
+        return (f"{opponent_id!r} binding must have exactly 2 'files' entries (agent, deck), "
+                f"got {files!r}"), None
+    if not all(isinstance(f, dict) for f in files):
+        return f"{opponent_id!r} binding's 'files' entries must each be an object", None
+    _required_file_keys = {"logical_name", "path", "sha256"}
+    for f in files:
+        # Exact key-set equality, not just "no extras" -- an earlier version only checked
+        # `set(f) - _required_file_keys`, which is empty for a MISSING key too (a subset check
+        # passes trivially), so a file entry with e.g. only {path, sha256} (no logical_name)
+        # passed this check and then crashed with an uncaught KeyError at `f["logical_name"]"
+        # below -- found by an independent heterogeneous-model audit via direct reproduction.
+        if set(f) != _required_file_keys:
+            return (f"{opponent_id!r} binding has a 'files' entry whose keys are "
+                     f"{sorted(f)!r}, expected exactly {sorted(_required_file_keys)!r} "
+                     f"(missing and/or extra field(s))"), None
+        sha = f.get("sha256")
+        if not isinstance(sha, str) or len(sha) != 64 or not all(c in "0123456789abcdef" for c in sha):
+            return f"{opponent_id!r} binding's file sha256 must be exactly 64 lowercase hex chars, got {sha!r}", None
+        path = f.get("path")
+        if not isinstance(path, str) or not path:
+            return f"{opponent_id!r} binding has a 'files' entry with a missing/empty path", None
+        if ".." in path or path.startswith("/") or "\\" in path or (len(path) >= 2 and path[1] == ":"):
+            return (f"{opponent_id!r} binding's file path {path!r} is unsafe (contains '..', "
+                     f"is absolute, or uses a drive-letter/backslash) -- only a bare "
+                     f"repo-relative path is ever accepted"), None
+        # logical_name must be a hashable string BEFORE it is ever used as a dict key below --
+        # a JSON array/object value here (e.g. {"logical_name": [], ...}) would otherwise raise
+        # an uncaught `TypeError: unhashable type` from the dict-comprehension below instead of
+        # a controlled rejection (found by an independent heterogeneous-model audit).
+        logical_name = f.get("logical_name")
+        if not isinstance(logical_name, str) or logical_name not in ("agent", "deck"):
+            return (f"{opponent_id!r} binding has a 'files' entry with logical_name "
+                     f"{logical_name!r}, expected exactly 'agent' or 'deck'"), None
+    by_name = {f["logical_name"]: f for f in files}
+    if set(by_name) != {"agent", "deck"}:
+        return (f"{opponent_id!r} binding's files must have logical_name 'agent' and 'deck' "
+                 f"exactly, got {sorted(by_name)}"), None
+    return None, by_name
 
 
 def _resolve_opponent_paths_at_run_time(binding: dict, clone_dest_root: str) -> tuple[str | None, str | None]:
@@ -453,6 +642,36 @@ def cmd_manifest(args: argparse.Namespace) -> int:
     if len(set(args.opponent)) != len(args.opponent):
         print(f"ERROR: --opponent list contains duplicates: {args.opponent}", file=sys.stderr)
         return 1
+    # `run`/`summarize` both require protocol_identity.id / dataset_identity.id /
+    # candidate_artifact.artifact_id / baseline_artifact.artifact_id to be non-empty strings
+    # (see _verify_manifest_integrity) -- validating that HERE, before writing the file, means
+    # `manifest` can never succeed and write a file its own `run` immediately rejects on the
+    # very next invocation (found by an independent heterogeneous-model audit).
+    for _id_flag, _id_value in (
+        ("--protocol-id", args.protocol_id), ("--dataset-id", args.dataset_id),
+        ("--candidate-artifact-id", args.candidate_artifact_id),
+        ("--baseline-artifact-id", args.baseline_artifact_id),
+    ):
+        if not isinstance(_id_value, str) or not _id_value:
+            print(f"ERROR: {_id_flag} must be a non-empty string, got {_id_value!r}", file=sys.stderr)
+            return 1
+    # Statistical measurement settings are fixed HERE, at manifest-creation time, and hashed
+    # into protocol_identity/comparison_manifest_sha256 -- `summarize` reads them back from the
+    # manifest and has no flags of its own to set them. An earlier version let `summarize`
+    # accept --confidence-level/--bootstrap-replicates/--rng-seed as free caller-time choices,
+    # so the SAME comparison_manifest_sha256 could produce Measurement Reports with different
+    # confidence intervals depending purely on what the `summarize` caller happened to pass --
+    # found by an independent external review.
+    try:
+        confidence_level_decimal = Decimal(args.confidence_level)
+        if not (Decimal("0") < confidence_level_decimal < Decimal("1")):
+            raise ValueError(f"--confidence-level must be strictly between 0 and 1, got {args.confidence_level!r}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"ERROR: invalid --confidence-level: {exc}", file=sys.stderr)
+        return 1
+    if args.bootstrap_replicates < 1:
+        print("ERROR: --bootstrap-replicates must be >= 1", file=sys.stderr)
+        return 1
 
     try:
         candidate = _artifact_binding(
@@ -469,7 +688,16 @@ def cmd_manifest(args: argparse.Namespace) -> int:
               "produce a manifest that would compare an artifact against itself.", file=sys.stderr)
         return 1
 
-    pins = opponent_registry.load_pins(_PINS_PATH)
+    try:
+        pins = opponent_registry.load_pins(_PINS_PATH)
+    except ValueError as exc:
+        # A malformed opponent_pins.json (unparseable JSON, or valid JSON that isn't an
+        # object) must fail the same controlled way every other manifest-creation problem
+        # here does -- an earlier version let this propagate straight out of `manifest`
+        # entirely instead of the "ERROR: ..." + exit 1 pattern used everywhere else in this
+        # function (found by an independent heterogeneous-model audit).
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
     selected_opponents = []
     for opponent_id in args.opponent:
         try:
@@ -477,6 +705,13 @@ def cmd_manifest(args: argparse.Namespace) -> int:
         except ValueError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
+    # Sorted by opponent_id (the canonical key) so dataset_identity's hash -- and therefore
+    # comparison_manifest_sha256 -- depends only on the SET of selected opponents, never on
+    # the order --opponent happened to be given on the command line (found by an independent
+    # external review: the same opponent set specified in a different --opponent order would
+    # otherwise hash differently, meaning two functionally-identical manifests wouldn't be
+    # recognized as identical).
+    selected_opponents.sort(key=lambda binding: binding["opponent_id"])
 
     league_complete = set(schema.REQUIRED_LEAGUE_OPPONENTS) <= set(args.opponent)
     side_allocation_schedule = ["a" if i % 2 == 0 else "b" for i in range(args.games_per_segment)]
@@ -488,12 +723,20 @@ def cmd_manifest(args: argparse.Namespace) -> int:
         "wall_timeout_seconds": str(args.wall_timeout_seconds),
         "games_per_segment": args.games_per_segment,
         "side_allocation_schedule": side_allocation_schedule,
-        "worker_model": "one_subprocess_per_game",
-        "decision_time_measurement": "wall-clock time.perf_counter() per agent decision, tagged actor=a|b; summarize uses only actor=a (the arm under measurement)",
-        "game_rng_control": {"availability": "UNAVAILABLE", "reason": "no seed/RNG-control parameter exists anywhere in cg.api/cg.game's Python surface"},
+        "worker_model": _ACTUAL_WORKER_MODEL,
+        "decision_time_measurement": _ACTUAL_DECISION_TIME_MEASUREMENT,
+        "game_rng_control": _ACTUAL_GAME_RNG_CONTROL,
         "engine_binding": _engine_binding(),
         "evaluator_binding": _evaluator_binding(),
         "runtime_environment": _runtime_environment(),
+        "measurement_settings": {
+            "confidence_level": str(confidence_level_decimal),
+            "bootstrap_replicates": args.bootstrap_replicates,
+            "rate_interval_method": _RATE_INTERVAL_METHOD,
+            "rate_delta_method": _RATE_DELTA_METHOD,
+            "latency_bootstrap_method": _LATENCY_BOOTSTRAP_METHOD,
+            "bootstrap_seed_scheme": _BOOTSTRAP_SEED_SCHEME,
+        },
     }
     dataset_identity = {
         "id": args.dataset_id,
@@ -559,7 +802,43 @@ def _verify_manifest_integrity(manifest: dict) -> str | None:
     `manifest` wrote it -- whose content no longer matches what comparison_manifest_sha256
     claims to identify. Both `run` and `summarize` call this before trusting anything else in
     the manifest. Returns an error string on any mismatch, else None."""
-    protocol_identity = dict(manifest.get("protocol_identity", {}))
+    if not isinstance(manifest, dict):
+        return f"manifest is not an object, got {manifest!r}"
+    # protocol_identity/dataset_identity must be validated as dicts BEFORE the `dict(...)`
+    # coercion below -- `dict()` happily accepts a JSON array of [key, value] pairs without
+    # raising, so a forged (yet hash-consistent, since hashing a JSON value doesn't require it
+    # to be a dict) manifest with e.g. protocol_identity=[["sha256","..."],...] would pass this
+    # coercion, then crash later with an uncaught TypeError ("list indices must be integers")
+    # on the first direct string-key access, instead of a controlled rejection (found by an
+    # independent heterogeneous-model audit).
+    raw_protocol_identity = manifest.get("protocol_identity")
+    if not isinstance(raw_protocol_identity, dict):
+        return f"protocol_identity is missing or not an object, got {raw_protocol_identity!r}"
+    raw_dataset_identity = manifest.get("dataset_identity")
+    if not isinstance(raw_dataset_identity, dict):
+        return f"dataset_identity is missing or not an object, got {raw_dataset_identity!r}"
+    # manifest["stage"] is read via direct indexing by both `run` and `summarize` (e.g.
+    # `summarize` compares args.stage != manifest["stage"] before opening any jsonl file) -- it
+    # was never required to be present/valid here, so a forged manifest omitting "stage"
+    # entirely would pass every hash check (comparison_identity hashes manifest.get("stage"),
+    # which is None either way) and then crash with an uncaught KeyError at the very first
+    # direct-index read, instead of a controlled rejection (found by an independent same-model
+    # audit).
+    if manifest.get("stage") not in ("screening", "confirmation"):
+        return f"manifest.stage must be 'screening' or 'confirmation', got {manifest.get('stage')!r}"
+    # schema_version/candidate_role are hashed into comparison_manifest_sha256 via
+    # comparison_identity (below) but were never otherwise validated here -- a forged manifest
+    # could set either to an arbitrary value (or omit schema_version/candidate_role entirely,
+    # since comparison_identity uses manifest.get(...)) and `summarize` would copy both
+    # verbatim into its report with no semantic check, e.g. candidate_role=[] or
+    # schema_version=null appearing in a report that is otherwise accepted as report_kind
+    # "primary" (found by an independent heterogeneous-model audit).
+    if manifest.get("schema_version") != "2":
+        return f"manifest.schema_version must be '2', got {manifest.get('schema_version')!r}"
+    if manifest.get("candidate_role") not in ("primary", "fallback"):
+        return (f"manifest.candidate_role must be 'primary' or 'fallback', got "
+                f"{manifest.get('candidate_role')!r}")
+    protocol_identity = dict(raw_protocol_identity)
     stored_protocol_sha256 = protocol_identity.pop("sha256", None)
     recomputed_protocol_sha256 = sha256_hex(protocol_identity)
     if recomputed_protocol_sha256 != stored_protocol_sha256:
@@ -592,13 +871,118 @@ def _verify_manifest_integrity(manifest: dict) -> str | None:
                 f"match the actual hardcoded engine step limit ({_ACTUAL_STEP_LIMIT}) in "
                 f"experiments/head_to_head.py -- this manifest claims a step limit that `run` "
                 f"cannot actually enforce")
-    if protocol_identity.get("games_per_worker") != _ACTUAL_GAMES_PER_WORKER:
-        return (f"protocol_identity.games_per_worker={protocol_identity.get('games_per_worker')!r} "
+    # bool is a subclass of int and _ACTUAL_GAMES_PER_WORKER == 1, so an unguarded `!=`
+    # comparison would silently accept games_per_worker=True as equal to the required value
+    # (found by an independent heterogeneous-model audit).
+    _games_per_worker_claim = protocol_identity.get("games_per_worker")
+    if isinstance(_games_per_worker_claim, bool) or _games_per_worker_claim != _ACTUAL_GAMES_PER_WORKER:
+        return (f"protocol_identity.games_per_worker={_games_per_worker_claim!r} "
                 f"does not match the actual value `run` always uses "
                 f"({_ACTUAL_GAMES_PER_WORKER}) -- this manifest claims a games_per_worker that "
                 f"`run` cannot actually enforce")
+    # worker_model/decision_time_measurement/game_rng_control are fixed, self-documenting
+    # claims about how this harness actually operates -- recorded into every manifest but,
+    # until now, never re-verified against the ACTUAL fixed values, so a forged (yet
+    # hash-consistent) manifest could claim a different worker_model/measurement
+    # methodology/RNG-control status with nothing catching the discrepancy before `summarize`
+    # copies whichever claim the manifest makes verbatim into its report (found by an
+    # independent heterogeneous-model audit).
+    if protocol_identity.get("worker_model") != _ACTUAL_WORKER_MODEL:
+        return (f"protocol_identity.worker_model={protocol_identity.get('worker_model')!r} does "
+                f"not match the actual fixed value ({_ACTUAL_WORKER_MODEL!r})")
+    if protocol_identity.get("decision_time_measurement") != _ACTUAL_DECISION_TIME_MEASUREMENT:
+        return (f"protocol_identity.decision_time_measurement does not match the actual fixed "
+                f"value this harness uses")
+    if protocol_identity.get("game_rng_control") != _ACTUAL_GAME_RNG_CONTROL:
+        return (f"protocol_identity.game_rng_control does not match the actual fixed value "
+                f"this harness uses")
 
-    dataset_identity = dict(manifest.get("dataset_identity", {}))
+    # wall_timeout_seconds is stored as a string (see cmd_manifest: str(args.wall_timeout_seconds))
+    # and `run` later does float(manifest[...]["wall_timeout_seconds"]) before passing it to
+    # subprocess.run(timeout=...) -- a forged (yet hash-consistent) non-numeric-string or
+    # non-string value here (e.g. a JSON array) would otherwise raise an uncaught TypeError
+    # from float() at that point instead of a controlled rejection here (found by an
+    # independent heterogeneous-model audit).
+    wall_timeout_seconds_raw = protocol_identity.get("wall_timeout_seconds")
+    if not isinstance(wall_timeout_seconds_raw, str):
+        return (f"protocol_identity.wall_timeout_seconds={wall_timeout_seconds_raw!r} is not a "
+                f"string (it must be the str() form of a finite positive number)")
+    try:
+        wall_timeout_seconds_check = float(wall_timeout_seconds_raw)
+    except ValueError:
+        return (f"protocol_identity.wall_timeout_seconds={wall_timeout_seconds_raw!r} is not "
+                f"parseable as a number")
+    if not math.isfinite(wall_timeout_seconds_check) or wall_timeout_seconds_check <= 0:
+        return (f"protocol_identity.wall_timeout_seconds={wall_timeout_seconds_raw!r} must be "
+                f"finite and > 0")
+
+    # protocol_identity.id / dataset_identity.id are read via direct manifest[...]["id"]
+    # indexing by both `run` and `summarize` (e.g. to name jsonl output files) -- neither was
+    # ever required to be present here, so a forged (yet hash-consistent) manifest omitting
+    # either "id" field would pass every check above and then crash with an uncaught KeyError
+    # at the first direct-index read, instead of a controlled rejection (found by an
+    # independent same-model audit).
+    if not isinstance(protocol_identity.get("id"), str) or not protocol_identity["id"]:
+        return f"protocol_identity.id must be a non-empty string, got {protocol_identity.get('id')!r}"
+    if not isinstance(raw_dataset_identity.get("id"), str) or not raw_dataset_identity["id"]:
+        return f"dataset_identity.id must be a non-empty string, got {raw_dataset_identity.get('id')!r}"
+
+    # engine_binding/evaluator_binding/runtime_environment are read via direct
+    # manifest["protocol_identity"]["engine_binding"]-style indexing in
+    # _verify_execution_bindings_unchanged (which always runs AFTER this function). The
+    # isinstance(dict) checks added there catch a PRESENT-but-wrong-type value, but the direct
+    # index itself raises an uncaught KeyError if the key is MISSING entirely -- that happens
+    # before those isinstance checks ever get a chance to run. Requiring all three to be
+    # present dicts here closes that gap (found by an independent heterogeneous-model audit).
+    for _binding_field in ("engine_binding", "evaluator_binding", "runtime_environment"):
+        if not isinstance(protocol_identity.get(_binding_field), dict):
+            return (f"protocol_identity.{_binding_field} is missing or not an object, got "
+                    f"{protocol_identity.get(_binding_field)!r}")
+
+    # measurement_settings must be semantically valid, not merely present with SOME
+    # self-consistent value -- `summarize` trusts these fields directly (no CLI flags of its
+    # own to override or re-validate them), so a hand-forged manifest with e.g.
+    # bootstrap_replicates=-5 or confidence_level="not-a-number" must be rejected HERE, before
+    # `summarize` ever tries to use it.
+    measurement_settings = protocol_identity.get("measurement_settings")
+    if not isinstance(measurement_settings, dict):
+        return "protocol_identity.measurement_settings is missing or not an object"
+    _expected_measurement_setting_keys = {
+        "confidence_level", "bootstrap_replicates", "rate_interval_method",
+        "rate_delta_method", "latency_bootstrap_method", "bootstrap_seed_scheme",
+    }
+    _extra_measurement_keys = set(measurement_settings) - _expected_measurement_setting_keys
+    if _extra_measurement_keys:
+        return (f"protocol_identity.measurement_settings has unexpected extra field(s) "
+                f"{sorted(_extra_measurement_keys)} -- e.g. a smuggled-back 'rng_seed' would "
+                f"be copied verbatim into the report while its own bootstrap_seed_scheme "
+                f"claims no caller-supplied seed exists; only the exact fixed key set is ever "
+                f"accepted")
+    try:
+        confidence_level_check = Decimal(str(measurement_settings.get("confidence_level")))
+        if not (Decimal("0") < confidence_level_check < Decimal("1")):
+            raise ValueError("out of range")
+    except Exception:  # noqa: BLE001
+        return (f"protocol_identity.measurement_settings.confidence_level="
+                f"{measurement_settings.get('confidence_level')!r} is not a valid confidence "
+                f"level strictly between 0 and 1")
+    replicates_check = measurement_settings.get("bootstrap_replicates")
+    if not isinstance(replicates_check, int) or isinstance(replicates_check, bool) or replicates_check < 1:
+        return (f"protocol_identity.measurement_settings.bootstrap_replicates="
+                f"{replicates_check!r} is not a positive integer")
+    for method_field, expected_method in (
+        ("rate_interval_method", _RATE_INTERVAL_METHOD),
+        ("rate_delta_method", _RATE_DELTA_METHOD),
+        ("latency_bootstrap_method", _LATENCY_BOOTSTRAP_METHOD),
+        ("bootstrap_seed_scheme", _BOOTSTRAP_SEED_SCHEME),
+    ):
+        if measurement_settings.get(method_field) != expected_method:
+            return (f"protocol_identity.measurement_settings.{method_field}="
+                    f"{measurement_settings.get(method_field)!r} does not match the actual "
+                    f"method this harness's code implements ({expected_method!r}) -- this "
+                    f"manifest claims a method `summarize` does not actually use")
+
+    dataset_identity = dict(raw_dataset_identity)
     stored_dataset_sha256 = dataset_identity.pop("sha256", None)
     recomputed_dataset_sha256 = sha256_hex(dataset_identity)
     if recomputed_dataset_sha256 != stored_dataset_sha256:
@@ -606,11 +990,91 @@ def _verify_manifest_integrity(manifest: dict) -> str | None:
                 f"recomputed {recomputed_dataset_sha256!r} -- dataset_identity (e.g. "
                 f"selected_opponents) was edited after `manifest` wrote this file")
 
+    # Hash self-consistency alone does not prove selected_opponents' CONTENT is semantically
+    # valid -- a hand-forged manifest could set source_kind="self_play" for lucario/dragapult/
+    # megastarmie too, with a correctly recomputed dataset_identity hash. Reject any binding
+    # whose source_kind doesn't match its opponent_id's fixed canonical mapping (or whose
+    # shape is otherwise wrong) before league_complete or anything else is computed from
+    # selected_opponents.
+    selected_opponents = dataset_identity.get("selected_opponents")
+    if not isinstance(selected_opponents, list) or not selected_opponents:
+        return "dataset_identity.selected_opponents is missing, empty, or not a list"
+    for binding in selected_opponents:
+        binding_error = _verify_opponent_binding_canonical(binding)
+        if binding_error:
+            return f"selected_opponents binding invalid: {binding_error}"
+    # Duplicate opponent_id entries and out-of-canonical-order entries are both rejected here
+    # too -- `manifest` itself never produces either (duplicates are rejected at --opponent
+    # parse time; the list is always sorted by opponent_id before hashing, see cmd_manifest),
+    # so only a hand-forged manifest could contain them, and accepting either would let a
+    # forged-but-hash-consistent manifest silently diverge from the canonical representation
+    # this whole validation exists to enforce (found by an independent heterogeneous-model
+    # audit).
+    opponent_id_sequence = [b["opponent_id"] for b in selected_opponents]
+    if len(set(opponent_id_sequence)) != len(opponent_id_sequence):
+        return f"dataset_identity.selected_opponents contains duplicate opponent_id entries: {opponent_id_sequence!r}"
+    if opponent_id_sequence != sorted(opponent_id_sequence):
+        return (f"dataset_identity.selected_opponents is not sorted by opponent_id -- got "
+                f"{opponent_id_sequence!r}, expected {sorted(opponent_id_sequence)!r} "
+                f"(`manifest` always stores this list in sorted order)")
+
     candidate = manifest.get("candidate_artifact", {})
     baseline = manifest.get("baseline_artifact", {})
+    _artifact_required_top_keys = {"artifact_id", "sha256", "files"}
+    _artifact_required_file_keys = {"logical_name", "path", "sha256"}
     for label, artifact in (("candidate_artifact", candidate), ("baseline_artifact", baseline)):
+        if not isinstance(artifact, dict):
+            return f"{label} is not an object, got {artifact!r}"
+        # The artifact's top-level key set must be EXACT, not merely a superset check -- an
+        # earlier version never validated this, so a forged manifest could smuggle an extra
+        # top-level field (e.g. an absolute local filesystem path under some unrelated key
+        # name) onto candidate_artifact/baseline_artifact with no effect on
+        # comparison_manifest_sha256 (only artifact_id/sha256 are hashed into it, not the
+        # object's full key set), and `summarize` copies the artifact object verbatim into its
+        # report -- so that smuggled field would leak straight into the report's JSON (found by
+        # an independent heterogeneous-model audit).
+        if set(artifact) != _artifact_required_top_keys:
+            return (f"{label} has keys {sorted(artifact)!r}, expected exactly "
+                    f"{sorted(_artifact_required_top_keys)!r} (missing and/or extra field(s))")
+        if not isinstance(artifact.get("artifact_id"), str) or not artifact["artifact_id"]:
+            return f"{label}.artifact_id must be a non-empty string, got {artifact.get('artifact_id')!r}"
+        artifact_files = artifact.get("files")
+        if not isinstance(artifact_files, list) or not artifact_files:
+            return f"{label}.files is missing, empty, or not a list"
+        seen_logical_names = []
+        for f in artifact_files:
+            # Every file entry's shape/types must be validated BEFORE it is ever hashed
+            # (below, via _artifact_bundle_sha256_from_files) or later resolved against disk
+            # (in _verify_artifact_unchanged) -- a forged (yet hash-consistent, since hashing
+            # a JSON value doesn't require correct types) entry with e.g. a missing key or a
+            # non-string path would otherwise raise an uncaught KeyError/TypeError instead of
+            # a controlled rejection (found by an independent heterogeneous-model audit, the
+            # artifact-file analogue of the opponent-file validation gaps fixed earlier).
+            if not isinstance(f, dict) or set(f) != _artifact_required_file_keys:
+                return (f"{label} has a 'files' entry whose keys are "
+                        f"{sorted(f) if isinstance(f, dict) else f!r}, expected exactly "
+                        f"{sorted(_artifact_required_file_keys)!r}")
+            if not isinstance(f["logical_name"], str) or f["logical_name"] not in ("agent", "deck", "params"):
+                return (f"{label} has a 'files' entry with logical_name {f['logical_name']!r}, "
+                        f"expected exactly 'agent', 'deck', or 'params'")
+            if not isinstance(f["path"], str) or not f["path"]:
+                return f"{label} has a 'files' entry with a missing/empty/non-string path"
+            sha = f["sha256"]
+            if not isinstance(sha, str) or len(sha) != 64 or not all(c in "0123456789abcdef" for c in sha):
+                return f"{label} file sha256 must be exactly 64 lowercase hex chars, got {sha!r}"
+            seen_logical_names.append(f["logical_name"])
+        # The SET of logical_names present must be canonical too -- {agent, deck}, optionally
+        # plus params, each appearing exactly once -- so a binding can't e.g. omit "deck"
+        # entirely (which would pass every per-file check above yet later crash
+        # _artifact_file_path's dict lookup with a missing key, or silently resolve to no deck
+        # at run time) or list "agent" twice (silently dropping the real deck's file entry).
+        if len(set(seen_logical_names)) != len(seen_logical_names):
+            return f"{label}.files contains duplicate logical_name entries: {seen_logical_names!r}"
+        if not {"agent", "deck"} <= set(seen_logical_names):
+            return (f"{label}.files logical_name set is {sorted(seen_logical_names)!r}, must "
+                    f"include at least 'agent' and 'deck'")
         stored_bundle_sha256 = artifact.get("sha256")
-        recomputed_bundle_sha256 = _artifact_bundle_sha256_from_files(artifact.get("files", []))
+        recomputed_bundle_sha256 = _artifact_bundle_sha256_from_files(artifact_files)
         if recomputed_bundle_sha256 != stored_bundle_sha256:
             return (f"{label} bundle sha256 mismatch: manifest claims {stored_bundle_sha256!r}, "
                     f"recomputed from its own 'files' list {recomputed_bundle_sha256!r} -- "
@@ -659,7 +1123,20 @@ def _verify_artifact_unchanged(artifact: dict) -> str | None:
     path to equal the canonical form recomputed from where it actually resolves closes this:
     only the exact string `manifest` itself would have written is ever accepted."""
     real_repo_root = os.path.realpath(_REPO_ROOT)
-    for f in artifact.get("files", []):
+    files = artifact.get("files", [])
+    if not isinstance(files, list):
+        return f"artifact {artifact.get('artifact_id')!r} 'files' is not a list, got {files!r}"
+    for f in files:
+        # Every file entry's shape/types must be validated BEFORE `f["path"]` is ever passed
+        # to os.path-based resolution below -- a forged (yet hash-consistent, since hashing a
+        # JSON value doesn't require it to be a string) "files" entry with e.g. path=[] would
+        # otherwise raise an uncaught TypeError ("expected str, bytes or os.PathLike object,
+        # not list") instead of a controlled rejection (found by an independent
+        # heterogeneous-model audit).
+        if (not isinstance(f, dict) or not isinstance(f.get("path"), str) or not f["path"]
+                or not isinstance(f.get("sha256"), str)):
+            return (f"artifact {artifact.get('artifact_id')!r} has a 'files' entry that is not "
+                    f"an object with a non-empty string 'path' and a string 'sha256', got {f!r}")
         try:
             abs_path = _confine_to_repo_root(_abs_repo_path(f["path"]), f["path"])
         except ValueError as exc:
@@ -701,9 +1178,36 @@ def _read_jsonl(path: str) -> list[dict]:
     return records
 
 
+def _reject_json_constant(token: str) -> None:
+    raise ValueError(
+        f"manifest contains a non-finite JSON numeric token {token!r} -- NaN/Infinity/"
+        f"-Infinity are never accepted anywhere in a manifest"
+    )
+
+
+def _load_manifest(path: str) -> tuple[dict | None, str | None]:
+    """The single point every manifest is parsed from disk through. Python's json.load
+    accepts the non-standard NaN/Infinity/-Infinity tokens by default (parse_constant is None),
+    even though canon.sha256_hex's own json.dumps(..., allow_nan=False) rejects them -- so a
+    forged manifest smuggling one of these tokens into e.g. protocol_identity would pass
+    json.load silently and then raise an uncaught ValueError the moment
+    _verify_manifest_integrity tries to hash that block, before any of its own field-by-field
+    validation ever runs (found by an independent same-model audit). parse_constant here
+    rejects all three tokens outright, with a controlled error, at parse time -- before
+    anything downstream ever sees them."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            manifest = json.load(f, parse_constant=_reject_json_constant)
+    except (OSError, ValueError) as exc:
+        return None, f"failed to load manifest {path!r}: {exc}"
+    return manifest, None
+
+
 def cmd_run(args: argparse.Namespace) -> int:
-    with open(args.manifest, encoding="utf-8") as f:
-        manifest = json.load(f)
+    manifest, load_error = _load_manifest(args.manifest)
+    if load_error:
+        print(f"ERROR: {load_error}", file=sys.stderr)
+        return 1
 
     integrity_error = _verify_manifest_integrity(manifest)
     if integrity_error:
@@ -814,9 +1318,25 @@ def cmd_run(args: argparse.Namespace) -> int:
                         # head_to_head.py cannot observe its own hang, so only the orchestrator
                         # (here) can write a fallback record. If the subprocess had already
                         # flushed its single real record just before hanging, use it as-is
-                        # (genuinely completed) instead of fabricating a spurious timeout.
-                        raw_lines = _read_jsonl(batch_raw_path)
-                        if raw_lines:
+                        # (genuinely completed) instead of fabricating a spurious timeout. A
+                        # malformed partial write at this point is treated the same as no write
+                        # at all -- fall back to the honest synthesized timeout record rather
+                        # than trying to salvage unparseable JSON.
+                        try:
+                            raw_lines = _read_jsonl(batch_raw_path)
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            raw_lines = []
+                        if len(raw_lines) > 1:
+                            errors.append({
+                                "opponent_id": opponent_id, "arm": arm, "game_index": gi,
+                                "reason": f"subprocess timed out but had already written "
+                                          f"{len(raw_lines)} jsonl record(s) (expected at most "
+                                          f"1) before hanging -- refusing to silently pick one "
+                                          f"and discard the rest",
+                            })
+                            arm_ok = False
+                            break
+                        elif raw_lines:
                             raw_record = raw_lines[0]
                         else:
                             raw_record = {
@@ -826,9 +1346,69 @@ def cmd_run(args: argparse.Namespace) -> int:
                                 "result": None, "error_actor": None, "legality": "unknown",
                                 "decisions": None,
                             }
+                    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                        # head_to_head.py exited (0 or nonzero -- doesn't matter, we never got
+                        # far enough to check) having written unparseable JSON (or invalid
+                        # UTF-8) to its jsonl output -- an earlier version let this propagate as
+                        # an uncaught exception out of `run` entirely, instead of the same
+                        # fail-closed per-game error path every other subprocess-output problem
+                        # here uses (found by an independent heterogeneous-model audit).
+                        errors.append({
+                            "opponent_id": opponent_id, "arm": arm, "game_index": gi,
+                            "reason": f"subprocess wrote unparseable/undecodable output to its "
+                                      f"jsonl file: {exc}",
+                        })
+                        arm_ok = False
+                        break
                     finally:
                         if os.path.exists(batch_raw_path):
                             os.remove(batch_raw_path)
+
+                    # The raw record (whether freshly read, salvaged from a hung subprocess, or
+                    # the synthesized timeout fallback) must itself be schema-valid BEFORE
+                    # enrichment -- an earlier version did `dict(raw_record)` directly, so a
+                    # subprocess that exited 0 but wrote a JSON value that ISN'T an object (e.g.
+                    # an empty array `[]`) silently produced an enriched record missing every
+                    # real game field via `dict([])` == `{}`, and `run` reported success instead
+                    # of the malformed subprocess output it actually received (found by an
+                    # independent heterogeneous-model audit). validate_game_record's own first
+                    # check already handles a non-dict raw_record without crashing.
+                    try:
+                        raw_record = schema.validate_game_record(raw_record)
+                    except schema.SchemaError as exc:
+                        errors.append({
+                            "opponent_id": opponent_id, "arm": arm, "game_index": gi,
+                            "reason": f"the raw game record failed schema validation: {exc}",
+                        })
+                        arm_ok = False
+                        break
+
+                    # The record's own label_a/label_b/first_seat_agent must match what THIS
+                    # invocation actually asked head_to_head.py to run -- `summarize` performs
+                    # this exact cross-check later (RECORD_LABEL_MISMATCH / seat mismatch) when
+                    # it reads the jsonl file back, but an earlier version of `run` never
+                    # checked this itself, so it could write a mismatched record and still
+                    # report success, only for `summarize` to reject the file afterward (found
+                    # by an independent heterogeneous-model audit).
+                    if raw_record["label_a"] != arm or raw_record["label_b"] != opponent_id:
+                        errors.append({
+                            "opponent_id": opponent_id, "arm": arm, "game_index": gi,
+                            "reason": f"subprocess wrote label_a={raw_record['label_a']!r}/"
+                                      f"label_b={raw_record['label_b']!r}, expected "
+                                      f"label_a={arm!r}/label_b={opponent_id!r}",
+                        })
+                        arm_ok = False
+                        break
+                    if raw_record["first_seat_agent"] != first_player:
+                        errors.append({
+                            "opponent_id": opponent_id, "arm": arm, "game_index": gi,
+                            "reason": f"subprocess wrote first_seat_agent="
+                                      f"{raw_record['first_seat_agent']!r}, expected "
+                                      f"{first_player!r} (per this manifest's "
+                                      f"side_allocation_schedule)",
+                        })
+                        arm_ok = False
+                        break
 
                     # Orchestrator enrichment: a GLOBALLY unique game_id (head_to_head.py's own
                     # "game_index" resets to 0 on every subprocess invocation and would collide
@@ -1020,7 +1600,7 @@ def _arm_own_decision_durations_ms(records: list[dict]) -> list[list[float]] | N
 
 
 def _latency_cell(baseline_records: list[dict], candidate_records: list[dict], metric_id: str, segment_id: str,
-                   pct: float, confidence: str, replicates: int, rng_seed: int, manifest_hash: str) -> dict | None:
+                   pct: float, confidence: str, replicates: int, manifest_hash: str) -> dict | None:
     b_games = _arm_own_decision_durations_ms(baseline_records)
     c_games = _arm_own_decision_durations_ms(candidate_records)
     if not b_games or not c_games or (len(b_games) + len(c_games)) == 0:
@@ -1029,8 +1609,11 @@ def _latency_cell(baseline_records: list[dict], candidate_records: list[dict], m
         # UNAVAILABLE (omitted), not an exception from schema.build_cell's observations>=1 check.
         return None
     pfn = percentile_statistic(pct)
-    base_seed = {"comparison_manifest_sha256": manifest_hash, "metric_id": metric_id,
-                 "segment_id": segment_id, "rng_seed": rng_seed}
+    # Deterministically derived from (comparison_manifest_sha256, metric_id, segment_id, arm)
+    # ONLY -- no caller-supplied seed, matching _BOOTSTRAP_SEED_SCHEME. The same manifest +
+    # the same JSONL input always produces the identical bootstrap output; there is no seed
+    # for a caller to vary even if they wanted to (see BLOCKER 1 in the module docstring).
+    base_seed = {"comparison_manifest_sha256": manifest_hash, "metric_id": metric_id, "segment_id": segment_id}
     b_stats = game_cluster_bootstrap_interval(b_games, pfn, {**base_seed, "arm": "baseline_interval"}, replicates, confidence)
     c_stats = game_cluster_bootstrap_interval(c_games, pfn, {**base_seed, "arm": "candidate_interval"}, replicates, confidence)
     delta = game_cluster_bootstrap_delta(b_games, c_games, pfn, base_seed, replicates, confidence)
@@ -1053,8 +1636,10 @@ def _observation_count_cell(baseline_records: list[dict], candidate_records: lis
 
 
 def cmd_summarize(args: argparse.Namespace) -> int:
-    with open(args.manifest, encoding="utf-8") as f:
-        manifest = json.load(f)
+    manifest, load_error = _load_manifest(args.manifest)
+    if load_error:
+        print(f"ERROR: {load_error}", file=sys.stderr)
+        return 1
 
     integrity_error = _verify_manifest_integrity(manifest)
     if integrity_error:
@@ -1082,16 +1667,14 @@ def cmd_summarize(args: argparse.Namespace) -> int:
         print(f"ERROR: --stage {args.stage!r} does not match manifest's stage {manifest['stage']!r}", file=sys.stderr)
         return 1
 
-    try:
-        confidence = Decimal(args.confidence_level)
-        if not (Decimal("0") < confidence < Decimal("1")):
-            raise schema.SchemaError(f"--confidence-level must be strictly between 0 and 1, got {args.confidence_level!r}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"ERROR: invalid --confidence-level: {exc}", file=sys.stderr)
-        return 1
-    if args.bootstrap_replicates < 1:
-        print("ERROR: --bootstrap-replicates must be >= 1", file=sys.stderr)
-        return 1
+    # confidence_level/bootstrap_replicates come EXCLUSIVELY from the manifest's own
+    # protocol_identity.measurement_settings -- summarize has no --confidence-level/
+    # --bootstrap-replicates/--rng-seed flags of its own (see BLOCKER 1 in the module
+    # docstring). Already semantically validated by _verify_manifest_integrity above; read
+    # directly here.
+    measurement_settings = manifest["protocol_identity"]["measurement_settings"]
+    confidence = Decimal(measurement_settings["confidence_level"])
+    bootstrap_replicates = measurement_settings["bootstrap_replicates"]
 
     try:
         all_records: dict[tuple[str, str], list[dict]] = {}
@@ -1112,7 +1695,10 @@ def cmd_summarize(args: argparse.Namespace) -> int:
             if key in all_records:
                 raise schema.SchemaError(f"DUPLICATE_JSONL_INPUT: (opponent_id={opponent_id!r}, arm={arm!r}) "
                                           f"supplied more than once across --jsonl-in arguments")
-            all_records[key] = _load_and_validate_jsonl(path, manifest, opponent_id, arm)
+            # Sorted by game_id (globally unique -- see _reject_duplicate_game_ids below)
+            # immediately after loading, so a JSONL file's own line order (which nothing
+            # requires to already match batch_id order) can never affect the resulting stats.
+            all_records[key] = sorted(_load_and_validate_jsonl(path, manifest, opponent_id, arm), key=lambda r: r["game_id"])
 
         dup_error = _reject_duplicate_game_ids(all_records)
         if dup_error:
@@ -1167,8 +1753,22 @@ def cmd_summarize(args: argparse.Namespace) -> int:
         return 1
 
     cells = []
-    league_baseline = [r for (opp, arm), recs in all_records.items() if opp != "mirror" and arm == "baseline" for r in recs]
-    league_candidate = [r for (opp, arm), recs in all_records.items() if opp != "mirror" and arm == "candidate" for r in recs]
+    # Sorted by game_id, NOT left in all_records' dict-iteration order (which follows
+    # --jsonl-in's CLI argument order across opponents) -- the whole-game cluster bootstrap
+    # (_latency_cell) maps each resample index to games[idx] by LIST POSITION, so a different
+    # merge order would resample different actual game content at the same index even given
+    # the identical seed_material, silently producing a different report from the same
+    # manifest + the same JSONL inputs depending purely on --jsonl-in order (found by an
+    # independent heterogeneous-model audit, reproduced empirically: two summarize calls
+    # differing only in --jsonl-in order produced different confidence intervals).
+    league_baseline = sorted(
+        (r for (opp, arm), recs in all_records.items() if opp != "mirror" and arm == "baseline" for r in recs),
+        key=lambda r: r["game_id"],
+    )
+    league_candidate = sorted(
+        (r for (opp, arm), recs in all_records.items() if opp != "mirror" and arm == "candidate" for r in recs),
+        key=lambda r: r["game_id"],
+    )
 
     def _is_win(r):
         return r["result"] is not None and r["result"].get("winner") == "a"
@@ -1228,7 +1828,7 @@ def cmd_summarize(args: argparse.Namespace) -> int:
 
     for metric_id, pct in ((schema.METRIC_DECISION_TIME_P50_MS, 50), (schema.METRIC_DECISION_TIME_P95_MS, 95)):
         cell = _latency_cell(league_baseline, league_candidate, metric_id, schema.SEGMENT_OVERALL, pct,
-                              conf_str, args.bootstrap_replicates, args.rng_seed, manifest_hash)
+                              conf_str, bootstrap_replicates, manifest_hash)
         if cell:
             cells.append(cell)
     obs_cell = _observation_count_cell(league_baseline, league_candidate, schema.SEGMENT_OVERALL)
@@ -1255,15 +1855,13 @@ def cmd_summarize(args: argparse.Namespace) -> int:
         "total_observations": len(league_baseline) + len(league_candidate),
         "cells": cells,
         "diagnostics": diagnostics,
-        # Recorded so a report is self-documenting/reproducible: the same comparison_manifest
-        # can be summarized with different confidence/replicate/seed choices, so those choices
-        # must travel with the output, not be silently implied by whatever the caller happened
-        # to pass this time.
-        "measurement_settings": {
-            "confidence_level": conf_str,
-            "bootstrap_replicates": args.bootstrap_replicates,
-            "rng_seed": args.rng_seed,
-        },
+        # Recorded so a report is self-documenting -- copied verbatim from the manifest's own
+        # protocol_identity.measurement_settings (fixed at manifest-creation time, hashed into
+        # comparison_manifest_sha256), not from any summarize-time caller choice. The same
+        # comparison_manifest_sha256 + the same JSONL input ALWAYS produces this exact same
+        # measurement_settings (and therefore identical stats output) -- there is no
+        # caller-supplied seed for a different summarize invocation to vary.
+        "measurement_settings": measurement_settings,
     }
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
@@ -1299,6 +1897,10 @@ def build_parser() -> argparse.ArgumentParser:
                              help="Repeatable. Must be one of lucario/dragapult/megastarmie/mirror. "
                                   "Resolved, cloned-if-needed, and hash-bound RIGHT NOW.")
     p_manifest.add_argument("--games-per-segment", type=int, required=True)
+    # Statistical measurement settings are fixed HERE (manifest-creation time), not at
+    # `summarize` time -- see cmd_manifest's own comment and BLOCKER 1 in the module docstring.
+    p_manifest.add_argument("--confidence-level", default="0.95")
+    p_manifest.add_argument("--bootstrap-replicates", type=int, default=10_000)
     p_manifest.add_argument("--out", required=True)
     p_manifest.set_defaults(func=cmd_manifest)
 
@@ -1314,10 +1916,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_summarize.add_argument("--manifest", required=True)
     p_summarize.add_argument("--jsonl-in", action="append", required=True)
     p_summarize.add_argument("--stage", choices=("screening", "confirmation"), required=True)
-    p_summarize.add_argument("--confidence-level", default="0.95")
-    p_summarize.add_argument("--bootstrap-replicates", type=int, default=10_000)
-    p_summarize.add_argument("--rng-seed", type=int, required=True,
-                              help="Required (no default) for reproducible bootstrap output.")
+    # No --confidence-level / --bootstrap-replicates / --rng-seed here -- ALL statistical
+    # measurement settings come exclusively from --manifest's protocol_identity.
+    # measurement_settings (see cmd_manifest and BLOCKER 1 in the module docstring). An earlier
+    # version let these be freely chosen at summarize-time, so the SAME
+    # comparison_manifest_sha256 could produce Measurement Reports with different confidence
+    # intervals -- found by an independent external review. The bootstrap seed is derived
+    # deterministically from (comparison_manifest_sha256, metric_id, segment_id, arm); no
+    # caller-supplied seed is needed or accepted.
     p_summarize.add_argument("--allow-partial-report", action="store_true",
                               help="Permit a partial_diagnostic report when the league is "
                                    "incomplete or inputs are missing for a selected opponent/arm. "

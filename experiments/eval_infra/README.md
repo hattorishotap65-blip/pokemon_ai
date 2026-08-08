@@ -97,12 +97,30 @@ sharing the same reported kernel release and Python version).
 
 `dataset_identity` (what will be measured):
 `id`, `version`, `selected_opponents` (the full, resolved binding for each
-`--opponent` -- for `mirror`: just `{"source_kind": "self_play"}`; for
-Lucario (`local_only`): individual per-file SHA-256 of the local agent/deck
-files; for Dragapult/Mega Starmie (`pinned_clone`): `repo_url`, exact
-`commit_sha`, and individual per-file SHA-256 of the cloned agent/deck
-files), `league_complete` (`true` only if all of `{lucario, dragapult,
-megastarmie}` were selected).
+`--opponent`, **sorted by `opponent_id`** so the same opponent SET always
+hashes identically regardless of the `--opponent` CLI order it was given in
+-- for `mirror`: just `{"source_kind": "self_play"}`; for Lucario
+(`local_only`): individual per-file SHA-256 of the local agent/deck files;
+for Dragapult/Mega Starmie (`pinned_clone`): `repo_url`, exact `commit_sha`,
+and individual per-file SHA-256 of the cloned agent/deck files),
+`league_complete` (`true` only if all of `{lucario, dragapult, megastarmie}`
+were selected). Every binding's `source_kind` is required to exactly match
+its `opponent_id`'s fixed canonical mapping (`mirror`->`self_play`,
+`lucario`->`local_only`, `dragapult`/`megastarmie`->`pinned_clone`), and
+`run`/`summarize` both re-verify this (via `_verify_manifest_integrity`)
+before trusting anything else in the manifest -- a hand-forged manifest
+cannot disguise a required league opponent as `self_play` (which would
+otherwise run, and label its output as, a self-play mirror game under that
+opponent's name while still satisfying `league_complete`'s opponent-ID-only
+check). This canonical-shape check is exhaustive, not just the top-level
+`source_kind`: `selected_opponents` itself must be a non-empty list with no
+duplicate `opponent_id` and in sorted order; each binding must have exactly
+the fields its `source_kind` requires (no smuggled extra top-level field);
+each `files` entry must have exactly `{logical_name, path, sha256}` (no
+smuggled extra per-file field), a 64-hex `sha256`, and a safe repo-relative
+`path` (no `..`/absolute/drive-letter/backslash escape) -- gaps in each of
+these were found and closed across several rounds of independent
+heterogeneous-model audit.
 
 `candidate_artifact`/`baseline_artifact`: `artifact_id` plus a `files` list
 of **individual** `{logical_name, path, sha256}` entries (agent, deck,
@@ -125,13 +143,20 @@ python -m experiments.eval_infra.raging_bolt_eval manifest \
     [--candidate-params PATH] [--baseline-params PATH] \
     --protocol-id ID --dataset-id ID --dataset-version V --stage {screening,confirmation} \
     --opponent OPPONENT [--opponent OPPONENT ...] --games-per-segment N \
-    [--wall-timeout-seconds S] --out PATH
+    [--wall-timeout-seconds S] [--confidence-level C] [--bootstrap-replicates R] --out PATH
     # --opponent is repeatable; each must be lucario/dragapult/megastarmie/mirror and is
     # RESOLVED (and, for a pinned-clone opponent, actually cloned+verified) RIGHT NOW --
     # manifest creation aborts (no file written) if any of them cannot be resolved.
-    # Duplicate/empty --opponent selections are rejected. Requires --games-per-segment >= 1
-    # and a finite, strictly positive --wall-timeout-seconds. Refuses to overwrite an
-    # existing file at PATH.
+    # Duplicate/empty --opponent selections are rejected; the resolved set is stored SORTED by
+    # opponent_id, so the same --opponent set in a different CLI order still hashes
+    # identically. Requires --games-per-segment >= 1 and a finite, strictly positive
+    # --wall-timeout-seconds. Refuses to overwrite an existing file at PATH.
+    # --confidence-level (default 0.95, strictly between 0 and 1) and --bootstrap-replicates
+    # (default 10,000, >= 1) are FIXED HERE, not at `summarize` time -- see the "summarize"
+    # entry below and the "Metric-to-statistical-method mapping" section. Both are hashed into
+    # protocol_identity.measurement_settings (along with the fixed method names this harness
+    # implements), so a manifest identity now pins the ENTIRE statistical procedure, not just
+    # what will be measured.
 
 python -m experiments.eval_infra.raging_bolt_eval run \
     --manifest PATH --jsonl-out DIR [--allow-partial]
@@ -162,12 +187,29 @@ python -m experiments.eval_infra.raging_bolt_eval run \
 
 python -m experiments.eval_infra.raging_bolt_eval summarize \
     --manifest PATH --jsonl-in FILE [--jsonl-in FILE ...] \
-    --stage {screening,confirmation} --rng-seed N [--allow-partial-report] --out PATH
+    --stage {screening,confirmation} [--allow-partial-report] --out PATH
     # --stage must match --manifest's own stage; --manifest's own hash chain is re-verified.
-    # --confidence-level is used by every stats computation; --bootstrap-replicates/--rng-seed
-    # are used specifically by the two latency/bootstrap cells (game-level rate cells use
-    # Wilson/Newcombe, no bootstrap) -- all three are recorded in the output report's
-    # "measurement_settings" so the report is self-documenting/reproducible.
+    # NO --confidence-level/--bootstrap-replicates/--rng-seed flags here -- ALL statistical
+    # measurement settings come exclusively from --manifest's own
+    # protocol_identity.measurement_settings (fixed at `manifest` time, see above). An earlier
+    # version accepted these as free summarize-time choices, so the SAME
+    # comparison_manifest_sha256 could produce Measurement Reports with DIFFERENT confidence
+    # intervals depending on what the caller happened to pass -- found by an independent
+    # external review. The bootstrap seed for the two latency cells is derived deterministically
+    # from (comparison_manifest_sha256, metric_id, segment_id, arm) -- there is no seed for a
+    # caller to supply even if they wanted to. The SAME manifest + the SAME SET of --jsonl-in
+    # inputs therefore ALWAYS produce a byte-for-byte identical report across separate
+    # invocations, REGARDLESS OF --jsonl-in CLI ORDER -- all league records are sorted by
+    # game_id before any statistic is computed (an earlier version left them in
+    # dict-insertion order, which followed --jsonl-in's CLI argument order across opponents,
+    # so the whole-game cluster bootstrap resampled different actual game content at the same
+    # index depending purely on --jsonl-in order; found by an independent heterogeneous-model
+    # audit via direct empirical reproduction). protocol_identity.measurement_settings itself
+    # only accepts its exact fixed key set (confidence_level, bootstrap_replicates, and the 4
+    # method-name fields) -- a smuggled-back extra field (e.g. a re-added "rng_seed") is
+    # rejected, not silently copied into the report. measurement_settings is otherwise copied
+    # verbatim from the manifest into the output report's own "measurement_settings" field, so
+    # the report remains self-documenting.
     # --jsonl-in filenames must carry the FULL 64-hex comparison_manifest_sha256 as their
     # prefix (not a truncated one) and a known opponent_id/arm; each record's own
     # comparison_manifest_sha256/opponent_id/arm/label_a/label_b are cross-checked against
@@ -230,8 +272,8 @@ caller-specified `--out` path, never to this tracked file.
   state and non-deterministic search behavior). Per-arm AND delta intervals
   all use a whole-GAME cluster bootstrap (`stats.game_cluster_bootstrap_interval`
   for each arm's own baseline_stats/candidate_stats, `stats.game_cluster_bootstrap_delta`
-  for the delta; 10,000 replicates by default, deterministic given
-  `--rng-seed`) that resamples whole games (never individual decisions) to
+  for the delta; `bootstrap_replicates` fixed in the manifest, default 10,000)
+  that resamples whole games (never individual decisions) to
   avoid understating the interval from within-game correlation
   (pseudo-replication). An earlier version reported a degenerate,
   zero-width "interval" (`estimate==lower==upper`) for each arm's own

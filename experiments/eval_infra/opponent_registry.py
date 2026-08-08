@@ -33,8 +33,22 @@ _COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 LOCAL_ONLY_OPPONENTS = {
     "lucario": {
-        "agent_path": os.path.join("experiments", "agents", "top_lucario_1084_main.py"),
-        "deck_path": os.path.join("experiments", "decks", "top_lucario_1084.csv"),
+        # Deliberately a literal POSIX-style ("/") path, NOT os.path.join(...) -- an earlier
+        # version used os.path.join, which produces backslash-separated paths on Windows.
+        # This canonical path is hashed into dataset_identity (comparison_manifest_sha256)
+        # and checked byte-for-byte against a stored binding's path by
+        # _verify_opponent_binding_canonical / _verify_opponent_files_canonical in
+        # raging_bolt_eval.py, which (matching the POSIX-only convention already used for
+        # candidate/baseline artifact paths, see _resolve_repo_confined_artifact_path)
+        # rejects any path containing a backslash as unsafe -- a
+        # platform-dependent separator here would make a manifest built on Windows hash
+        # differently (and fail this canonical-path check) from one built on Linux for the
+        # exact same opponent (found by an independent heterogeneous-model audit).
+        # os.path.join is still used below (via _abs_repo_path in raging_bolt_eval.py /
+        # os.path.join(repo_root, ...) in resolve_opponent) to build an ACTUAL filesystem
+        # path for opening the file, where the platform-native separator is correct.
+        "agent_path": "experiments/agents/top_lucario_1084_main.py",
+        "deck_path": "experiments/decks/top_lucario_1084.csv",
     },
 }
 PINNED_CLONE_OPPONENTS = ("dragapult", "megastarmie")
@@ -60,7 +74,10 @@ def load_pins(pins_path: str) -> dict:
     if not os.path.isfile(pins_path):
         return {}
     with open(pins_path, encoding="utf-8") as f:
-        data = json.load(f)
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"opponent_pins.json at {pins_path} is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise ValueError(f"opponent_pins.json at {pins_path} must be a JSON object")
     return data
@@ -105,7 +122,10 @@ def resolve_opponent(opponent_id: str, pins: dict, repo_root: str) -> OpponentRe
                 requires_clone=True,
             )
         commit_sha = entry.get("commit_sha") if isinstance(entry, dict) else None
-        if not commit_sha or not _COMMIT_SHA_RE.fullmatch(commit_sha):
+        # isinstance(..., str) must be checked before _COMMIT_SHA_RE.fullmatch(...) -- re's
+        # fullmatch requires a str/bytes argument and raises an uncaught TypeError for e.g. an
+        # integer commit_sha (found by an independent heterogeneous-model audit).
+        if not isinstance(commit_sha, str) or not commit_sha or not _COMMIT_SHA_RE.fullmatch(commit_sha):
             return OpponentResolution(
                 opponent_id=opponent_id, availability=UNAVAILABLE,
                 reason="opponent_pins.json entry missing a valid 40-hex commit_sha",

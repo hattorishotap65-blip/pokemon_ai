@@ -107,14 +107,32 @@ def validate_game_record(record: dict) -> dict:
         raise SchemaError(f"GAME_RECORD_MISSING_FIELDS:{sorted(missing)}")
     if record["schema_version"] != SCHEMA_VERSION:
         raise SchemaError("GAME_RECORD_SCHEMA_VERSION_UNSUPPORTED")
-    if not isinstance(record["game_index"], int) or record["game_index"] < 0:
+    # bool is a subclass of int -- exclude it explicitly, or game_index=True would silently
+    # pass as if it were the integer 1 (found by an independent heterogeneous-model audit).
+    if not isinstance(record["game_index"], int) or isinstance(record["game_index"], bool) or record["game_index"] < 0:
         raise SchemaError("GAME_RECORD_GAME_INDEX_INVALID")
     if record["first_seat_agent"] not in ("a", "b"):
         raise SchemaError("GAME_RECORD_FIRST_SEAT_AGENT_INVALID")
+    # label_a/label_b are only compared with `!=` elsewhere (never used as a dict key or
+    # passed to a type-sensitive call), so a non-string value wouldn't crash -- but it should
+    # still never validate as a genuine label (found by an independent heterogeneous-model
+    # audit's broader sweep).
+    if not isinstance(record["label_a"], str) or not record["label_a"]:
+        raise SchemaError("GAME_RECORD_LABEL_A_INVALID")
+    if not isinstance(record["label_b"], str) or not record["label_b"]:
+        raise SchemaError("GAME_RECORD_LABEL_B_INVALID")
     termination = record["termination"]
     if not isinstance(termination, dict) or "category" not in termination or "kind" not in termination:
         raise SchemaError("GAME_RECORD_TERMINATION_INVALID")
-    if termination["category"] not in GAME_RECORD_TERMINATION_CATEGORIES:
+    if not isinstance(termination["kind"], str) or not termination["kind"]:
+        raise SchemaError("GAME_RECORD_TERMINATION_KIND_INVALID")
+    # isinstance(..., str) must be checked BEFORE the frozenset membership test below --
+    # `in` on a frozenset hashes its argument, so a non-hashable JSON value (e.g. a JSON
+    # array, which survives round-tripping as a Python list) would otherwise raise an
+    # uncaught TypeError: unhashable type instead of a controlled SchemaError (the same bug
+    # class found and fixed for manifest opponent bindings by an independent
+    # heterogeneous-model audit; this is the jsonl-record analogue of that finding).
+    if not isinstance(termination["category"], str) or termination["category"] not in GAME_RECORD_TERMINATION_CATEGORIES:
         raise SchemaError("GAME_RECORD_TERMINATION_CATEGORY_INVALID")
     # "result" must be consistent with termination.category -- an earlier version never
     # validated this at all, so a corrupt/malicious record with result=[] (not a dict) would
@@ -128,7 +146,8 @@ def validate_game_record(record: dict) -> dict:
             raise SchemaError("GAME_RECORD_RESULT_INVALID")
     elif result is not None:
         raise SchemaError("GAME_RECORD_RESULT_MUST_BE_NULL_FOR_NON_RESULT_TERMINATION")
-    if record["legality"] not in GAME_RECORD_LEGALITY_VALUES:
+    # See the isinstance-before-frozenset-membership note above (termination.category).
+    if not isinstance(record["legality"], str) or record["legality"] not in GAME_RECORD_LEGALITY_VALUES:
         raise SchemaError("GAME_RECORD_LEGALITY_INVALID")
     if record["error_actor"] not in ("a", "b", "engine", None):
         raise SchemaError("GAME_RECORD_ERROR_ACTOR_INVALID")
@@ -141,6 +160,8 @@ def validate_game_record(record: dict) -> dict:
                 raise SchemaError("GAME_RECORD_DECISION_ENTRY_INVALID")
             if d["actor"] not in ("a", "b"):
                 raise SchemaError("GAME_RECORD_DECISION_ACTOR_INVALID")
+            if not isinstance(d["ply"], int) or isinstance(d["ply"], bool) or d["ply"] < 0:
+                raise SchemaError("GAME_RECORD_DECISION_PLY_INVALID")
             duration_ms = d["duration_ms"]
             # Explicit rejection of malformed timing data: must be a real (not bool),
             # finite, non-negative number -- never silently coerced or ignored.
@@ -169,7 +190,8 @@ def validate_enriched_game_record(record: dict) -> dict:
         raise SchemaError("GAME_RECORD_GAME_ID_INVALID")
     if not isinstance(record["batch_id"], int) or isinstance(record["batch_id"], bool) or record["batch_id"] < 0:
         raise SchemaError("GAME_RECORD_BATCH_ID_INVALID")
-    if record["opponent_id"] not in KNOWN_OPPONENT_IDS:
+    # See the isinstance-before-frozenset-membership note in validate_game_record.
+    if not isinstance(record["opponent_id"], str) or record["opponent_id"] not in KNOWN_OPPONENT_IDS:
         raise SchemaError("GAME_RECORD_OPPONENT_ID_INVALID")
     if record["arm"] not in ("baseline", "candidate"):
         raise SchemaError("GAME_RECORD_ARM_INVALID")
@@ -182,10 +204,24 @@ def validate_enriched_game_record(record: dict) -> dict:
 def validate_stats_triple(value: dict, path: str = "STATS") -> dict:
     if not isinstance(value, dict) or set(value) != STATS_TRIPLE_KEYS:
         raise SchemaError(f"{path}_KEYS_INVALID")
+    # The canonical shape (see stats.py's IntervalStats) is a decimal STRING for each of the
+    # three fields -- Decimal(...) also silently accepts a raw int or bool (bool is an int
+    # subclass), which is not the documented canonical form, so a forged report cell could
+    # smuggle non-canonical numeric types through this check (found by an independent
+    # heterogeneous-model audit).
+    if not all(isinstance(value[k], str) for k in STATS_TRIPLE_KEYS):
+        raise SchemaError(f"{path}_NOT_CANONICAL_STRING")
     try:
         estimate, lower, upper = Decimal(value["estimate"]), Decimal(value["lower"]), Decimal(value["upper"])
     except Exception as exc:  # noqa: BLE001 - re-raised as a schema error deliberately
         raise SchemaError(f"{path}_DECIMAL_INVALID") from exc
+    # NaN/Infinity are valid Decimal() constructions (Decimal("NaN") does not raise), but a
+    # Decimal comparison (<=) involving NaN raises an uncaught decimal.InvalidOperation under
+    # the default context -- checked explicitly here, before the comparison below, so a
+    # non-finite stats value is a controlled SchemaError instead (found by an independent
+    # heterogeneous-model audit).
+    if not (estimate.is_finite() and lower.is_finite() and upper.is_finite()):
+        raise SchemaError(f"{path}_NOT_FINITE")
     if not (lower <= estimate <= upper):
         raise SchemaError(f"{path}_INTERVAL_INVALID")
     return value
@@ -207,7 +243,11 @@ def build_cell(
     (Gatekeeper's _positive_int requires observations >= 1; a 0-observation
     cell would be rejected as BLOCKED rather than treated as insufficient).
     """
-    if observations < 1:
+    # bool is a subclass of int, so an unguarded `observations < 1` would silently accept
+    # observations=True as if it were the integer 1, and a non-int (e.g. a JSON array) would
+    # raise an uncaught TypeError from the comparison itself rather than a controlled
+    # SchemaError (found by an independent heterogeneous-model audit).
+    if not isinstance(observations, int) or isinstance(observations, bool) or observations < 1:
         raise SchemaError("CELL_OBSERVATIONS_MUST_BE_POSITIVE_OR_OMITTED")
 
     def _as_dict(v):

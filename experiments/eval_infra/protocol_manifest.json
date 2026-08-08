@@ -31,6 +31,14 @@
       "platform_release": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
       "platform_machine": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME",
       "os_distribution": "SET_BY_manifest_SUBCOMMAND_AT_RUNTIME -- {availability, wsl_distro_name, os_release} when running under WSL/Linux, or {availability: NOT_APPLICABLE, reason} otherwise (e.g. on Windows)"
+    },
+    "measurement_settings": {
+      "confidence_level": "SET_BY_manifest_SUBCOMMAND_CALLER -- default 0.95, fixed HERE not at summarize time (see README.md BLOCKER 1)",
+      "bootstrap_replicates": "SET_BY_manifest_SUBCOMMAND_CALLER -- default 10000",
+      "rate_interval_method": "wilson_score",
+      "rate_delta_method": "newcombe_wilson",
+      "latency_bootstrap_method": "game_cluster_bootstrap_percentile",
+      "bootstrap_seed_scheme": "sha256_counter(comparison_manifest_sha256, metric_id, segment_id, arm) -- no caller-supplied seed"
     }
   },
   "dataset_identity": {

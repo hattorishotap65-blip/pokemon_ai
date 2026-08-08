@@ -686,6 +686,7 @@ try:
         print("\n=== T13: run CLI (manifest-driven, no independent opponent/games selection) ===")
 
         jsonl_dir = os.path.join(_cli_tmp, "jsonl")
+        os.makedirs(jsonl_dir, exist_ok=True)
 
         r_run_with_opponent_flag = run_cli("run", "--manifest", manifest_path, "--opponent", "mirror", "--jsonl-out", jsonl_dir)
         check("run subcommand rejects a --opponent flag outright (unrecognized argument)",
@@ -699,33 +700,72 @@ try:
               ("unrecognized arguments" in r_run_with_games_flag.stderr or
                "unrecognized arguments" in r_run_with_games_flag.stdout))
 
-        # On Windows, real games cannot run at all (head_to_head.py's own platform guard) --
-        # `run` must report this honestly as an error, never fabricate success.
-        r_run_windows = run_cli("run", "--manifest", manifest_path, "--jsonl-out", jsonl_dir)
-        check("run subcommand fails closed (nonzero exit) without --allow-partial when the "
-              "underlying head_to_head.py subprocess cannot run real games on this platform",
-              r_run_windows.returncode != 0)
+        # `run` must fail closed (nonzero exit) without --allow-partial when the underlying
+        # head_to_head.py subprocess reports a game failure, and must succeed with
+        # --allow-partial while honestly reporting that failure. This must be DETERMINISTIC and
+        # NOT depend on whether the platform this test happens to run on can actually load the
+        # compiled cg engine -- an earlier version assumed real games could never run outside
+        # WSL/Linux (true on the Windows dev machine these tests were originally written on),
+        # which broke on Linux CI, where the engine genuinely CAN run (found via a real Linux CI
+        # failure, not by inspection). Whether real engine execution itself behaves correctly is
+        # covered separately by a manual WSL/Linux smoke test (see experiments/eval_infra/
+        # README.md caveats F8/F9) -- this unit test's job is only to verify cmd_run's own
+        # fail-closed/--allow-partial logic, which is exercised deterministically here by
+        # mocking the head_to_head.py subprocess call to report an explicit failure, regardless
+        # of what platform actually runs this test.
+        import unittest.mock as _unittest_mock_t13
+        from experiments.eval_infra import raging_bolt_eval as _raging_bolt_eval_t13
 
-        r_run_allow_partial = run_cli("run", "--manifest", manifest_path, "--jsonl-out", jsonl_dir, "--allow-partial")
+        def _fake_run_engine_failure(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args")
+            if not _is_head_to_head_invocation(cmd):
+                return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+            # Simulates exactly what a genuinely unavailable engine produces (nonzero exit, no
+            # --jsonl-out record written) -- deterministic regardless of the actual platform.
+            return subprocess.CompletedProcess(cmd, 1, stdout="ERROR: simulated engine failure (mocked, platform-independent)\n", stderr="")
+
+        jsonl_dir_no_partial = os.path.join(_cli_tmp, "jsonl_no_partial")
+        t13_args_no_partial = argparse.Namespace(manifest=manifest_path, jsonl_out=jsonl_dir_no_partial, allow_partial=False)
+        with _unittest_mock_t13.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_engine_failure):
+            t13_rc_no_partial = _raging_bolt_eval_t13.cmd_run(t13_args_no_partial)
+        check("run subcommand fails closed (nonzero exit) without --allow-partial when the "
+              "underlying head_to_head.py subprocess reports a game failure -- verified via a "
+              "mocked subprocess, deterministic regardless of whether THIS platform can "
+              "actually run real games",
+              t13_rc_no_partial != 0)
+
+        jsonl_dir_partial = os.path.join(_cli_tmp, "jsonl_partial")
+        t13_args_partial = argparse.Namespace(manifest=manifest_path, jsonl_out=jsonl_dir_partial, allow_partial=True)
+        with _unittest_mock_t13.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_engine_failure):
+            t13_rc_partial = _raging_bolt_eval_t13.cmd_run(t13_args_partial)
         check("run subcommand succeeds with --allow-partial even when every game attempt fails "
-              "(honestly reported, not fabricated)", r_run_allow_partial.returncode == 0)
-        index_path = os.path.join(jsonl_dir, f"{manifest_hash8}__run_index.json")
+              "(honestly reported, not fabricated) -- verified via a mocked subprocess failure",
+              t13_rc_partial == 0)
+        index_path = os.path.join(jsonl_dir_partial, f"{manifest_hash8}__run_index.json")
         if os.path.exists(index_path):
             with open(index_path, encoding="utf-8") as f:
                 _index = json.load(f)
             check("run index reports partial_diagnostic=true", _index.get("partial_diagnostic") is True)
-            check("run index's errors list is non-empty and honestly attributes the platform "
-                  "failure (no fabricated success)", len(_index.get("errors", [])) > 0)
+            check("run index's errors list is non-empty and honestly attributes the mocked "
+                  "engine failure (no fabricated success)", len(_index.get("errors", [])) > 0)
         else:
             check("run index file was created", False)
 
         # rerun protection: pre-create the exact jsonl output path `run` would write to, then
-        # confirm `run` refuses to write into it rather than silently appending.
-        os.makedirs(jsonl_dir, exist_ok=True)
-        preexisting_path = os.path.join(jsonl_dir, f"{manifest_hash_full}__mirror__baseline.jsonl")
+        # confirm `run` refuses to write into it rather than silently appending. Uses the same
+        # mocked-subprocess, in-process cmd_run call as above -- an unmocked real invocation
+        # here would (on a platform where the engine actually works, e.g. Linux CI) try to play
+        # a real game for the candidate arm (whose jsonl path is NOT pre-occupied), which is
+        # exactly the same nondeterministic/slow real-engine dependency this whole section is
+        # designed to avoid.
+        jsonl_dir_rerun = os.path.join(_cli_tmp, "jsonl_rerun")
+        os.makedirs(jsonl_dir_rerun, exist_ok=True)
+        preexisting_path = os.path.join(jsonl_dir_rerun, f"{manifest_hash_full}__mirror__baseline.jsonl")
         with open(preexisting_path, "w", encoding="utf-8") as f:
             f.write('{"pre":"existing"}\n')
-        run_cli("run", "--manifest", manifest_path, "--jsonl-out", jsonl_dir, "--allow-partial")
+        t13_args_rerun = argparse.Namespace(manifest=manifest_path, jsonl_out=jsonl_dir_rerun, allow_partial=True)
+        with _unittest_mock_t13.patch("experiments.eval_infra.raging_bolt_eval.subprocess.run", side_effect=_fake_run_engine_failure):
+            _raging_bolt_eval_t13.cmd_run(t13_args_rerun)
         with open(preexisting_path, encoding="utf-8") as f:
             _preexisting_content_after = f.read()
         check("run subcommand refuses to write into an already-existing per-(opponent,arm) "
@@ -1229,12 +1269,32 @@ try:
               r_summarize_tampered8.returncode != 0 and
               "is not in the canonical repo-relative POSIX form" in (r_summarize_tampered8.stderr or ""))
 
-        # Negative control: the untampered manifest must still be accepted by the same
-        # integrity check when actually attempting to run it.
-        r_run_untampered = run_cli("run", "--manifest", good_manifest_path, "--jsonl-out", os.path.join(_t17_tmp, "jsonl_ok"), "--allow-partial")
-        check("run accepts an untampered manifest (no false-positive integrity rejection)",
-              "hash mismatch" not in (r_run_untampered.stderr or "") and
-              "was edited" not in (r_run_untampered.stderr or ""))
+        # Negative control: the untampered manifest must not be falsely rejected by any of the
+        # checks `run`/`summarize` perform before touching a real game. Verified
+        # DETERMINISTICALLY by calling the actual verification functions directly on the
+        # untampered manifest -- not by driving a real `run` subprocess (even with
+        # --allow-partial) and inspecting its stderr for the absence of specific error text.
+        # An earlier version did the latter, which actually invokes head_to_head.py for real
+        # games whenever the underlying engine IS available (e.g. Linux CI, unlike the Windows
+        # dev machine this was originally written on) -- unrelated to what this negative
+        # control is actually about, and slow/flaky as a direct result: a real Linux CI run hit
+        # `subprocess.TimeoutExpired` here (run_cli's fixed 30s wrapper timeout) simply because
+        # a real mirror self-play game didn't finish in time, which has nothing to do with
+        # whether the manifest's own integrity/tamper-detection logic is correct. Real-engine
+        # execution is covered separately by a manual WSL/Linux smoke test (see README.md
+        # caveats F8/F9); this check only needs to prove the verification functions themselves
+        # never false-positive-reject a genuinely untampered manifest.
+        check("_verify_manifest_integrity accepts an untampered manifest (no false-positive "
+              "hash-mismatch rejection)",
+              raging_bolt_eval._verify_manifest_integrity(_good_manifest) is None)
+        check("_verify_execution_bindings_unchanged accepts an untampered manifest run in the "
+              "same environment it was created in (no false-positive engine/evaluator/runtime "
+              "rejection)",
+              raging_bolt_eval._verify_execution_bindings_unchanged(_good_manifest) is None)
+        for _artifact_key in ("candidate_artifact", "baseline_artifact"):
+            check(f"_verify_artifact_unchanged accepts the untampered manifest's "
+                  f"{_artifact_key} (no false-positive path/hash rejection)",
+                  raging_bolt_eval._verify_artifact_unchanged(_good_manifest[_artifact_key]) is None)
     else:
         check("(setup) a valid manifest was creatable for the tamper-detection checks", False)
 finally:

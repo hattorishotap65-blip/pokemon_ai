@@ -73,6 +73,11 @@ check("has --deck-a arg", "--deck-a" in content2)
 check("has --deck-b arg", "--deck-b" in content2)
 check("has --n arg", '"--n"' in content2)
 check("has platform guard", "win32" in content2)
+check("has --first-player arg", "--first-player" in content2)
+check("has --jsonl-out arg", "--jsonl-out" in content2)
+check("has --record-decision-timing arg", "--record-decision-timing" in content2)
+check("--first-player default is 'a' (preserves original behavior)",
+      'default="a"' in content2 and "--first-player" in content2)
 
 print("\n=== run_with_experiment_deck.py ===")
 
@@ -117,6 +122,100 @@ check("head_to_head --dry-run creates file", os.path.exists(dry_out2))
 
 import shutil
 shutil.rmtree(tmp_dir, ignore_errors=True)
+
+print("\n=== head_to_head.py new flags (eval-infra additions) ===")
+
+r_help3 = subprocess.run([sys.executable, path_hth, "--help"], capture_output=True, text=True)
+check("--help lists --first-player", "--first-player" in r_help3.stdout)
+check("--help lists --jsonl-out", "--jsonl-out" in r_help3.stdout)
+check("--help lists --record-decision-timing", "--record-decision-timing" in r_help3.stdout)
+
+tmp_dir2 = tempfile.mkdtemp()
+dry_out3 = os.path.join(tmp_dir2, "dry_hth_newflags.json")
+jsonl_out3 = os.path.join(tmp_dir2, "should_not_be_created.jsonl")
+r_dry3 = subprocess.run([
+    sys.executable, path_hth, "--agent-a", "main.py", "--deck-a", "deck.csv",
+    "--agent-b", "main.py", "--deck-b", "deck.csv",
+    "--first-player", "b", "--jsonl-out", jsonl_out3, "--record-decision-timing",
+    "--dry-run", "--output", dry_out3,
+], capture_output=True, text=True)
+check("--dry-run with new flags still succeeds", r_dry3.returncode == 0)
+check("--dry-run with new flags creates the --output file", os.path.exists(dry_out3))
+check("--dry-run ignores --jsonl-out (no jsonl file created)", not os.path.exists(jsonl_out3))
+if os.path.exists(dry_out3):
+    import json as _json
+    with open(dry_out3, encoding="utf-8") as f:
+        dry_content = _json.load(f)
+    check("--dry-run JSON shape unaffected by new flags (same 6 keys as before)",
+          set(dry_content.keys()) == {"mode", "agent_a", "agent_b", "deck_a", "deck_b", "n"})
+shutil.rmtree(tmp_dir2, ignore_errors=True)
+
+# Seat-parity formula check (T10). This verifies the ALGEBRAIC INVARIANT the
+# --first-player flag's default-safety claim relies on: with --first-player a
+# (default), a_first_this_game must equal (gi % 2 == 0) for every gi, which is
+# exactly the original, unmodified seat-selection expression. This is a source
+# formula replication check, NOT an execution test of the real game loop --
+# actually running games requires WSL/Linux (cg.game), which this Windows
+# session cannot do. See experiments/eval_infra/README.md caveat F1/F8.
+
+
+def _a_first_this_game(gi, first_player):
+    first_is_a = (first_player == "a")
+    return first_is_a if gi % 2 == 0 else not first_is_a
+
+
+seat_parity_ok = all(_a_first_this_game(gi, "a") == (gi % 2 == 0) for gi in range(10))
+check("--first-player a formula matches original gi%2==0 behavior for gi=0..9 "
+      "(source-level check only, not an executed game)", seat_parity_ok)
+seat_alternation_ok = all(
+    _a_first_this_game(gi, "a") != _a_first_this_game(gi, "b") for gi in range(10)
+)
+check("--first-player a vs b flips seat assignment for every gi=0..9 "
+      "(source-level check only, not an executed game)", seat_alternation_ok)
+
+# Static (AST-based) guard against a real bug found via an actual WSL/Linux real-engine smoke
+# test: main() had a local "import json" statement inside an early-return `if args.dry_run:`
+# branch (and another inside `if args.output:`), which makes Python treat "json" as a LOCAL
+# name for main()'s ENTIRE body -- so the module-level `import json` at the top of the file
+# was shadowed, and the real (non-dry-run, non-mocked) game loop's `jsonl_f.write(json.dumps(
+# record) + "\n")` raised UnboundLocalError every time --jsonl-out was used without
+# --dry-run -- i.e. exactly the code path `raging_bolt_eval.py run` depends on for real games.
+# No Windows-runnable test previously executed this code path (all --dry-run tests above
+# return before reaching it, and every mocked-subprocess test in test_eval_infra.py replaces
+# the subprocess entirely, so neither could have caught this). This static check verifies the
+# specific footgun is gone: main() contains no local import that shadows a module-level
+# import, which is what caused it.
+import ast as _ast
+
+with open(path_hth, encoding="utf-8") as _f:
+    _hth_tree = _ast.parse(_f.read(), filename=path_hth)
+
+_module_level_names = set()
+for _node in _hth_tree.body:
+    if isinstance(_node, _ast.Import):
+        _module_level_names.update(alias.asname or alias.name.split(".")[0] for alias in _node.names)
+    elif isinstance(_node, _ast.ImportFrom):
+        _module_level_names.update(alias.asname or alias.name for alias in _node.names)
+
+_main_func = next((n for n in _hth_tree.body if isinstance(n, _ast.FunctionDef) and n.name == "main"), None)
+check("head_to_head.py defines a top-level main() function (prerequisite for the shadowing check below)",
+      _main_func is not None)
+if _main_func is not None:
+    _shadowed_names = []
+    for _node in _ast.walk(_main_func):
+        if isinstance(_node, _ast.Import):
+            _shadowed_names.extend(
+                (alias.asname or alias.name.split(".")[0]) for alias in _node.names
+                if (alias.asname or alias.name.split(".")[0]) in _module_level_names
+            )
+        elif isinstance(_node, _ast.ImportFrom):
+            _shadowed_names.extend(
+                (alias.asname or alias.name) for alias in _node.names
+                if (alias.asname or alias.name) in _module_level_names
+            )
+    check(f"main() contains no local import that shadows a module-level import "
+          f"(would make that name UnboundLocal for main()'s entire body) -- "
+          f"found: {_shadowed_names}", _shadowed_names == [])
 
 print("\n=== deck files ===")
 

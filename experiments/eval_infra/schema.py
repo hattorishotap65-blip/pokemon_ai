@@ -1,0 +1,270 @@
+"""Data contracts for eval-infra: per-game record validation, metric/segment
+ID vocabulary, and stats-cell construction.
+
+Metric/segment IDs are DELIBERATELY aligned (identical literal strings,
+where a Profile-equivalent exists) with profiles/outcome/pokemon-ai.example.json
+-- this is fixture-only forward compatibility, NOT App Profile activation.
+This package never reads, loads, or activates any file under profiles/.
+
+EXCEPTION: SEGMENT_SEAT_0/SEGMENT_SEAT_1 deliberately do NOT align with the
+example Profile's "first-player"/"second-player" segment IDs. head_to_head.py's
+--first-player flag only controls player-index/deck-slot assignment; it does
+not read or condition on the compiled cabt engine's own coin-flip-determined
+first-mover (Observation.current.firstPlayer). Calling our deck-slot segment
+"first-player" would overclaim engine-confirmed first-mover status we do not
+actually have -- an earlier heterogeneous-model audit round flagged exactly
+this. "seat-0"/"seat-1" names what we actually measure without overclaiming.
+"""
+from __future__ import annotations
+
+import math
+from decimal import Decimal
+from typing import Any
+
+from experiments.eval_infra.stats import IntervalStats
+
+SCHEMA_VERSION = "1"
+
+# Aligned 1:1 with profiles/outcome/pokemon-ai.example.json's metric IDs where
+# an equivalent exists there; harness-native IDs otherwise (no Profile
+# equivalent for per-decision observation_count or the p50 companion to the
+# Profile's p95_decision_time).
+METRIC_WIN_RATE = "external_league_win_rate"
+METRIC_ERROR_RATE = "error_rate"
+METRIC_TIMEOUT_RATE = "timeout_rate"
+METRIC_ILLEGAL_ACTION_RATE = "illegal_action_rate"
+METRIC_DECISION_TIME_P50_MS = "decision_time_p50_ms"
+METRIC_DECISION_TIME_P95_MS = "p95_decision_time"
+METRIC_OBSERVATION_COUNT = "observation_count"
+
+METRIC_IDS = (
+    METRIC_WIN_RATE, METRIC_ERROR_RATE, METRIC_TIMEOUT_RATE,
+    METRIC_ILLEGAL_ACTION_RATE, METRIC_DECISION_TIME_P50_MS,
+    METRIC_DECISION_TIME_P95_MS, METRIC_OBSERVATION_COUNT,
+)
+
+# Aligned 1:1 with profiles/outcome/pokemon-ai.example.json's segment IDs,
+# plus "mirror" which is harness-native and NEVER appears in a league cell
+# (mirror is smoke/auxiliary only, per the task's explicit instruction).
+SEGMENT_OVERALL = "overall"
+SEGMENT_OPPONENT_LUCARIO = "opponent-lucario"
+SEGMENT_OPPONENT_DRAGAPULT = "opponent-dragapult"
+SEGMENT_OPPONENT_MEGASTARMIE = "opponent-megastarmie"
+SEGMENT_SEAT_0 = "seat-0"
+SEGMENT_SEAT_1 = "seat-1"
+SEGMENT_MIRROR = "mirror"
+
+LEAGUE_SEGMENT_IDS = (
+    SEGMENT_OVERALL, SEGMENT_OPPONENT_LUCARIO, SEGMENT_OPPONENT_DRAGAPULT,
+    SEGMENT_OPPONENT_MEGASTARMIE, SEGMENT_SEAT_0, SEGMENT_SEAT_1,
+)
+AUXILIARY_SEGMENT_IDS = (SEGMENT_MIRROR,)
+
+REQUIRED_LEAGUE_OPPONENTS = ("lucario", "dragapult", "megastarmie")
+KNOWN_OPPONENT_IDS = frozenset(REQUIRED_LEAGUE_OPPONENTS) | {SEGMENT_MIRROR}
+
+# Matches head_to_head.py's --jsonl-out RAW per-game record shape exactly
+# (before orchestrator enrichment).
+GAME_RECORD_REQUIRED_FIELDS = frozenset({
+    "schema_version", "game_index", "first_seat_agent", "label_a", "label_b",
+    "termination", "result", "error_actor", "legality", "decisions",
+})
+GAME_RECORD_TERMINATION_CATEGORIES = frozenset({"result", "error", "timeout"})
+GAME_RECORD_LEGALITY_VALUES = frozenset({"legal", "illegal", "unknown"})
+
+# Fields the ORCHESTRATOR (raging_bolt_eval.py's cmd_run) adds on top of a raw
+# head_to_head.py record before appending it to a --jsonl-out file that
+# `summarize` will read. head_to_head.py itself never writes these -- it has
+# no notion of a comparison manifest, dataset, protocol, or opponent identity
+# (generic/application separation) -- only the orchestrator does.
+ENRICHED_GAME_RECORD_REQUIRED_FIELDS = GAME_RECORD_REQUIRED_FIELDS | frozenset({
+    "game_id", "batch_id", "comparison_manifest_sha256", "dataset_id",
+    "protocol_id", "opponent_id", "arm", "artifact_id",
+})
+
+# Exact 6-key cell shape required by tools/outcome_gatekeeper.py's
+# EVIDENCE_CELL validator -- this package never imports that validator (test-
+# only import lives in experiments/test_eval_infra.py), but matches its
+# shape so output is a plausible future Evidence cell without activating one.
+CELL_REQUIRED_KEYS = frozenset({
+    "metric_id", "segment_id", "observations", "baseline_stats",
+    "candidate_stats", "delta_stats",
+})
+STATS_TRIPLE_KEYS = frozenset({"estimate", "lower", "upper"})
+
+
+class SchemaError(ValueError):
+    pass
+
+
+def validate_game_record(record: dict) -> dict:
+    """Structural validation of one head_to_head.py --jsonl-out record.
+    Raises SchemaError on any violation. Returns the record unchanged."""
+    if not isinstance(record, dict):
+        raise SchemaError("GAME_RECORD_NOT_OBJECT")
+    missing = GAME_RECORD_REQUIRED_FIELDS - set(record)
+    if missing:
+        raise SchemaError(f"GAME_RECORD_MISSING_FIELDS:{sorted(missing)}")
+    if record["schema_version"] != SCHEMA_VERSION:
+        raise SchemaError("GAME_RECORD_SCHEMA_VERSION_UNSUPPORTED")
+    # bool is a subclass of int -- exclude it explicitly, or game_index=True would silently
+    # pass as if it were the integer 1 (found by an independent heterogeneous-model audit).
+    if not isinstance(record["game_index"], int) or isinstance(record["game_index"], bool) or record["game_index"] < 0:
+        raise SchemaError("GAME_RECORD_GAME_INDEX_INVALID")
+    if record["first_seat_agent"] not in ("a", "b"):
+        raise SchemaError("GAME_RECORD_FIRST_SEAT_AGENT_INVALID")
+    # label_a/label_b are only compared with `!=` elsewhere (never used as a dict key or
+    # passed to a type-sensitive call), so a non-string value wouldn't crash -- but it should
+    # still never validate as a genuine label (found by an independent heterogeneous-model
+    # audit's broader sweep).
+    if not isinstance(record["label_a"], str) or not record["label_a"]:
+        raise SchemaError("GAME_RECORD_LABEL_A_INVALID")
+    if not isinstance(record["label_b"], str) or not record["label_b"]:
+        raise SchemaError("GAME_RECORD_LABEL_B_INVALID")
+    termination = record["termination"]
+    if not isinstance(termination, dict) or "category" not in termination or "kind" not in termination:
+        raise SchemaError("GAME_RECORD_TERMINATION_INVALID")
+    if not isinstance(termination["kind"], str) or not termination["kind"]:
+        raise SchemaError("GAME_RECORD_TERMINATION_KIND_INVALID")
+    # isinstance(..., str) must be checked BEFORE the frozenset membership test below --
+    # `in` on a frozenset hashes its argument, so a non-hashable JSON value (e.g. a JSON
+    # array, which survives round-tripping as a Python list) would otherwise raise an
+    # uncaught TypeError: unhashable type instead of a controlled SchemaError (the same bug
+    # class found and fixed for manifest opponent bindings by an independent
+    # heterogeneous-model audit; this is the jsonl-record analogue of that finding).
+    if not isinstance(termination["category"], str) or termination["category"] not in GAME_RECORD_TERMINATION_CATEGORIES:
+        raise SchemaError("GAME_RECORD_TERMINATION_CATEGORY_INVALID")
+    # "result" must be consistent with termination.category -- an earlier version never
+    # validated this at all, so a corrupt/malicious record with result=[] (not a dict) would
+    # pass schema validation and then crash summarize's win-rate computation with an
+    # uncaught AttributeError, and a record with termination.category="timeout" but a
+    # populated result={"winner":...} would be silently double-counted as both a timeout AND
+    # a win (found by an independent heterogeneous-model audit).
+    result = record["result"]
+    if termination["category"] == "result":
+        if not isinstance(result, dict) or result.get("winner") not in ("a", "b", "draw"):
+            raise SchemaError("GAME_RECORD_RESULT_INVALID")
+    elif result is not None:
+        raise SchemaError("GAME_RECORD_RESULT_MUST_BE_NULL_FOR_NON_RESULT_TERMINATION")
+    # See the isinstance-before-frozenset-membership note above (termination.category).
+    if not isinstance(record["legality"], str) or record["legality"] not in GAME_RECORD_LEGALITY_VALUES:
+        raise SchemaError("GAME_RECORD_LEGALITY_INVALID")
+    if record["error_actor"] not in ("a", "b", "engine", None):
+        raise SchemaError("GAME_RECORD_ERROR_ACTOR_INVALID")
+    decisions = record["decisions"]
+    if decisions is not None:
+        if not isinstance(decisions, list):
+            raise SchemaError("GAME_RECORD_DECISIONS_INVALID")
+        for d in decisions:
+            if not isinstance(d, dict) or "ply" not in d or "duration_ms" not in d or "actor" not in d:
+                raise SchemaError("GAME_RECORD_DECISION_ENTRY_INVALID")
+            if d["actor"] not in ("a", "b"):
+                raise SchemaError("GAME_RECORD_DECISION_ACTOR_INVALID")
+            if not isinstance(d["ply"], int) or isinstance(d["ply"], bool) or d["ply"] < 0:
+                raise SchemaError("GAME_RECORD_DECISION_PLY_INVALID")
+            duration_ms = d["duration_ms"]
+            # Explicit rejection of malformed timing data: must be a real (not bool),
+            # finite, non-negative number -- never silently coerced or ignored.
+            if isinstance(duration_ms, bool) or not isinstance(duration_ms, (int, float)):
+                raise SchemaError("GAME_RECORD_DECISION_DURATION_NOT_NUMERIC")
+            if not math.isfinite(duration_ms):
+                raise SchemaError("GAME_RECORD_DECISION_DURATION_NOT_FINITE")
+            if duration_ms < 0:
+                raise SchemaError("GAME_RECORD_DECISION_DURATION_NEGATIVE")
+    return record
+
+
+def validate_enriched_game_record(record: dict) -> dict:
+    """Structural validation of one ORCHESTRATOR-ENRICHED --jsonl-out record
+    (raw head_to_head.py fields plus game_id/batch_id/comparison_manifest_sha256/
+    dataset_id/protocol_id/opponent_id/arm/artifact_id). This is what
+    `summarize` actually reads and validates -- raw, unenriched
+    head_to_head.py output is never consumed directly by `summarize`."""
+    if not isinstance(record, dict):
+        raise SchemaError("GAME_RECORD_NOT_OBJECT")
+    missing = ENRICHED_GAME_RECORD_REQUIRED_FIELDS - set(record)
+    if missing:
+        raise SchemaError(f"ENRICHED_GAME_RECORD_MISSING_FIELDS:{sorted(missing)}")
+    validate_game_record({k: v for k, v in record.items() if k in GAME_RECORD_REQUIRED_FIELDS})
+    if not isinstance(record["game_id"], str) or not record["game_id"]:
+        raise SchemaError("GAME_RECORD_GAME_ID_INVALID")
+    if not isinstance(record["batch_id"], int) or isinstance(record["batch_id"], bool) or record["batch_id"] < 0:
+        raise SchemaError("GAME_RECORD_BATCH_ID_INVALID")
+    # See the isinstance-before-frozenset-membership note in validate_game_record.
+    if not isinstance(record["opponent_id"], str) or record["opponent_id"] not in KNOWN_OPPONENT_IDS:
+        raise SchemaError("GAME_RECORD_OPPONENT_ID_INVALID")
+    if record["arm"] not in ("baseline", "candidate"):
+        raise SchemaError("GAME_RECORD_ARM_INVALID")
+    for key in ("comparison_manifest_sha256", "dataset_id", "protocol_id", "artifact_id"):
+        if not isinstance(record[key], str) or not record[key]:
+            raise SchemaError(f"GAME_RECORD_{key.upper()}_INVALID")
+    return record
+
+
+def validate_stats_triple(value: dict, path: str = "STATS") -> dict:
+    if not isinstance(value, dict) or set(value) != STATS_TRIPLE_KEYS:
+        raise SchemaError(f"{path}_KEYS_INVALID")
+    # The canonical shape (see stats.py's IntervalStats) is a decimal STRING for each of the
+    # three fields -- Decimal(...) also silently accepts a raw int or bool (bool is an int
+    # subclass), which is not the documented canonical form, so a forged report cell could
+    # smuggle non-canonical numeric types through this check (found by an independent
+    # heterogeneous-model audit).
+    if not all(isinstance(value[k], str) for k in STATS_TRIPLE_KEYS):
+        raise SchemaError(f"{path}_NOT_CANONICAL_STRING")
+    try:
+        estimate, lower, upper = Decimal(value["estimate"]), Decimal(value["lower"]), Decimal(value["upper"])
+    except Exception as exc:  # noqa: BLE001 - re-raised as a schema error deliberately
+        raise SchemaError(f"{path}_DECIMAL_INVALID") from exc
+    # NaN/Infinity are valid Decimal() constructions (Decimal("NaN") does not raise), but a
+    # Decimal comparison (<=) involving NaN raises an uncaught decimal.InvalidOperation under
+    # the default context -- checked explicitly here, before the comparison below, so a
+    # non-finite stats value is a controlled SchemaError instead (found by an independent
+    # heterogeneous-model audit).
+    if not (estimate.is_finite() and lower.is_finite() and upper.is_finite()):
+        raise SchemaError(f"{path}_NOT_FINITE")
+    if not (lower <= estimate <= upper):
+        raise SchemaError(f"{path}_INTERVAL_INVALID")
+    return value
+
+
+def build_cell(
+    metric_id: str,
+    segment_id: str,
+    observations: int,
+    baseline_stats: IntervalStats | dict,
+    candidate_stats: IntervalStats | dict,
+    delta_stats: IntervalStats | dict,
+) -> dict[str, Any]:
+    """Build one Gatekeeper-cell-shaped dict (exact 6 keys). Every metric,
+    INCLUDING guardrails (illegal_action_rate, p95_decision_time), always
+    gets baseline_stats/candidate_stats/delta_stats -- no metric is exempt.
+    A cell with observations <= 0 must never be constructed; the caller
+    (raging_bolt_eval.py's summarize) must OMIT the cell entirely instead
+    (Gatekeeper's _positive_int requires observations >= 1; a 0-observation
+    cell would be rejected as BLOCKED rather than treated as insufficient).
+    """
+    # bool is a subclass of int, so an unguarded `observations < 1` would silently accept
+    # observations=True as if it were the integer 1, and a non-int (e.g. a JSON array) would
+    # raise an uncaught TypeError from the comparison itself rather than a controlled
+    # SchemaError (found by an independent heterogeneous-model audit).
+    if not isinstance(observations, int) or isinstance(observations, bool) or observations < 1:
+        raise SchemaError("CELL_OBSERVATIONS_MUST_BE_POSITIVE_OR_OMITTED")
+
+    def _as_dict(v):
+        return v.as_dict() if isinstance(v, IntervalStats) else v
+
+    baseline_d = validate_stats_triple(_as_dict(baseline_stats), "BASELINE_STATS")
+    candidate_d = validate_stats_triple(_as_dict(candidate_stats), "CANDIDATE_STATS")
+    delta_d = validate_stats_triple(_as_dict(delta_stats), "DELTA_STATS")
+
+    cell = {
+        "metric_id": metric_id,
+        "segment_id": segment_id,
+        "observations": observations,
+        "baseline_stats": baseline_d,
+        "candidate_stats": candidate_d,
+        "delta_stats": delta_d,
+    }
+    if set(cell) != CELL_REQUIRED_KEYS:  # defensive; cannot actually happen given the literal above
+        raise SchemaError("CELL_KEYS_INVALID")
+    return cell
